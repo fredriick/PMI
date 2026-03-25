@@ -29,22 +29,22 @@
 ## In Progress
 
 ### Node Management
-- [ ] **Node Registration API** - Endpoints for proxy nodes to register and heartbeat
-- [ ] **Node Deregistration** - Graceful removal of nodes from pool
-- [ ] **Node Metadata Updates** - ISP, battery, OS updates from peers
+- [x] **Node Registration API** - Endpoints for proxy nodes to register and heartbeat
+- [x] **Node Deregistration** - Graceful removal of nodes from pool
+- [x] **Node Metadata Updates** - ISP, battery, OS updates from peers
 
 ---
 
 ## Pending
 
 ### Gateway Features
-- [ ] **HTTP CONNECT Proxy** - Real proxy forwarding via CONNECT method
-- [ ] **Session Persistence** - `-session-[id]` support for sticky IPs
+- [x] **HTTP CONNECT Proxy** - Real proxy forwarding via CONNECT method
+- [x] **Session Persistence** - `-session-[id]` support for sticky IPs
 - [ ] **mTLS Support** - Mutual TLS between clients and gateway
 - [ ] **Rate Limiting** - Per-client request limits
 
 ### Matchmaker Features
-- [ ] **Health Monitoring** - Automatic periodic health checks on nodes
+- [x] **Health Monitoring** - Automatic periodic health checks on nodes
 - [ ] **Load Balancing** - Consider node load in selection logic
 - [ ] **Geographic Routing** - City-level selection support
 
@@ -76,3 +76,4 @@
 | Version | Date | Description |
 |---------|------|-------------|
 | 0.1.0 | 2026-03-25 | Initial implementation - Core services working |
+| 0.2.0 | 2026-03-25 | Node registration API, HTTP CONNECT proxy, session persistence, health monitoring |

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"proxymesh/internal/models"
 )
@@ -14,14 +15,65 @@ type Matchmaker struct {
 	circuitBreakers map[string]*models.CircuitBreaker
 	mu              sync.RWMutex
 	threshold       int
+	stopHealthCheck chan bool
 }
 
 func NewMatchmaker(redis *RedisClient, threshold int) *Matchmaker {
-	return &Matchmaker{
+	mm := &Matchmaker{
 		redis:           redis,
 		circuitBreakers: make(map[string]*models.CircuitBreaker),
 		threshold:       threshold,
+		stopHealthCheck: make(chan bool),
 	}
+
+	go mm.healthCheckLoop()
+
+	return mm
+}
+
+func (m *Matchmaker) StopHealthCheck() {
+	close(m.stopHealthCheck)
+}
+
+func (m *Matchmaker) healthCheckLoop() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.checkNodeHealth()
+		case <-m.stopHealthCheck:
+			return
+		}
+	}
+}
+
+func (m *Matchmaker) checkNodeHealth() {
+	countries := []string{"US", "GB", "DE", "FR", "CA", "AU", "JP"}
+
+	for _, country := range countries {
+		nodes, err := m.redis.GetTopNodes(country, 20)
+		if err != nil {
+			continue
+		}
+
+		for _, nodeID := range nodes {
+			if !m.pingNode(nodeID) {
+				m.RecordFailure(nodeID)
+			}
+		}
+	}
+}
+
+func (m *Matchmaker) pingNode(nodeID string) bool {
+	meta, err := m.redis.GetNodeMeta(nodeID)
+	if err != nil {
+		return false
+	}
+
+	age := time.Since(meta.LastSeen)
+	return age < 5*time.Minute
 }
 
 func (m *Matchmaker) SelectNode(country, city, targetDomain string) (*models.Node, error) {
@@ -124,4 +176,69 @@ func (m *Matchmaker) RecordSuccess(nodeID string) {
 
 func (m *Matchmaker) AddToCooldown(target string, nodeID string) error {
 	return m.redis.AddToCooldown(target, nodeID)
+}
+
+func (m *Matchmaker) RegisterNode(req *models.NodeRegistrationRequest) error {
+	if req.NodeID == "" {
+		return fmt.Errorf("node_id is required")
+	}
+	if req.Country == "" {
+		return fmt.Errorf("country is required")
+	}
+	if req.IP == "" {
+		return fmt.Errorf("ip is required")
+	}
+
+	node := &models.Node{
+		ID:         req.NodeID,
+		NodeType:   req.NodeType,
+		Country:    req.Country,
+		City:       req.City,
+		ISP:        req.ISP,
+		IP:         req.IP,
+		IPv6Subnet: req.IPv6Subnet,
+		OS:         req.OS,
+		LastSeen:   time.Now(),
+		Reputation: 100.0,
+	}
+
+	if err := m.redis.AddNode(node); err != nil {
+		return fmt.Errorf("failed to register node: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Matchmaker) Heartbeat(req *models.NodeHeartbeatRequest) error {
+	if req.NodeID == "" {
+		return fmt.Errorf("node_id is required")
+	}
+
+	return m.redis.UpdateNodeStatus(req.NodeID, req.Battery, req.CPUUsage, req.IsCharging)
+}
+
+func (m *Matchmaker) DeregisterNode(nodeID string) error {
+	if nodeID == "" {
+		return fmt.Errorf("node_id is required")
+	}
+
+	return m.redis.RemoveNode(nodeID)
+}
+
+func (m *Matchmaker) GetNodeStatus(nodeID string) (*models.Node, error) {
+	return m.redis.GetNode(nodeID)
+}
+
+func (m *Matchmaker) GetSessionNode(sessionID string) (string, error) {
+	if sessionID == "" {
+		return "", fmt.Errorf("session_id is required")
+	}
+	return m.redis.GetSessionNode(sessionID)
+}
+
+func (m *Matchmaker) SetSessionNode(sessionID, nodeID string, ttlSeconds int) error {
+	if sessionID == "" || nodeID == "" {
+		return fmt.Errorf("session_id and node_id are required")
+	}
+	return m.redis.SetSessionNode(sessionID, nodeID, ttlSeconds)
 }

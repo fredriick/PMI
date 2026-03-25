@@ -118,3 +118,98 @@ func (r *RedisClient) RemoveFromCooldown(target string, nodeID string) error {
 func (r *RedisClient) Close() error {
 	return r.client.Close()
 }
+
+func (r *RedisClient) UpdateNodeStatus(nodeID string, battery int, cpuUsage float64, isCharging bool) error {
+	metaKey := fmt.Sprintf("node_meta:%s", nodeID)
+
+	exists, err := r.client.Exists(r.ctx, metaKey).Result()
+	if err != nil || exists == 0 {
+		return fmt.Errorf("node not found: %s", nodeID)
+	}
+
+	updates := map[string]interface{}{
+		"lastSeen":   time.Now().Unix(),
+		"battery":    battery,
+		"cpuUsage":   cpuUsage,
+		"isCharging": isCharging,
+	}
+
+	return r.client.HSet(r.ctx, metaKey, updates).Err()
+}
+
+func (r *RedisClient) RemoveNode(nodeID string) error {
+	keys, err := r.client.Keys(r.ctx, fmt.Sprintf("*%s*", nodeID)).Result()
+	if err != nil {
+		return err
+	}
+
+	if len(keys) > 0 {
+		return r.client.Del(r.ctx, keys...).Err()
+	}
+	return nil
+}
+
+func (r *RedisClient) GetNode(nodeID string) (*models.Node, error) {
+	metaKey := fmt.Sprintf("node_meta:%s", nodeID)
+	data, err := r.client.HGetAll(r.ctx, metaKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("node not found")
+	}
+
+	node := &models.Node{
+		ID: nodeID,
+	}
+
+	if isp, ok := data["isp"]; ok {
+		node.ISP = isp
+	}
+	if os, ok := data["os"]; ok {
+		node.OS = os
+	}
+	if battery, ok := data["battery"]; ok {
+		if b, err := strconv.Atoi(battery); err == nil {
+			node.Battery = b
+		}
+	}
+
+	keys, err := r.client.Keys(r.ctx, "nodes:*").Result()
+	if err == nil && len(keys) > 0 {
+		for _, key := range keys {
+			r.client.ZScore(r.ctx, key, nodeID).Result()
+		}
+	}
+
+	lastSeen := time.Now()
+	if unix, ok := data["lastSeen"]; ok {
+		if ts, err := strconv.ParseInt(unix, 10, 64); err == nil {
+			lastSeen = time.Unix(ts, 0)
+		}
+	}
+	node.LastSeen = lastSeen
+
+	return node, nil
+}
+
+func (r *RedisClient) GetSessionNode(sessionID string) (string, error) {
+	key := fmt.Sprintf("session:%s", sessionID)
+	nodeID, err := r.client.Get(r.ctx, key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return nodeID, nil
+}
+
+func (r *RedisClient) SetSessionNode(sessionID, nodeID string, ttlSeconds int) error {
+	key := fmt.Sprintf("session:%s", sessionID)
+	if ttlSeconds <= 0 {
+		ttlSeconds = 3600
+	}
+	return r.client.SetEX(r.ctx, key, nodeID, time.Duration(ttlSeconds)*time.Second).Err()
+}

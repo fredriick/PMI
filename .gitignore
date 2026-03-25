@@ -4,6 +4,7 @@
 *.so
 *.dylib
 gateway.exe
+*~
 
 # Redis
 redis/
@@ -14,7 +15,6 @@ dump.rdb
 docs/
 
 # OS artifacts
-nul
 .DS_Store
 Thumbs.db
 

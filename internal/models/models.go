@@ -62,3 +62,27 @@ type CircuitBreaker struct {
 	LastFailure  time.Time
 	State        string
 }
+
+type NodeRegistrationRequest struct {
+	NodeID     string   `json:"node_id"`
+	NodeType   NodeType `json:"node_type"`
+	Country    string   `json:"country"`
+	City       string   `json:"city"`
+	ISP        string   `json:"isp"`
+	IP         string   `json:"ip"`
+	IPv6Subnet string   `json:"ipv6_subnet,omitempty"`
+	OS         string   `json:"os"`
+}
+
+type NodeHeartbeatRequest struct {
+	NodeID     string  `json:"node_id"`
+	Battery    int     `json:"battery,omitempty"`
+	CPUUsage   float64 `json:"cpu_usage,omitempty"`
+	IsCharging bool    `json:"is_charging,omitempty"`
+}
+
+type NodeRegistrationResponse struct {
+	Status  string `json:"status"`
+	NodeID  string `json:"node_id"`
+	Message string `json:"message,omitempty"`
+}

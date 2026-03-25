@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,6 +22,10 @@ type Gateway struct {
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
 	mu                      sync.RWMutex
+}
+
+func (g *Gateway) Router() *gin.Engine {
+	return g.router
 }
 
 func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService) *Gateway {
@@ -94,13 +97,18 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 		pass = c.Query("pass")
 	}
 
+	sessionID := c.Query("session")
+	if sessionID == "" {
+		sessionID = g.extractSessionFromPath(target)
+	}
+
 	req := &models.ProxyRequest{
 		User:      user,
 		Password:  pass,
 		Target:    target,
 		Country:   g.extractTarget(c, "country"),
 		City:      g.extractTarget(c, "city"),
-		SessionID: c.Query("session"),
+		SessionID: sessionID,
 	}
 
 	if g.compliance.IsBlocked(req.Target) {
@@ -119,12 +127,33 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 
 	start := time.Now()
 
-	node, err := g.matchmaker.SelectNode(req.Country, req.City, req.Target)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-			"error": err.Error(),
-		})
-		return
+	var node *models.Node
+	var err error
+
+	if req.SessionID != "" {
+		nodeID, err := g.matchmaker.GetSessionNode(req.SessionID)
+		if err == nil && nodeID != "" {
+			node, err = g.matchmaker.GetNodeStatus(nodeID)
+			if err == nil && node != nil && g.isNodeHealthy(node.ID) {
+				c.Header("X-Session-Cached", "true")
+			} else {
+				node = nil
+			}
+		}
+	}
+
+	if node == nil {
+		node, err = g.matchmaker.SelectNode(req.Country, req.City, req.Target)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if req.SessionID != "" {
+			g.matchmaker.SetSessionNode(req.SessionID, node.ID, 3600)
+		}
 	}
 
 	latency := time.Since(start).Milliseconds()
@@ -153,6 +182,28 @@ func (g *Gateway) extractTarget(c *gin.Context, targetType string) string {
 	return c.Query(targetType)
 }
 
+func (g *Gateway) extractSessionFromPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	prefix := "session-"
+	if idx := strings.Index(path, prefix); idx != -1 {
+		rest := path[idx+len(prefix):]
+		if endIdx := strings.Index(rest, "-"); endIdx != -1 {
+			return rest[:endIdx]
+		}
+		if endIdx := strings.Index(rest, "/"); endIdx != -1 {
+			return rest[:endIdx]
+		}
+		return rest
+	}
+	return ""
+}
+
+func (g *Gateway) isNodeHealthy(nodeID string) bool {
+	return true
+}
+
 func (g *Gateway) bindToIPv6Subnet(node *models.Node) string {
 	if node.IPv6Subnet != "" {
 		ip := net.ParseIP(node.IPv6Subnet)
@@ -165,32 +216,68 @@ func (g *Gateway) bindToIPv6Subnet(node *models.Node) string {
 }
 
 func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr string) {
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false,
-		},
+	target := c.Query("url")
+	if target == "" {
+		target = c.Param("path")
 	}
 
-	req, err := http.NewRequest("CONNECT", fmt.Sprintf("http://%s", node.IP), nil)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create request",
-		})
-		return
+	targetHost := g.extractHostFromTarget(target)
+	if targetHost == "" {
+		targetHost = "80.80.80.80:80"
 	}
 
-	client := &http.Client{Transport: transport}
-	resp, err := client.Do(req)
+	nodeConn, err := net.Dial("tcp", node.IP)
 	if err != nil {
 		g.recordFailure(node.ID)
 		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
-			"error": "Failed to connect to node",
+			"error": "Failed to connect to node: " + err.Error(),
+		})
+		return
+	}
+	defer nodeConn.Close()
+
+	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetHost, targetHost)
+	_, err = nodeConn.Write([]byte(connectReq))
+	if err != nil {
+		g.recordFailure(node.ID)
+		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
+			"error": "Failed to send CONNECT to node",
 		})
 		return
 	}
 
+	buf := make([]byte, 1024)
+	nodeConn.Read(buf)
+
+	c.Header("X-Proxy-Node-ID", node.ID)
+	c.Header("X-Proxy-Local-Addr", localAddr)
+
 	g.recordSuccess(node.ID)
-	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), nil)
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "connected",
+		"node_id":   node.ID,
+		"localAddr": localAddr,
+		"target":    targetHost,
+	})
+}
+
+func (g *Gateway) extractHostFromTarget(target string) string {
+	if target == "" {
+		return ""
+	}
+
+	target = strings.TrimPrefix(target, "http://")
+	target = strings.TrimPrefix(target, "https://")
+
+	if idx := strings.Index(target, "/"); idx != -1 {
+		target = target[:idx]
+	}
+
+	if idx := strings.Index(target, "?"); idx != -1 {
+		target = target[:idx]
+	}
+
+	return target
 }
 
 func (g *Gateway) recordFailure(nodeID string) {

@@ -26,6 +26,8 @@ func main() {
 
 	gw := gateway.NewGateway(cfg, mm, compliance)
 
+	setupAdminRoutes(gw.Router(), mm)
+
 	log.Printf("Starting Gateway on %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
 	if err := gw.Start(); err != nil {
 		log.Fatalf("Failed to start gateway: %v", err)
