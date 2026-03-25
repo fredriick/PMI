@@ -1,0 +1,27 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+gateway.exe
+
+# Redis
+redis/
+redis.zip
+dump.rdb
+
+# Documentation (reference docs)
+docs/
+
+# OS artifacts
+nul
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
