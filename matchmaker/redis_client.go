@@ -260,13 +260,81 @@ func (r *RedisClient) DecrementNodeLoad(nodeID string) error {
 
 func (r *RedisClient) RecordBandwidth(nodeID string, bytesSent, bytesReceived, durationSeconds int64) error {
 	bandwidthKey := fmt.Sprintf("bandwidth:%s", nodeID)
+	today := time.Now().Format("2006-01-02")
 
 	pipe := r.client.Pipeline()
 	pipe.HIncrBy(r.ctx, bandwidthKey, "bytes_sent", bytesSent)
 	pipe.HIncrBy(r.ctx, bandwidthKey, "bytes_received", bytesReceived)
 	pipe.HIncrBy(r.ctx, bandwidthKey, "duration_seconds", durationSeconds)
-	pipe.Expire(r.ctx, bandwidthKey, 24*time.Hour)
+	pipe.SAdd(r.ctx, fmt.Sprintf("bandwidth_dates:%s", nodeID), today)
+	pipe.Expire(r.ctx, bandwidthKey, 30*24*time.Hour)
 
 	_, err := pipe.Exec(r.ctx)
 	return err
+}
+
+func (r *RedisClient) GetBandwidth(nodeID string, period time.Time) (*models.BandwidthData, error) {
+	bandwidthKey := fmt.Sprintf("bandwidth:%s", nodeID)
+	data, err := r.client.HGetAll(r.ctx, bandwidthKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	result := &models.BandwidthData{}
+	if v, ok := data["bytes_sent"]; ok {
+		result.BytesSent, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v, ok := data["bytes_received"]; ok {
+		result.BytesReceived, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v, ok := data["duration_seconds"]; ok {
+		result.DurationSeconds, _ = strconv.ParseInt(v, 10, 64)
+	}
+
+	return result, nil
+}
+
+func (r *RedisClient) GetBandwidthHistory(nodeID string) (map[string]models.BandwidthData, error) {
+	dates, err := r.client.SMembers(r.ctx, fmt.Sprintf("bandwidth_dates:%s", nodeID)).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	history := make(map[string]models.BandwidthData)
+	for _, date := range dates {
+		bandwidthKey := fmt.Sprintf("bandwidth:%s:%s", nodeID, date)
+		data, err := r.client.HGetAll(r.ctx, bandwidthKey).Result()
+		if err != nil {
+			continue
+		}
+
+		bd := models.BandwidthData{}
+		if v, ok := data["bytes_sent"]; ok {
+			bd.BytesSent, _ = strconv.ParseInt(v, 10, 64)
+		}
+		if v, ok := data["bytes_received"]; ok {
+			bd.BytesReceived, _ = strconv.ParseInt(v, 10, 64)
+		}
+		if v, ok := data["duration_seconds"]; ok {
+			bd.DurationSeconds, _ = strconv.ParseInt(v, 10, 64)
+		}
+		history[date] = bd
+	}
+
+	return history, nil
+}
+
+func (r *RedisClient) GetAllNodes() ([]string, error) {
+	keys, err := r.client.Keys(r.ctx, "node_meta:*").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []string
+	for _, key := range keys {
+		nodeID := key[len("node_meta:"):]
+		nodes = append(nodes, nodeID)
+	}
+
+	return nodes, nil
 }

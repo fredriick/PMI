@@ -86,3 +86,9 @@ type NodeRegistrationResponse struct {
 	NodeID  string `json:"node_id"`
 	Message string `json:"message,omitempty"`
 }
+
+type BandwidthData struct {
+	BytesSent       int64 `json:"bytes_sent"`
+	BytesReceived   int64 `json:"bytes_received"`
+	DurationSeconds int64 `json:"duration_seconds"`
+}
