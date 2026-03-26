@@ -232,6 +232,8 @@ func (g *Gateway) bindToIPv6Subnet(node *models.Node) string {
 }
 
 func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr string) {
+	defer g.matchmaker.DecrementNodeLoad(node.ID)
+
 	target := c.Query("url")
 	if target == "" {
 		target = c.Param("path")

@@ -36,8 +36,8 @@ func NewRedisClient(cfg *config.RedisConfig) (*RedisClient, error) {
 }
 
 func (r *RedisClient) AddNode(node *models.Node) error {
-	key := fmt.Sprintf("nodes:%s", node.Country)
-	err := r.client.ZAdd(r.ctx, key, &redis.Z{
+	countryKey := fmt.Sprintf("nodes:%s", node.Country)
+	err := r.client.ZAdd(r.ctx, countryKey, &redis.Z{
 		Score:  node.Reputation,
 		Member: node.ID,
 	}).Err()
@@ -46,11 +46,24 @@ func (r *RedisClient) AddNode(node *models.Node) error {
 		return fmt.Errorf("failed to add node to sorted set: %w", err)
 	}
 
+	if node.City != "" {
+		cityKey := fmt.Sprintf("nodes:%s:%s", node.Country, node.City)
+		err = r.client.ZAdd(r.ctx, cityKey, &redis.Z{
+			Score:  node.Reputation,
+			Member: node.ID,
+		}).Err()
+		if err != nil {
+			return fmt.Errorf("failed to add node to city sorted set: %w", err)
+		}
+	}
+
 	metaKey := fmt.Sprintf("node_meta:%s", node.ID)
 	err = r.client.HSet(r.ctx, metaKey, map[string]interface{}{
 		"isp":      node.ISP,
 		"battery":  node.Battery,
 		"os":       node.OS,
+		"city":     node.City,
+		"country":  node.Country,
 		"lastSeen": node.LastSeen.Unix(),
 	}).Err()
 
@@ -62,6 +75,18 @@ func (r *RedisClient) GetTopNodes(country string, count int64) ([]string, error)
 	nodes, err := r.client.ZRevRange(r.ctx, key, 0, count-1).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get top nodes: %w", err)
+	}
+	return nodes, nil
+}
+
+func (r *RedisClient) GetNodesByCity(country, city string, count int64) ([]string, error) {
+	key := fmt.Sprintf("nodes:%s:%s", country, city)
+	nodes, err := r.client.ZRevRange(r.ctx, key, 0, count-1).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get nodes by city: %w", err)
 	}
 	return nodes, nil
 }
@@ -212,4 +237,23 @@ func (r *RedisClient) SetSessionNode(sessionID, nodeID string, ttlSeconds int) e
 		ttlSeconds = 3600
 	}
 	return r.client.SetEX(r.ctx, key, nodeID, time.Duration(ttlSeconds)*time.Second).Err()
+}
+
+func (r *RedisClient) GetNodeLoad(nodeID string) (int64, error) {
+	key := fmt.Sprintf("node_load:%s", nodeID)
+	load, err := r.client.Get(r.ctx, key).Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return load, err
+}
+
+func (r *RedisClient) IncrementNodeLoad(nodeID string) error {
+	key := fmt.Sprintf("node_load:%s", nodeID)
+	return r.client.Incr(r.ctx, key).Err()
+}
+
+func (r *RedisClient) DecrementNodeLoad(nodeID string) error {
+	key := fmt.Sprintf("node_load:%s", nodeID)
+	return r.client.Decr(r.ctx, key).Err()
 }

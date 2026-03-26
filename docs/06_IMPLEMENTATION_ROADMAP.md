@@ -45,8 +45,8 @@
 
 ### Matchmaker Features
 - [x] **Health Monitoring** - Automatic periodic health checks on nodes
-- [ ] **Load Balancing** - Consider node load in selection logic
-- [ ] **Geographic Routing** - City-level selection support
+- [x] **Load Balancing** - Consider node load in selection logic
+- [x] **Geographic Routing** - City-level selection support
 
 ### Observability
 - [x] **Metrics Endpoints** - Prometheus metrics for monitoring

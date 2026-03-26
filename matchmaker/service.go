@@ -77,33 +77,39 @@ func (m *Matchmaker) pingNode(nodeID string) bool {
 }
 
 func (m *Matchmaker) SelectNode(country, city, targetDomain string) (*models.Node, error) {
-	candidates, err := m.redis.GetTopNodes(country, 50)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get candidates: %w", err)
+	var candidates []string
+	var err error
+
+	if city != "" {
+		candidates, err = m.redis.GetNodesByCity(country, city, 50)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get city nodes: %w", err)
+		}
+	}
+
+	if len(candidates) == 0 {
+		candidates, err = m.redis.GetTopNodes(country, 50)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get candidates: %w", err)
+		}
 	}
 
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no nodes available for country: %s", country)
 	}
 
-	var eligibleNodes []string
-	for _, nodeID := range candidates {
-		if m.isNodeHealthy(nodeID) {
-			inCooldown, err := m.redis.IsInCooldown(targetDomain, nodeID)
-			if err == nil && !inCooldown {
-				eligibleNodes = append(eligibleNodes, nodeID)
-			}
-		}
-	}
+	eligibleNodes := m.filterEligibleNodes(candidates, targetDomain)
 
 	if len(eligibleNodes) == 0 {
 		return nil, fmt.Errorf("no eligible nodes after filtering")
 	}
 
-	selectedID, err := m.randomSelect(eligibleNodes)
+	selectedID, err := m.selectByLoad(eligibleNodes)
 	if err != nil {
 		return nil, err
 	}
+
+	m.redis.IncrementNodeLoad(selectedID)
 
 	meta, err := m.redis.GetNodeMeta(selectedID)
 	if err != nil {
@@ -118,6 +124,48 @@ func (m *Matchmaker) SelectNode(country, city, targetDomain string) (*models.Nod
 		OS:       meta.OS,
 		LastSeen: meta.LastSeen,
 	}, nil
+}
+
+func (m *Matchmaker) filterEligibleNodes(candidates []string, targetDomain string) []string {
+	var eligible []string
+	for _, nodeID := range candidates {
+		if m.isNodeHealthy(nodeID) {
+			inCooldown, err := m.redis.IsInCooldown(targetDomain, nodeID)
+			if err == nil && !inCooldown {
+				eligible = append(eligible, nodeID)
+			}
+		}
+	}
+	return eligible
+}
+
+func (m *Matchmaker) selectByLoad(nodes []string) (string, error) {
+	type nodeWithLoad struct {
+		id   string
+		load int64
+	}
+
+	var nodeLoads []nodeWithLoad
+	for _, nodeID := range nodes {
+		load, _ := m.redis.GetNodeLoad(nodeID)
+		nodeLoads = append(nodeLoads, nodeWithLoad{id: nodeID, load: load})
+	}
+
+	var lowestLoad int64 = 1 << 60
+	var selected string
+
+	for _, nl := range nodeLoads {
+		if nl.load < lowestLoad {
+			lowestLoad = nl.load
+			selected = nl.id
+		}
+	}
+
+	if selected == "" {
+		return m.randomSelect(nodes)
+	}
+
+	return selected, nil
 }
 
 func (m *Matchmaker) randomSelect(nodes []string) (string, error) {
@@ -241,4 +289,8 @@ func (m *Matchmaker) SetSessionNode(sessionID, nodeID string, ttlSeconds int) er
 		return fmt.Errorf("session_id and node_id are required")
 	}
 	return m.redis.SetSessionNode(sessionID, nodeID, ttlSeconds)
+}
+
+func (m *Matchmaker) DecrementNodeLoad(nodeID string) error {
+	return m.redis.DecrementNodeLoad(nodeID)
 }
