@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: In Progress
+## Status: Complete ✓
 
 ---
 
@@ -23,15 +23,6 @@
 - [x] **Peer SDK Onboarding** - 03_PEER_SDK_ONBOARDING.md
 - [x] **API Documentation** - 04_API_DOCUMENTATION.md
 - [x] **Compliance & Legal** - 05_COMPLIANCE_AND_LEGAL.md
-
----
-
-## In Progress
-
-### Node Management
-- [x] **Node Registration API** - Endpoints for proxy nodes to register and heartbeat
-- [x] **Node Deregistration** - Graceful removal of nodes from pool
-- [x] **Node Metadata Updates** - ISP, battery, OS updates from peers
 
 ---
 
