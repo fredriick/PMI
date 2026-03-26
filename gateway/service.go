@@ -1,9 +1,12 @@
 package gateway
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +21,7 @@ type Gateway struct {
 	router                  *gin.Engine
 	matchmaker              *matchmaker.Matchmaker
 	compliance              *ComplianceService
+	rateLimiter             *RateLimiter
 	config                  *config.GatewayConfig
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
@@ -33,10 +37,13 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 	router := gin.New()
 	router.Use(gin.Recovery())
 
+	rateLimiter := NewRateLimiter(cfg.Gateway.RateLimitRequests, cfg.Gateway.RateLimitWindowSeconds)
+
 	gw := &Gateway{
 		router:                  router,
 		matchmaker:              mm,
 		compliance:              comp,
+		rateLimiter:             rateLimiter,
 		config:                  &cfg.Gateway,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
@@ -47,6 +54,10 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 }
 
 func (g *Gateway) setupRoutes() {
+	InitLogger(LevelInfo, "")
+	SetupMetricsRoutes(g.router)
+	g.router.Use(RequestLogger())
+	g.router.Use(g.rateLimiter.Middleware())
 	g.router.Use(g.authMiddleware())
 	g.router.Any("/:path", g.proxyHandler)
 	g.router.Any("/", g.proxyHandler)
@@ -111,6 +122,8 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 		SessionID: sessionID,
 	}
 
+	metrics.IncRequestsTotal()
+
 	if g.compliance.IsBlocked(req.Target) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 			"error": "Target domain is blocked",
@@ -157,6 +170,9 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 	}
 
 	latency := time.Since(start).Milliseconds()
+
+	metrics.IncNodesSelected()
+	metrics.AddLatency(latency)
 
 	c.Header("X-Proxy-Node-ID", node.ID)
 	c.Header("X-Proxy-Latency", fmt.Sprintf("%d", latency))
@@ -285,6 +301,7 @@ func (g *Gateway) recordFailure(nodeID string) {
 	defer g.mu.Unlock()
 
 	g.nodeFailures[nodeID]++
+	metrics.IncRequestsFailed()
 	if g.nodeFailures[nodeID] >= g.circuitBreakerThreshold {
 		g.matchmaker.RecordFailure(nodeID)
 	}
@@ -295,6 +312,7 @@ func (g *Gateway) recordSuccess(nodeID string) {
 	defer g.mu.Unlock()
 
 	g.nodeFailures[nodeID] = 0
+	metrics.IncRequestsSuccess()
 	g.matchmaker.RecordSuccess(nodeID)
 }
 
@@ -304,5 +322,38 @@ func (g *Gateway) validateKYC(username string) bool {
 
 func (g *Gateway) Start() error {
 	addr := fmt.Sprintf("%s:%d", g.config.Host, g.config.Port)
+
+	if g.config.MTLSEnabled {
+		server := &http.Server{
+			Addr:    addr,
+			Handler: g.router,
+		}
+
+		tlsConfig, err := g.buildTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to build TLS config: %w", err)
+		}
+
+		server.TLSConfig = tlsConfig
+		return server.ListenAndServeTLS(g.config.ServerCertPath, g.config.ServerKeyPath)
+	}
+
 	return g.router.Run(addr)
+}
+
+func (g *Gateway) buildTLSConfig() (*tls.Config, error) {
+	caCert, err := os.ReadFile(g.config.CACertPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA cert: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to add CA cert to pool")
+	}
+
+	return &tls.Config{
+		ClientCAs:  caCertPool,
+		ClientAuth: tls.RequestClientCert,
+	}, nil
 }

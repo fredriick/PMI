@@ -40,8 +40,8 @@
 ### Gateway Features
 - [x] **HTTP CONNECT Proxy** - Real proxy forwarding via CONNECT method
 - [x] **Session Persistence** - `-session-[id]` support for sticky IPs
-- [ ] **mTLS Support** - Mutual TLS between clients and gateway
-- [ ] **Rate Limiting** - Per-client request limits
+- [x] **mTLS Support** - Mutual TLS between clients and gateway
+- [x] **Rate Limiting** - Per-client request limits
 
 ### Matchmaker Features
 - [x] **Health Monitoring** - Automatic periodic health checks on nodes
@@ -49,8 +49,8 @@
 - [ ] **Geographic Routing** - City-level selection support
 
 ### Observability
-- [ ] **Metrics Endpoints** - Prometheus metrics for monitoring
-- [ ] **Logging** - Structured logging with request IDs
+- [x] **Metrics Endpoints** - Prometheus metrics for monitoring
+- [x] **Logging** - Structured logging with request IDs
 - [ ] **Tracing** - OpenTelemetry integration
 
 ### Peer SDK Features
@@ -71,9 +71,4 @@
 
 ---
 
-## Version History
-
-| Version | Date | Description |
-|---------|------|-------------|
-| 0.1.0 | 2026-03-25 | Initial implementation - Core services working |
-| 0.2.0 | 2026-03-25 | Node registration API, HTTP CONNECT proxy, session persistence, health monitoring |
+## Ideas / Backlog

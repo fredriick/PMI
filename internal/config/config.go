@@ -19,7 +19,12 @@ type GatewayConfig struct {
 	Host                    string `mapstructure:"host"`
 	Port                    int    `mapstructure:"port"`
 	MTLSEnabled             bool   `mapstructure:"mtls_enabled"`
+	CACertPath              string `mapstructure:"ca_cert_path"`
+	ServerCertPath          string `mapstructure:"server_cert_path"`
+	ServerKeyPath           string `mapstructure:"server_key_path"`
 	CircuitBreakerThreshold int    `mapstructure:"circuit_breaker_threshold"`
+	RateLimitRequests       int    `mapstructure:"rate_limit_requests"`
+	RateLimitWindowSeconds  int    `mapstructure:"rate_limit_window_seconds"`
 }
 
 type MatchmakerConfig struct {
