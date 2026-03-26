@@ -257,3 +257,16 @@ func (r *RedisClient) DecrementNodeLoad(nodeID string) error {
 	key := fmt.Sprintf("node_load:%s", nodeID)
 	return r.client.Decr(r.ctx, key).Err()
 }
+
+func (r *RedisClient) RecordBandwidth(nodeID string, bytesSent, bytesReceived, durationSeconds int64) error {
+	bandwidthKey := fmt.Sprintf("bandwidth:%s", nodeID)
+
+	pipe := r.client.Pipeline()
+	pipe.HIncrBy(r.ctx, bandwidthKey, "bytes_sent", bytesSent)
+	pipe.HIncrBy(r.ctx, bandwidthKey, "bytes_received", bytesReceived)
+	pipe.HIncrBy(r.ctx, bandwidthKey, "duration_seconds", durationSeconds)
+	pipe.Expire(r.ctx, bandwidthKey, 24*time.Hour)
+
+	_, err := pipe.Exec(r.ctx)
+	return err
+}

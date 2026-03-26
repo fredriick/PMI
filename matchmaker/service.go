@@ -294,3 +294,7 @@ func (m *Matchmaker) SetSessionNode(sessionID, nodeID string, ttlSeconds int) er
 func (m *Matchmaker) DecrementNodeLoad(nodeID string) error {
 	return m.redis.DecrementNodeLoad(nodeID)
 }
+
+func (m *Matchmaker) RecordBandwidth(nodeID string, bytesSent, bytesReceived, durationSeconds int64) error {
+	return m.redis.RecordBandwidth(nodeID, bytesSent, bytesReceived, durationSeconds)
+}

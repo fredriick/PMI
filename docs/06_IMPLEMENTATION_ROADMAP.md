@@ -54,8 +54,8 @@
 - [x] **Tracing** - OpenTelemetry integration
 
 ### Peer SDK Features
-- [ ] **Peer Communication** - gRPC/WebSocket for peer-gateway communication
-- [ ] **Bandwidth Tracking** - Report bandwidth usage per peer
+- [x] **Peer Communication** - gRPC/WebSocket for peer-gateway communication
+- [x] **Bandwidth Tracking** - Report bandwidth usage per peer
 - [ ] **Payout Calculation** - Calculate compensation for residential peers
 
 ---

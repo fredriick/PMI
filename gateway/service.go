@@ -101,7 +101,7 @@ func (g *Gateway) tracingMiddleware() gin.HandlerFunc {
 			)
 			c.Request = c.Request.WithContext(ctx)
 			c.Next()
-			g.tracing.EndSpan(span)
+			span.End()
 		} else {
 			c.Next()
 		}

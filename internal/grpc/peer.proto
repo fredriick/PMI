@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package proxymesh;
+
+option go_package = "proxymesh/internal/grpc";
+
+service PeerService {
+    rpc Connect(ConnectRequest) returns (ConnectResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    rpc ReportBandwidth(BandwidthReport) returns (BandwidthResponse);
+    rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+}
+
+message ConnectRequest {
+    string node_id = 1;
+    string ip = 2;
+    string country = 3;
+    string city = 4;
+    string isp = 5;
+    string os = 6;
+    string ipv6_subnet = 7;
+}
+
+message ConnectResponse {
+    bool success = 1;
+    string message = 2;
+    string session_id = 3;
+}
+
+message HeartbeatRequest {
+    string node_id = 1;
+    int32 battery = 2;
+    float cpu_usage = 3;
+    bool is_charging = 4;
+    int64 bandwidth_sent = 5;
+    int64 bandwidth_received = 6;
+}
+
+message HeartbeatResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message BandwidthReport {
+    string node_id = 1;
+    int64 bytes_sent = 2;
+    int64 bytes_received = 3;
+    int64 duration_seconds = 4;
+}
+
+message BandwidthResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message DisconnectRequest {
+    string node_id = 1;
+    string reason = 2;
+}
+
+message DisconnectResponse {
+    bool success = 1;
+}

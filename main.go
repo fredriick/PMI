@@ -5,6 +5,7 @@ import (
 
 	"proxymesh/gateway"
 	"proxymesh/internal/config"
+	"proxymesh/internal/grpc"
 	"proxymesh/matchmaker"
 )
 
@@ -32,6 +33,13 @@ func main() {
 	gw := gateway.NewGateway(cfg, mm, compliance, tracer)
 
 	setupAdminRoutes(gw.Router(), mm)
+
+	go func() {
+		peerServer := grpc.NewPeerServer(cfg, mm)
+		if err := peerServer.Start(9000); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
 
 	log.Printf("Starting Gateway on %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
 	if err := gw.Start(); err != nil {

@@ -9,15 +9,14 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer *Tracer
 
 type Tracer struct {
 	provider *sdktrace.TracerProvider
-	tracer   interface {
-		Start(ctx context.Context, spanName string, opts ...interface{}) (context.Context, interface{})
-	}
+	tracer   trace.Tracer
 }
 
 func InitTracing(serviceName string, enabled bool) (*Tracer, error) {
@@ -56,18 +55,16 @@ func InitTracing(serviceName string, enabled bool) (*Tracer, error) {
 	return tracer, nil
 }
 
-func (t *Tracer) StartSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, interface{}) {
-	_, span := t.tracer.Start(ctx, name)
+func (t *Tracer) StartSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
+	ctx, span := t.tracer.Start(ctx, name)
 	for _, attr := range attrs {
 		span.SetAttributes(attr)
 	}
 	return ctx, span
 }
 
-func (t *Tracer) EndSpan(span interface{}) {
-	if s, ok := span.(interface{ End() }); ok {
-		s.End()
-	}
+func (t *Tracer) EndSpan(span trace.Span) {
+	span.End()
 }
 
 func (t *Tracer) Shutdown() error {
