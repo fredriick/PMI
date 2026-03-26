@@ -24,7 +24,12 @@ func main() {
 
 	compliance := gateway.NewComplianceService(&cfg.Compliance)
 
-	gw := gateway.NewGateway(cfg, mm, compliance)
+	tracer, err := gateway.InitTracing("gateway", cfg.Gateway.TracingEnabled)
+	if err != nil {
+		log.Printf("Warning: failed to initialize tracing: %v", err)
+	}
+
+	gw := gateway.NewGateway(cfg, mm, compliance, tracer)
 
 	setupAdminRoutes(gw.Router(), mm)
 

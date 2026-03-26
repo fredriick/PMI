@@ -5,6 +5,7 @@ gateway:
   circuit_breaker_threshold: 5
   rate_limit_requests: 100
   rate_limit_window_seconds: 60
+  tracing_enabled: true
 
 matchmaker:
   host: "localhost"

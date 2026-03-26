@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
 	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/matchmaker"
@@ -22,6 +23,7 @@ type Gateway struct {
 	matchmaker              *matchmaker.Matchmaker
 	compliance              *ComplianceService
 	rateLimiter             *RateLimiter
+	tracing                 *Tracer
 	config                  *config.GatewayConfig
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
@@ -32,7 +34,7 @@ func (g *Gateway) Router() *gin.Engine {
 	return g.router
 }
 
-func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService) *Gateway {
+func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer) *Gateway {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -44,6 +46,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		matchmaker:              mm,
 		compliance:              comp,
 		rateLimiter:             rateLimiter,
+		tracing:                 tracer,
 		config:                  &cfg.Gateway,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
@@ -59,6 +62,7 @@ func (g *Gateway) setupRoutes() {
 	g.router.Use(RequestLogger())
 	g.router.Use(g.rateLimiter.Middleware())
 	g.router.Use(g.authMiddleware())
+	g.router.Use(g.tracingMiddleware())
 	g.router.Any("/:path", g.proxyHandler)
 	g.router.Any("/", g.proxyHandler)
 }
@@ -85,6 +89,22 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func (g *Gateway) tracingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if g.tracing != nil {
+			ctx, span := g.tracing.StartSpan(c.Request.Context(), "gateway.request",
+				attribute.String("http.method", c.Request.Method),
+				attribute.String("http.url", c.Request.URL.String()),
+			)
+			c.Request = c.Request.WithContext(ctx)
+			c.Next()
+			g.tracing.EndSpan(span)
+		} else {
+			c.Next()
+		}
 	}
 }
 

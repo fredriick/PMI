@@ -51,7 +51,7 @@
 ### Observability
 - [x] **Metrics Endpoints** - Prometheus metrics for monitoring
 - [x] **Logging** - Structured logging with request IDs
-- [ ] **Tracing** - OpenTelemetry integration
+- [x] **Tracing** - OpenTelemetry integration
 
 ### Peer SDK Features
 - [ ] **Peer Communication** - gRPC/WebSocket for peer-gateway communication
