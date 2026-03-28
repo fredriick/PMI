@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -62,6 +63,7 @@ func (g *Gateway) setupRoutes() {
 	g.router.Use(RequestLogger())
 	g.router.Use(g.rateLimiter.Middleware())
 
+	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
 
 	g.router.Use(g.authMiddleware())
@@ -70,8 +72,45 @@ func (g *Gateway) setupRoutes() {
 	g.router.Any("/", g.proxyHandler)
 }
 
+func (g *Gateway) healthHandler(c *gin.Context) {
+	status := gin.H{
+		"status":  "healthy",
+		"version": "1.0.0",
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
 func (g *Gateway) serveDashboard(c *gin.Context) {
 	c.File("web/index.html")
+}
+
+// StartServer returns the underlying *http.Server for graceful shutdown.
+func (g *Gateway) StartServer() (*http.Server, error) {
+	addr := fmt.Sprintf("%s:%d", g.config.Host, g.config.Port)
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: g.router,
+	}
+
+	if g.config.MTLSEnabled {
+		tlsConfig, err := g.buildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
+		}
+		server.TLSConfig = tlsConfig
+	}
+
+	return server, nil
+}
+
+// Shutdown gracefully shuts down the gateway.
+func (g *Gateway) Shutdown(ctx context.Context) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	Info("Gateway shutting down", nil)
+	return nil
 }
 
 func (g *Gateway) authMiddleware() gin.HandlerFunc {

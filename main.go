@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"proxymesh/gateway"
 	"proxymesh/internal/config"
@@ -45,6 +51,23 @@ func main() {
 
 	setupAdminRoutes(gw.Router(), mm, subnetAllocator)
 
+	server, err := gw.StartServer()
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
+
+	go func() {
+		log.Printf("Starting Gateway on %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
+		if cfg.Gateway.MTLSEnabled {
+			err = server.ListenAndServeTLS(cfg.Gateway.ServerCertPath, cfg.Gateway.ServerKeyPath)
+		} else {
+			err = server.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start gateway: %v", err)
+		}
+	}()
+
 	go func() {
 		peerServer := grpc.NewPeerServer(cfg, mm)
 		if err := peerServer.Start(9000); err != nil {
@@ -52,8 +75,21 @@ func main() {
 		}
 	}()
 
-	log.Printf("Starting Gateway on %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
-	if err := gw.Start(); err != nil {
-		log.Fatalf("Failed to start gateway: %v", err)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	mm.StopHealthCheck()
+	mm.StopCooldownCleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
 	}
+
+	log.Println("Server exited")
 }
