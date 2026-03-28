@@ -13,6 +13,7 @@ type Config struct {
 	Redis      RedisConfig      `mapstructure:"redis"`
 	Compliance ComplianceConfig `mapstructure:"compliance"`
 	Peer       PeerConfig       `mapstructure:"peer"`
+	Subnet     SubnetConfig     `mapstructure:"subnet"`
 }
 
 type GatewayConfig struct {
@@ -29,9 +30,10 @@ type GatewayConfig struct {
 }
 
 type MatchmakerConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	PoolSize int    `mapstructure:"pool_size"`
+	Host               string `mapstructure:"host"`
+	Port               int    `mapstructure:"port"`
+	PoolSize           int    `mapstructure:"pool_size"`
+	CooldownTTLMinutes int    `mapstructure:"cooldown_ttl_minutes"`
 }
 
 type RedisConfig struct {
@@ -50,6 +52,12 @@ type PeerConfig struct {
 	MinBatteryPercent    int  `mapstructure:"min_battery_percent"`
 	MaxCPUPercent        int  `mapstructure:"max_cpu_percent"`
 	RequireUnmeteredWiFi bool `mapstructure:"require_unmetered_wifi"`
+}
+
+type SubnetConfig struct {
+	Enabled   bool   `mapstructure:"enabled"`
+	Prefix    string `mapstructure:"prefix"`
+	PrefixLen int    `mapstructure:"prefix_len"`
 }
 
 var (

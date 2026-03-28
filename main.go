@@ -6,6 +6,7 @@ import (
 	"proxymesh/gateway"
 	"proxymesh/internal/config"
 	"proxymesh/internal/grpc"
+	"proxymesh/internal/subnet"
 	"proxymesh/matchmaker"
 )
 
@@ -21,7 +22,17 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	mm := matchmaker.NewMatchmaker(redisClient, cfg.Gateway.CircuitBreakerThreshold)
+	mm := matchmaker.NewMatchmaker(redisClient, cfg.Gateway.CircuitBreakerThreshold, cfg.Matchmaker.CooldownTTLMinutes)
+
+	var subnetAllocator *subnet.SubnetAllocator
+	if cfg.Subnet.Enabled {
+		subnetAllocator = subnet.NewSubnetAllocator(redisClient.Client())
+		if err := subnetAllocator.RegisterPool(cfg.Subnet.Prefix, cfg.Subnet.PrefixLen); err != nil {
+			log.Printf("Warning: failed to register subnet pool: %v", err)
+		} else {
+			log.Printf("Subnet pool registered: %s/%d", cfg.Subnet.Prefix, cfg.Subnet.PrefixLen)
+		}
+	}
 
 	compliance := gateway.NewComplianceService(&cfg.Compliance)
 
@@ -32,7 +43,7 @@ func main() {
 
 	gw := gateway.NewGateway(cfg, mm, compliance, tracer)
 
-	setupAdminRoutes(gw.Router(), mm)
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator)
 
 	go func() {
 		peerServer := grpc.NewPeerServer(cfg, mm)

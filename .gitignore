@@ -1,18 +1,15 @@
 # Binaries
 *.exe
+*.exe~
 *.dll
 *.so
 *.dylib
-gateway.exe
-*~
+loadtest
 
-# Redis
+# Redis runtime files
 redis/
 redis.zip
 dump.rdb
-
-# Documentation (reference docs)
-docs/
 
 # OS artifacts
 .DS_Store

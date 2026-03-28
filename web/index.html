@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxyMesh Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e1e4e8;line-height:1.6}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 0}
+header .container{display:flex;align-items:center;justify-content:space-between}
+h1{font-size:1.4em;color:#58a6ff}
+h1 span{color:#8b949e;font-weight:400;font-size:0.7em}
+.nav{display:flex;gap:8px}
+.nav button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.85em}
+.nav button:hover,.nav button.active{background:#388bfd;border-color:#388bfd;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:20px 0}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+.card h3{color:#8b949e;font-size:0.8em;text-transform:uppercase;letter-spacing:0.5em;margin-bottom:8px}
+.card .value{font-size:2em;font-weight:700;color:#58a6ff}
+.card .sub{font-size:0.85em;color:#8b949e;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d;font-size:0.9em}
+th{color:#8b949e;font-weight:600;font-size:0.75em;text-transform:uppercase}
+tr:hover{background:#161b22}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600}
+.badge-green{background:#1a3a2a;color:#3fb950}
+.badge-red{background:#3a1a1a;color:#f85149}
+.badge-yellow{background:#3a3a1a;color:#d29922}
+.btn{padding:6px 12px;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:0.8em;background:#21262d;color:#c9d1d9}
+.btn:hover{background:#30363d}
+.btn-danger{border-color:#f85149;color:#f85149}
+.btn-danger:hover{background:#f85149;color:#fff}
+.btn-primary{border-color:#388bfd;color:#388bfd}
+.btn-primary:hover{background:#388bfd;color:#fff}
+.section{display:none}
+.section.active{display:block}
+.form-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.form-row input,.form-row select{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:6px;font-size:0.85em}
+.form-row input{flex:1;min-width:120px}
+.toast{position:fixed;bottom:20px;right:20px;background:#161b22;border:1px solid #30363d;padding:12px 20px;border-radius:8px;font-size:0.85em;z-index:100;animation:slideIn 0.3s}
+.toast-success{border-color:#3fb950}
+.toast-error{border-color:#f85149}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.dot-green{background:#3fb950}
+.dot-red{background:#f85149}
+.auto-refresh{font-size:0.8em;color:#8b949e;display:flex;align-items:center;gap:6px}
+.auto-refresh input{accent-color:#388bfd}
+</style>
+</head>
+<body>
+<header>
+<div class="container">
+<h1>ProxyMesh <span>Admin Dashboard</span></h1>
+<div style="display:flex;align-items:center;gap:16px">
+<label class="auto-refresh"><input type="checkbox" id="autoRefresh" checked> Auto-refresh (10s)</label>
+<div class="nav">
+<button class="active" onclick="showSection('overview')">Overview</button>
+<button onclick="showSection('nodes')">Nodes</button>
+<button onclick="showSection('cooldowns')">Cooldowns</button>
+<button onclick="showSection('subnets')">Subnets</button>
+</div>
+</div>
+</div>
+</header>
+
+<div class="container">
+<!-- Overview -->
+<div id="overview" class="section active">
+<div class="grid">
+<div class="card"><h3>Total Requests</h3><div class="value" id="m-requests">--</div></div>
+<div class="card"><h3>Success Rate</h3><div class="value" id="m-success-rate">--</div></div>
+<div class="card"><h3>Active Sessions</h3><div class="value" id="m-sessions">--</div></div>
+<div class="card"><h3>Avg Latency</h3><div class="value" id="m-latency">--</div><div class="sub">milliseconds</div></div>
+<div class="card"><h3>Nodes Selected</h3><div class="value" id="m-nodes">--</div></div>
+<div class="card"><h3>Rate Limited</h3><div class="value" id="m-rate-limited">--</div></div>
+<div class="card"><h3>Failed Requests</h3><div class="value" id="m-failed">--</div></div>
+<div class="card"><h3>Uptime</h3><div class="value" id="m-uptime">--</div></div>
+</div>
+<h3 style="margin:20px 0 12px;color:#8b949e">Raw Metrics</h3>
+<pre id="metrics-raw" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;font-size:0.8em;overflow-x:auto;max-height:300px"></pre>
+</div>
+
+<!-- Nodes -->
+<div id="nodes" class="section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h2 style="font-size:1.2em">Registered Nodes</h2>
+<button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
+</div>
+<div id="register-form" style="display:none" class="card" style="margin-bottom:16px">
+<h3>Register New Node</h3>
+<div class="form-row" style="margin-top:12px">
+<input id="reg-node-id" placeholder="Node ID">
+<input id="reg-ip" placeholder="IP Address">
+<input id="reg-country" placeholder="Country (e.g. US)">
+<input id="reg-city" placeholder="City">
+</div>
+<div class="form-row">
+<input id="reg-isp" placeholder="ISP">
+<input id="reg-os" placeholder="OS">
+<select id="reg-type"><option value="datacenter">Datacenter</option><option value="residential">Residential</option></select>
+<button class="btn btn-primary" onclick="registerNode()">Register</button>
+<button class="btn" onclick="document.getElementById('register-form').style.display='none'">Cancel</button>
+</div>
+</div>
+<table>
+<thead><tr><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
+<tbody id="nodes-table"></tbody>
+</table>
+</div>
+
+<!-- Cooldowns -->
+<div id="cooldowns" class="section">
+<h2 style="font-size:1.2em;margin-bottom:16px">Domain Cooldowns</h2>
+<div id="cooldowns-list"></div>
+</div>
+
+<!-- Subnets -->
+<div id="subnets" class="section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h2 style="font-size:1.2em">Subnet Pools</h2>
+<button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
+</div>
+<div id="pool-form" style="display:none" class="card" style="margin-bottom:16px">
+<h3>Create Subnet Pool</h3>
+<div class="form-row" style="margin-top:12px">
+<input id="pool-prefix" placeholder="IPv6 Prefix (e.g. 2001:db8::)">
+<input id="pool-len" placeholder="Prefix Length (48-64)" type="number" min="48" max="64" value="48">
+<button class="btn btn-primary" onclick="createPool()">Create</button>
+<button class="btn" onclick="document.getElementById('pool-form').style.display='none'">Cancel</button>
+</div>
+</div>
+<div id="pools-list"></div>
+</div>
+</div>
+
+<script>
+const API='/api/admin';
+const SUBNET_API='/api/subnets';
+const ADMIN_KEY='test-admin-key';
+let refreshTimer;
+
+function headers(){return{'X-Admin-Key':ADMIN_KEY,'Content-Type':'application/json'}}
+
+function showSection(name){
+document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+document.getElementById(name).classList.add('active');
+document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+event.target.classList.add('active');
+if(name==='nodes')loadNodes();
+if(name==='cooldowns')loadCooldowns();
+if(name==='subnets')loadPools();
+}
+
+function toast(msg,type){
+const t=document.createElement('div');
+t.className='toast toast-'+type;
+t.textContent=msg;
+document.body.appendChild(t);
+setTimeout(()=>t.remove(),3000);
+}
+
+async function loadMetrics(){
+try{
+const r=await fetch('/metrics');
+const text=await r.text();
+document.getElementById('metrics-raw').textContent=text;
+const m={};
+text.split('\n').forEach(line=>{
+const match=line.match(/^proxymesh_(\w+)\s+(.+)$/);
+if(match)m[match[1]]=match[2];
+});
+document.getElementById('m-requests').textContent=m.requests_total||'0';
+const total=parseInt(m.requests_total)||0;
+const success=parseInt(m.requests_success)||0;
+const rate=total>0?((success/total)*100).toFixed(1)+'%':'--';
+document.getElementById('m-success-rate').textContent=rate;
+document.getElementById('m-sessions').textContent=m.active_sessions||'0';
+document.getElementById('m-latency').textContent=m.avg_latency_ms||'0';
+document.getElementById('m-nodes').textContent=m.nodes_selected||'0';
+document.getElementById('m-rate-limited').textContent=m.rate_limited||'0';
+document.getElementById('m-failed').textContent=m.requests_failed||'0';
+const uptime=parseFloat(m.uptime_seconds)||0;
+const hrs=Math.floor(uptime/3600);
+const mins=Math.floor((uptime%3600)/60);
+document.getElementById('m-uptime').textContent=hrs+'h '+mins+'m';
+}catch(e){console.error('Failed to load metrics:',e)}
+}
+
+async function loadNodes(){
+try{
+const r=await fetch(API+'/nodes',{headers:headers()});
+const data=await r.json();
+const tbody=document.getElementById('nodes-table');
+if(!data.nodes||data.nodes.length===0){
+tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">No nodes registered</td></tr>';
+return;
+}
+tbody.innerHTML=data.nodes.map(n=>{
+const node=n.node||{};
+const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
+const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
+return `<tr>
+<td><span class="status-dot dot-green"></span></td>
+<td><strong>${n.id}</strong></td>
+<td>${typeBadge}</td>
+<td>${node.country||'--'}</td>
+<td>${node.city||'--'}</td>
+<td>${node.isp||'--'}</td>
+<td>${lastSeen}</td>
+<td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
+</tr>`;
+}).join('');
+}catch(e){console.error('Failed to load nodes:',e)}
+}
+
+async function deregisterNode(id){
+if(!confirm('Deregister node '+id+'?'))return;
+try{
+const r=await fetch(API+'/nodes/'+id,{method:'DELETE',headers:headers()});
+const data=await r.json();
+if(data.status==='success'){toast('Node deregistered','success');loadNodes();}
+else toast(data.error||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
+function showRegisterForm(){document.getElementById('register-form').style.display='block'}
+
+async function registerNode(){
+const body={
+node_id:document.getElementById('reg-node-id').value,
+ip:document.getElementById('reg-ip').value,
+country:document.getElementById('reg-country').value,
+city:document.getElementById('reg-city').value,
+isp:document.getElementById('reg-isp').value,
+os:document.getElementById('reg-os').value,
+node_type:document.getElementById('reg-type').value
+};
+try{
+const r=await fetch(API+'/nodes',{method:'POST',headers:headers(),body:JSON.stringify(body)});
+const data=await r.json();
+if(data.status==='success'){toast('Node registered','success');document.getElementById('register-form').style.display='none';loadNodes();}
+else toast(data.error||data.message||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
+async function loadCooldowns(){
+try{
+const r=await fetch(API+'/cooldowns',{headers:headers()});
+const data=await r.json();
+const div=document.getElementById('cooldowns-list');
+if(!data.cooldowns||Object.keys(data.cooldowns).length===0){
+div.innerHTML='<div class="card"><p style="color:#8b949e">No active cooldowns</p></div>';
+return;
+}
+div.innerHTML=Object.entries(data.cooldowns).map(([target,nodes])=>`
+<div class="card" style="margin-bottom:12px">
+<h3 style="color:#58a6ff;font-size:1em;text-transform:none;letter-spacing:0">${target}</h3>
+<p style="color:#8b949e;font-size:0.85em;margin-top:4px">Nodes: ${nodes.join(', ')}</p>
+</div>`).join('');
+}catch(e){console.error('Failed to load cooldowns:',e)}
+}
+
+async function loadPools(){
+try{
+const r=await fetch(SUBNET_API+'/pools',{headers:headers()});
+const data=await r.json();
+const div=document.getElementById('pools-list');
+if(!data.pools||data.pools.length===0){
+div.innerHTML='<div class="card"><p style="color:#8b949e">No subnet pools configured</p></div>';
+return;
+}
+div.innerHTML=data.pools.map(p=>{
+const allocs=p.allocations||{};
+const rows=Object.entries(allocs).map(([nid,subnet])=>`<tr><td>${nid}</td><td>${subnet}</td></tr>`).join('');
+return `<div class="card" style="margin-bottom:12px">
+<h3>${p.prefix}/${p.prefix_len}</h3>
+<p style="color:#8b949e;font-size:0.85em">Allocated: ${p.allocated}</p>
+${rows?`<table><thead><tr><th>Node ID</th><th>Subnet</th></tr></thead><tbody>${rows}</tbody></table>`:''}
+</div>`;
+}).join('');
+}catch(e){console.error('Failed to load pools:',e)}
+}
+
+function showPoolForm(){document.getElementById('pool-form').style.display='block'}
+
+async function createPool(){
+const body={
+prefix:document.getElementById('pool-prefix').value,
+prefix_len:parseInt(document.getElementById('pool-len').value)
+};
+try{
+const r=await fetch(SUBNET_API+'/pools',{method:'POST',headers:headers(),body:JSON.stringify(body)});
+const data=await r.json();
+if(data.status==='success'){toast('Pool created','success');document.getElementById('pool-form').style.display='none';loadPools();}
+else toast(data.error||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
+function startAutoRefresh(){
+if(refreshTimer)clearInterval(refreshTimer);
+if(document.getElementById('autoRefresh').checked){
+refreshTimer=setInterval(()=>{
+loadMetrics();
+const activeSection=document.querySelector('.section.active');
+if(activeSection.id==='nodes')loadNodes();
+if(activeSection.id==='cooldowns')loadCooldowns();
+if(activeSection.id==='subnets')loadPools();
+},10000);
+}
+}
+
+document.getElementById('autoRefresh').addEventListener('change',startAutoRefresh);
+loadMetrics();
+startAutoRefresh();
+</script>
+</body>
+</html>

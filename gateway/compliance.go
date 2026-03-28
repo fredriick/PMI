@@ -28,16 +28,16 @@ func (c *ComplianceService) IsBlocked(target string) bool {
 
 	for _, blocked := range c.BlockedDomains {
 		blocked = strings.ToLower(blocked)
-		blocked = strings.TrimPrefix(blocked, "*.")
 
 		if strings.HasPrefix(blocked, "*.") {
-			suffix := strings.TrimPrefix(blocked, "*.")
-			if strings.HasSuffix(domain, suffix) {
+			suffix := blocked[1:] // ".bankofamerica.com"
+			if strings.HasSuffix(domain, suffix) || domain == suffix[1:] {
 				return true
 			}
+			continue
 		}
 
-		if domain == blocked || domain == "."+blocked {
+		if domain == blocked {
 			return true
 		}
 	}

@@ -127,7 +127,18 @@ func (r *RedisClient) GetNodeMeta(nodeID string) (*models.NodeMeta, error) {
 
 func (r *RedisClient) AddToCooldown(target string, nodeID string) error {
 	key := fmt.Sprintf("cooldown:%s", target)
-	return r.client.SAdd(r.ctx, key, nodeID).Err()
+	if err := r.client.SAdd(r.ctx, key, nodeID).Err(); err != nil {
+		return err
+	}
+	return r.client.Expire(r.ctx, key, 15*time.Minute).Err()
+}
+
+func (r *RedisClient) AddToCooldownWithTTL(target string, nodeID string, ttl time.Duration) error {
+	key := fmt.Sprintf("cooldown:%s", target)
+	if err := r.client.SAdd(r.ctx, key, nodeID).Err(); err != nil {
+		return err
+	}
+	return r.client.Expire(r.ctx, key, ttl).Err()
 }
 
 func (r *RedisClient) IsInCooldown(target string, nodeID string) (bool, error) {
@@ -140,8 +151,52 @@ func (r *RedisClient) RemoveFromCooldown(target string, nodeID string) error {
 	return r.client.SRem(r.ctx, key, nodeID).Err()
 }
 
+func (r *RedisClient) GetCooldownEntries() (map[string][]string, error) {
+	keys, err := r.client.Keys(r.ctx, "cooldown:*").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]string)
+	for _, key := range keys {
+		members, err := r.client.SMembers(r.ctx, key).Result()
+		if err != nil {
+			continue
+		}
+		target := key[len("cooldown:"):]
+		ttl, _ := r.client.TTL(r.ctx, key).Result()
+		label := fmt.Sprintf("%s (TTL: %s)", target, ttl)
+		result[label] = members
+	}
+	return result, nil
+}
+
+func (r *RedisClient) CleanupExpiredCooldowns() (int, error) {
+	keys, err := r.client.Keys(r.ctx, "cooldown:*").Result()
+	if err != nil {
+		return 0, err
+	}
+
+	cleaned := 0
+	for _, key := range keys {
+		ttl, err := r.client.TTL(r.ctx, key).Result()
+		if err != nil {
+			continue
+		}
+		if ttl == -1 {
+			r.client.Del(r.ctx, key)
+			cleaned++
+		}
+	}
+	return cleaned, nil
+}
+
 func (r *RedisClient) Close() error {
 	return r.client.Close()
+}
+
+func (r *RedisClient) Client() *redis.Client {
+	return r.client
 }
 
 func (r *RedisClient) UpdateNodeStatus(nodeID string, battery int, cpuUsage float64, isCharging bool) error {

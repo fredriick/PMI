@@ -3,6 +3,7 @@ package matchmaker
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"sync"
 	"time"
@@ -15,24 +16,55 @@ type Matchmaker struct {
 	circuitBreakers map[string]*models.CircuitBreaker
 	mu              sync.RWMutex
 	threshold       int
+	cooldownTTL     time.Duration
 	stopHealthCheck chan bool
+	stopCooldown    chan bool
 }
 
-func NewMatchmaker(redis *RedisClient, threshold int) *Matchmaker {
+func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int) *Matchmaker {
+	ttl := 15 * time.Minute
+	if cooldownTTLMinutes > 0 {
+		ttl = time.Duration(cooldownTTLMinutes) * time.Minute
+	}
+
 	mm := &Matchmaker{
 		redis:           redis,
 		circuitBreakers: make(map[string]*models.CircuitBreaker),
 		threshold:       threshold,
+		cooldownTTL:     ttl,
 		stopHealthCheck: make(chan bool),
+		stopCooldown:    make(chan bool),
 	}
 
 	go mm.healthCheckLoop()
+	go mm.cooldownCleanupLoop()
 
 	return mm
 }
 
 func (m *Matchmaker) StopHealthCheck() {
 	close(m.stopHealthCheck)
+}
+
+func (m *Matchmaker) StopCooldownCleanup() {
+	close(m.stopCooldown)
+}
+
+func (m *Matchmaker) cooldownCleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cleaned, err := m.redis.CleanupExpiredCooldowns()
+			if err == nil && cleaned > 0 {
+				log.Printf("Cleaned up %d expired cooldown entries", cleaned)
+			}
+		case <-m.stopCooldown:
+			return
+		}
+	}
 }
 
 func (m *Matchmaker) healthCheckLoop() {
@@ -223,7 +255,11 @@ func (m *Matchmaker) RecordSuccess(nodeID string) {
 }
 
 func (m *Matchmaker) AddToCooldown(target string, nodeID string) error {
-	return m.redis.AddToCooldown(target, nodeID)
+	return m.redis.AddToCooldownWithTTL(target, nodeID, m.cooldownTTL)
+}
+
+func (m *Matchmaker) GetCooldownEntries() (map[string][]string, error) {
+	return m.redis.GetCooldownEntries()
 }
 
 func (m *Matchmaker) RegisterNode(req *models.NodeRegistrationRequest) error {
@@ -275,6 +311,10 @@ func (m *Matchmaker) DeregisterNode(nodeID string) error {
 
 func (m *Matchmaker) GetNodeStatus(nodeID string) (*models.Node, error) {
 	return m.redis.GetNode(nodeID)
+}
+
+func (m *Matchmaker) GetAllNodes() ([]string, error) {
+	return m.redis.GetAllNodes()
 }
 
 func (m *Matchmaker) GetSessionNode(sessionID string) (string, error) {

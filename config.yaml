@@ -11,6 +11,7 @@ matchmaker:
   host: "localhost"
   port: 6379
   pool_size: 10
+  cooldown_ttl_minutes: 15
 
 redis:
   host: "localhost"
@@ -32,3 +33,8 @@ peer:
   min_battery_percent: 20
   max_cpu_percent: 80
   require_unmetered_wifi: true
+
+subnet:
+  enabled: true
+  prefix: "2001:db8::"
+  prefix_len: 48

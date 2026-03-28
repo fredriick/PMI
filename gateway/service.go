@@ -61,10 +61,17 @@ func (g *Gateway) setupRoutes() {
 	SetupMetricsRoutes(g.router)
 	g.router.Use(RequestLogger())
 	g.router.Use(g.rateLimiter.Middleware())
+
+	g.router.GET("/dashboard", g.serveDashboard)
+
 	g.router.Use(g.authMiddleware())
 	g.router.Use(g.tracingMiddleware())
 	g.router.Any("/:path", g.proxyHandler)
 	g.router.Any("/", g.proxyHandler)
+}
+
+func (g *Gateway) serveDashboard(c *gin.Context) {
+	c.File("web/index.html")
 }
 
 func (g *Gateway) authMiddleware() gin.HandlerFunc {
