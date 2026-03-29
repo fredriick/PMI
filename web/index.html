@@ -61,6 +61,7 @@ tr:hover{background:#161b22}
 <button onclick="showSection('nodes')">Nodes</button>
 <button onclick="showSection('cooldowns')">Cooldowns</button>
 <button onclick="showSection('subnets')">Subnets</button>
+<button onclick="showSection('sessions')">Sessions</button>
 </div>
 </div>
 </div>
@@ -134,6 +135,15 @@ tr:hover{background:#161b22}
 </div>
 <div id="pools-list"></div>
 </div>
+
+<!-- Sessions -->
+<div id="sessions" class="section">
+<h2 style="font-size:1.2em;margin-bottom:16px">Active Sessions</h2>
+<table>
+<thead><tr><th>Session ID</th><th>Node ID</th><th>TTL</th><th>Actions</th></tr></thead>
+<tbody id="sessions-table"></tbody>
+</table>
+</div>
 </div>
 
 <script>
@@ -152,6 +162,7 @@ event.target.classList.add('active');
 if(name==='nodes')loadNodes();
 if(name==='cooldowns')loadCooldowns();
 if(name==='subnets')loadPools();
+if(name==='sessions')loadSessions();
 }
 
 function toast(msg,type){
@@ -299,6 +310,34 @@ else toast(data.error||'Failed','error');
 }catch(e){toast('Request failed','error')}
 }
 
+async function loadSessions(){
+try{
+const r=await fetch(API+'/sessions',{headers:headers()});
+const data=await r.json();
+const tbody=document.getElementById('sessions-table');
+if(!data.sessions||data.sessions.length===0){
+tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:20px">No active sessions</td></tr>';
+return;
+}
+tbody.innerHTML=data.sessions.map(s=>`<tr>
+<td><strong>${s.session_id}</strong></td>
+<td>${s.node_id}</td>
+<td>${s.ttl}</td>
+<td><button class="btn btn-danger" onclick="deleteSession('${s.session_id}')">Delete</button></td>
+</tr>`).join('');
+}catch(e){console.error('Failed to load sessions:',e)}
+}
+
+async function deleteSession(id){
+if(!confirm('Delete session '+id+'?'))return;
+try{
+const r=await fetch(API+'/sessions/'+id,{method:'DELETE',headers:headers()});
+const data=await r.json();
+if(data.status==='success'){toast('Session deleted','success');loadSessions();}
+else toast(data.error||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
 function startAutoRefresh(){
 if(refreshTimer)clearInterval(refreshTimer);
 if(document.getElementById('autoRefresh').checked){
@@ -308,6 +347,7 @@ const activeSection=document.querySelector('.section.active');
 if(activeSection.id==='nodes')loadNodes();
 if(activeSection.id==='cooldowns')loadCooldowns();
 if(activeSection.id==='subnets')loadPools();
+if(activeSection.id==='sessions')loadSessions();
 },10000);
 }
 }

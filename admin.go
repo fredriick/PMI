@@ -25,6 +25,8 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/nodes/:id", getNodeHandler(mm))
 		admin.GET("/nodes", listNodesHandler(mm))
 		admin.GET("/cooldowns", listCooldownsHandler(mm))
+		admin.GET("/sessions", listSessionsHandler(mm))
+		admin.DELETE("/sessions/:id", deleteSessionHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
@@ -206,6 +208,43 @@ func listCooldownsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":    "success",
 			"cooldowns": entries,
+		})
+	}
+}
+
+func listSessionsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessions, err := mm.ListSessions()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to list sessions: " + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "success",
+			"count":    len(sessions),
+			"sessions": sessions,
+		})
+	}
+}
+
+func deleteSessionHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+
+		if err := mm.DeleteSession(sessionID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":     "success",
+			"session_id": sessionID,
+			"message":    "Session deleted",
 		})
 	}
 }

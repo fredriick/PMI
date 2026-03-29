@@ -410,3 +410,31 @@ func (r *RedisClient) GetAllNodes() ([]string, error) {
 
 	return nodes, nil
 }
+
+func (r *RedisClient) ListSessions() ([]map[string]string, error) {
+	keys, err := r.client.Keys(r.ctx, "session:*").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var sessions []map[string]string
+	for _, key := range keys {
+		nodeID, err := r.client.Get(r.ctx, key).Result()
+		if err != nil {
+			continue
+		}
+		ttl, _ := r.client.TTL(r.ctx, key).Result()
+		sessionID := key[len("session:"):]
+		sessions = append(sessions, map[string]string{
+			"session_id": sessionID,
+			"node_id":    nodeID,
+			"ttl":        ttl.String(),
+		})
+	}
+	return sessions, nil
+}
+
+func (r *RedisClient) DeleteSession(sessionID string) error {
+	key := fmt.Sprintf("session:%s", sessionID)
+	return r.client.Del(r.ctx, key).Err()
+}

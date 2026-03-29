@@ -26,6 +26,7 @@ ProxyMeshProject/
 │   ├── apikey.go            # SHA-256 hashed API key service
 │   ├── connpool.go          # TCP connection pool for exit nodes
 │   ├── audit.go             # Audit logging for admin actions
+│   ├── geoip.go             # GeoIP country detection from IP ranges
 │   ├── metrics.go           # Prometheus metrics endpoint
 │   ├── logger.go            # Structured JSON logging
 │   ├── tracing.go           # OpenTelemetry tracing
@@ -176,6 +177,8 @@ All admin endpoints require the `X-Admin-Key` header.
 | POST | `/api/admin/nodes/:id/heartbeat` | Send heartbeat |
 | DELETE | `/api/admin/nodes/:id` | Deregister a node |
 | GET | `/api/admin/cooldowns` | List active cooldowns |
+| GET | `/api/admin/sessions` | List active sessions |
+| DELETE | `/api/admin/sessions/:id` | Delete a session |
 | GET | `/api/admin/audit` | Query audit log entries |
 
 ### API Key Management
@@ -325,6 +328,7 @@ go build ./...       # Build all packages
 - **Circuit Breaker** - Per-node failure tracking with automatic recovery
 - **Health Monitoring** - Background node health checks every 30s
 - **Geographic Routing** - Country and city-level node selection
+- **GeoIP Auto-Detection** - Automatically detects node country from IP on registration
 - **Weighted Node Selection** - Combines reputation score and load for optimal routing
 - **IPv6 Subnet Allocation** - Pool-based /64 subnet assignment for datacenter nodes
 - **Cooldown Management** - Domain-specific node cooldowns with auto-expiration

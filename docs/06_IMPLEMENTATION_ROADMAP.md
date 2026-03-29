@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 5 Complete ✓
+## Status: Phase 6 Complete ✓
 
 ---
 
@@ -74,19 +74,20 @@
 - [x] **WebSocket Proxy Support** - Detects `Upgrade: websocket` header, hijacks HTTP connection, establishes CONNECT tunnel to node, bidirectional byte copying with 32KB buffers
 - [x] **Real System Metrics** - Peer SDK reads actual battery from `/sys/class/power_supply/BAT0`, CPU from `/proc/stat` with 500ms sample, IP from `net.InterfaceAddrs`, charging status from sysfs
 
+### Phase 6 Additions
+- [x] **GeoIP Auto-Detection** - `GeoIPService` with built-in IP-to-country range table, CSV database loader, automatic country detection on node registration when country field is empty
+- [x] **Automatic Reconnection** - Peer SDK `Disconnect()`/`TriggerReconnect()` with exponential backoff (1s to 5min max), reconnection goroutine checks eligibility before reconnecting
+- [x] **Session Management** - `GET /api/admin/sessions` and `DELETE /api/admin/sessions/:id` endpoints, `ListSessions`/`DeleteSession` on RedisClient, Sessions tab in web dashboard with TTL display
+- [x] **57 Total Tests** - 5 new tests (GeoIP lookup, invalid IP, CSV load failure, GeoIP auto-detect, session validation)
+
 ---
 
 ## Pending
 
-### Gateway Features
-- [ ] **Sticky Session Expiration UI** - Dashboard controls for session TTL
-
 ### Matchmaker Features
-- [ ] **GeoIP Database Integration** - Automatic country/city detection from IP
 - [ ] **Node Capacity Planning** - Predictive scaling based on traffic patterns
 
 ### Peer SDK Features
-- [ ] **Automatic Reconnection** - Exponential backoff on disconnect
 - [ ] **Multi-platform Support** - Windows, macOS native agents (Linux implemented)
 
 ---

@@ -3,6 +3,7 @@ package peersdk
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type PeerSDK struct {
 	isConnected bool
 	mu          sync.RWMutex
 	statusCh    chan NodeStatus
+	reconnCh    chan struct{}
 }
 
 type NodeStatus struct {
@@ -44,6 +46,7 @@ func NewPeerSDK(config *PeerConfig) *PeerSDK {
 		ctx:      ctx,
 		cancel:   cancel,
 		statusCh: make(chan NodeStatus, 10),
+		reconnCh: make(chan struct{}, 1),
 	}
 }
 
@@ -66,8 +69,63 @@ func (p *PeerSDK) Start() error {
 
 	p.isConnected = true
 	p.startHealthMonitor()
+	p.startReconnector()
 
 	return nil
+}
+
+func (p *PeerSDK) Disconnect() {
+	p.mu.Lock()
+	p.isConnected = false
+	p.mu.Unlock()
+}
+
+func (p *PeerSDK) TriggerReconnect() {
+	select {
+	case p.reconnCh <- struct{}{}:
+	default:
+	}
+}
+
+func (p *PeerSDK) startReconnector() {
+	go func() {
+		backoff := time.Second
+		maxBackoff := 5 * time.Minute
+
+		for {
+			select {
+			case <-p.ctx.Done():
+				return
+			case <-p.reconnCh:
+				p.mu.RLock()
+				connected := p.isConnected
+				p.mu.RUnlock()
+
+				if connected {
+					continue
+				}
+
+				log.Printf("Attempting reconnection (backoff: %s)...", backoff)
+				time.Sleep(backoff)
+
+				if p.checkEligibility() {
+					p.mu.Lock()
+					p.isConnected = true
+					p.node.LastSeen = time.Now()
+					p.mu.Unlock()
+					log.Println("Reconnected successfully")
+					backoff = time.Second
+				} else {
+					backoff *= 2
+					if backoff > maxBackoff {
+						backoff = maxBackoff
+					}
+					log.Printf("Reconnection failed, next backoff: %s", backoff)
+					p.TriggerReconnect()
+				}
+			}
+		}
+	}()
 }
 
 func (p *PeerSDK) checkEligibility() bool {

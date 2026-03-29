@@ -17,11 +17,12 @@ type Matchmaker struct {
 	mu              sync.RWMutex
 	threshold       int
 	cooldownTTL     time.Duration
+	geoipFunc       func(string) string
 	stopHealthCheck chan bool
 	stopCooldown    chan bool
 }
 
-func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int) *Matchmaker {
+func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int, geoipLookup func(string) string) *Matchmaker {
 	ttl := 15 * time.Minute
 	if cooldownTTLMinutes > 0 {
 		ttl = time.Duration(cooldownTTLMinutes) * time.Minute
@@ -32,6 +33,7 @@ func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int) *M
 		circuitBreakers: make(map[string]*models.CircuitBreaker),
 		threshold:       threshold,
 		cooldownTTL:     ttl,
+		geoipFunc:       geoipLookup,
 		stopHealthCheck: make(chan bool),
 		stopCooldown:    make(chan bool),
 	}
@@ -269,11 +271,15 @@ func (m *Matchmaker) RegisterNode(req *models.NodeRegistrationRequest) error {
 	if req.NodeID == "" {
 		return fmt.Errorf("node_id is required")
 	}
-	if req.Country == "" {
-		return fmt.Errorf("country is required")
-	}
 	if req.IP == "" {
 		return fmt.Errorf("ip is required")
+	}
+
+	if req.Country == "" && m.geoipFunc != nil {
+		req.Country = m.geoipFunc(req.IP)
+	}
+	if req.Country == "" {
+		return fmt.Errorf("country is required (could not auto-detect from IP)")
 	}
 
 	node := &models.Node{
@@ -340,4 +346,12 @@ func (m *Matchmaker) DecrementNodeLoad(nodeID string) error {
 
 func (m *Matchmaker) RecordBandwidth(nodeID string, bytesSent, bytesReceived, durationSeconds int64) error {
 	return m.redis.RecordBandwidth(nodeID, bytesSent, bytesReceived, durationSeconds)
+}
+
+func (m *Matchmaker) ListSessions() ([]map[string]string, error) {
+	return m.redis.ListSessions()
+}
+
+func (m *Matchmaker) DeleteSession(sessionID string) error {
+	return m.redis.DeleteSession(sessionID)
 }

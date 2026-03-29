@@ -135,7 +135,7 @@ func TestRegisterNode_Validation(t *testing.T) {
 		wantErr bool
 	}{
 		{"empty node_id", &models.NodeRegistrationRequest{Country: "US", IP: "1.2.3.4"}, true},
-		{"empty country", &models.NodeRegistrationRequest{NodeID: "n1", IP: "1.2.3.4"}, true},
+		{"empty country no geoip", &models.NodeRegistrationRequest{NodeID: "n1", IP: "1.2.3.4"}, true},
 		{"empty ip", &models.NodeRegistrationRequest{NodeID: "n1", Country: "US"}, true},
 	}
 
@@ -146,6 +146,30 @@ func TestRegisterNode_Validation(t *testing.T) {
 				t.Errorf("RegisterNode() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestRegisterNode_GeoIPAutoDetect(t *testing.T) {
+	called := false
+	mm := &Matchmaker{
+		geoipFunc: func(ip string) string {
+			called = true
+			return "DE"
+		},
+	}
+
+	req := &models.NodeRegistrationRequest{
+		NodeID: "n1",
+		IP:     "85.1.2.3",
+	}
+
+	func() {
+		defer func() { recover() }()
+		mm.RegisterNode(req)
+	}()
+
+	if !called {
+		t.Error("GeoIP function should have been called when country is empty")
 	}
 }
 
