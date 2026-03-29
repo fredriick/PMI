@@ -2,6 +2,7 @@ package matchmaker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -437,4 +438,35 @@ func (r *RedisClient) ListSessions() ([]map[string]string, error) {
 func (r *RedisClient) DeleteSession(sessionID string) error {
 	key := fmt.Sprintf("session:%s", sessionID)
 	return r.client.Del(r.ctx, key).Err()
+}
+
+func (r *RedisClient) StoreBandwidthSnapshot(nodeID string, snapshot interface{}) error {
+	key := fmt.Sprintf("bw_snapshots:%s", nodeID)
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+
+	pipe := r.client.Pipeline()
+	pipe.RPush(r.ctx, key, string(data))
+	pipe.LTrim(r.ctx, key, -48, -1)
+	_, err = pipe.Exec(r.ctx)
+	return err
+}
+
+func (r *RedisClient) GetBandwidthSnapshots(nodeID string, count int64) ([]BandwidthSnapshot, error) {
+	key := fmt.Sprintf("bw_snapshots:%s", nodeID)
+	data, err := r.client.LRange(r.ctx, key, -count, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var snapshots []BandwidthSnapshot
+	for _, d := range data {
+		var s BandwidthSnapshot
+		if err := json.Unmarshal([]byte(d), &s); err == nil {
+			snapshots = append(snapshots, s)
+		}
+	}
+	return snapshots, nil
 }

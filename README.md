@@ -184,6 +184,7 @@ All admin endpoints require the `X-Admin-Key` header.
 | GET | `/api/admin/sessions` | List active sessions |
 | DELETE | `/api/admin/sessions/:id` | Delete a session |
 | GET | `/api/admin/capacity` | Node capacity report |
+| GET | `/api/admin/scaling` | Scaling recommendations |
 | GET | `/api/admin/audit` | Query audit log entries |
 
 ### API Key Management
@@ -303,7 +304,7 @@ go test ./matchmaker/... -v   # Run matchmaker tests only
 go test ./... -cover          # Run with coverage
 ```
 
-52 tests across 5 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, and integration flows.
+62 tests across 7 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, and integration flows.
 
 ## Development
 
@@ -346,6 +347,7 @@ go build ./...       # Build all packages
 - **Real System Metrics** - Peer SDK reads actual battery, CPU, WiFi, IP from system
 - **Multi-platform Support** - Linux (/sys, /proc), macOS (pmset, top), Windows (WMIC)
 - **Node Capacity Planning** - Bandwidth trend analysis, utilization reporting, capacity alerts
+- **Predictive Scaling** - Automatic scaling recommendations based on traffic growth rates
 
 ## Requirements
 

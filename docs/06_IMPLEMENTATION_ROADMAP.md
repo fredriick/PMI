@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 7 Complete ✓
+## Status: Complete ✓
 
 ---
 
@@ -85,15 +85,14 @@
 - [x] **Multi-platform Peer SDK Metrics** - Platform-specific implementations via build tags: Linux (`/sys`, `/proc/stat`), macOS (`pmset`, `top`), Windows (`WMIC`), default fallback for unsupported platforms
 - [x] **Dashboard Capacity Tab** - Node capacity report with total/healthy/warning/critical counts, per-node GB/day, GB/week, utilization %, load
 
+### Phase 8 Additions (Final)
+- [x] **Predictive Scaling** - `GetScalingRecommendations` analyzes fleet capacity and suggests scale_up/scale_down/prepare_scale actions based on critical/warning node counts and average utilization, with urgency levels and confidence scores
+- [x] **Bandwidth Trend Tracking** - `StoreBandwidthSnapshot`/`GetBandwidthSnapshots` stores time-windowed bandwidth data in Redis (capped at 48 entries), `calculateGrowthRate` computes growth % from snapshots
+- [x] **62 Total Tests** - 5 new capacity planner tests (growth rate, critical scaling, all healthy, high utilization, snapshot fields)
+
 ---
 
-## Pending
-
-### Matchmaker Features
-- [ ] **Predictive Scaling** - Auto-suggest scaling based on traffic trend projections
-
-### Peer SDK Features
-- [ ] **iOS/Android Support** - Mobile platform metrics via native bindings
+## All roadmap items complete. See Ideas/Backlog for future work.
 
 ---
 

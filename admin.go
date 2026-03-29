@@ -28,6 +28,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/sessions", listSessionsHandler(mm))
 		admin.DELETE("/sessions/:id", deleteSessionHandler(mm))
 		admin.GET("/capacity", capacityReportHandler(mm))
+		admin.GET("/scaling", scalingRecommendationsHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
@@ -254,6 +255,19 @@ func capacityReportHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cp := matchmaker.NewCapacityPlanner(mm.GetRedis())
 		report, err := cp.GenerateReport()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, report)
+	}
+}
+
+func scalingRecommendationsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		cp := matchmaker.NewCapacityPlanner(mm.GetRedis())
+		report, err := cp.GetScalingRecommendations()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
