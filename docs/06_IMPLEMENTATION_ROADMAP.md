@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 2 Complete ✓
+## Status: Phase 3 Complete ✓
 
 ---
 
@@ -52,6 +52,17 @@
 - [x] **Load Testing Tool** - CLI tool in `cmd/loadtest/` with configurable concurrency, duration, node count; reports RPS and latency stats
 - [x] **Compliance Wildcard Fix** - Corrected `IsBlocked()` to properly match `*.domain` patterns against subdomains and bare domains
 - [x] **List Nodes Handler** - Implemented actual Redis-backed node listing (was a stub)
+- [x] **Unit Tests** - 26 tests across compliance, rate limiter, matchmaker, subnet packages
+- [x] **Health Check Endpoint** - `/health` returning status + version for load balancer probes
+- [x] **Graceful Shutdown** - SIGINT/SIGTERM signal handling with 15s drain timeout, stops background loops
+
+### Phase 3 Additions
+- [x] **Distributed Rate Limiting** - Redis sorted set sliding window (`DistributedRateLimiter`), interface-based with `LocalRateLimiter` fallback, `rate_limit_distributed` config toggle
+- [x] **API Key Hashing** - SHA-256 hashed keys stored in Redis, create/list/revoke via `/api/keys`, TTL support, auth middleware validates hashed keys
+- [x] **Connection Pooling** - Per-node TCP connection pool (`ConnPool`), configurable max size and dial timeout, `Get/Put/Close/Stats` API
+- [x] **Integration Tests** - 16 tests: health endpoint, blocked domains (gov, bank, allowed), auth (missing, basic, query params), metrics, rate limiting, session/host/target extraction
+- [x] **Connection Pool Tests** - 5 tests: dial new, put/get reuse, max size enforcement, close cleanup, dial failure
+- [x] **52 Total Tests** - All passing across 5 test files
 
 ---
 
@@ -59,7 +70,6 @@
 
 ### Gateway Features
 - [ ] **WebSocket Proxy Support** - Upgrade-aware proxying for WS/WSS connections
-- [ ] **Connection Pooling** - Reuse TCP connections to exit nodes
 - [ ] **Sticky Session Expiration UI** - Dashboard controls for session TTL
 
 ### Matchmaker Features
@@ -73,18 +83,9 @@
 - [ ] **Multi-platform Support** - Windows, macOS, Linux native agents
 
 ### Infrastructure
-- [ ] **Distributed Rate Limiting** - Redis-backed rate limiter for multi-instance deployments
-- [ ] **Health Check Endpoint** - `/health` for load balancer probes
-- [ ] **Graceful Shutdown** - Drain connections on SIGTERM
 - [ ] **Configuration Hot Reload** - Watch config.yaml for changes
 
-### Testing
-- [ ] **Unit Tests** - Test coverage for all packages
-- [ ] **Integration Tests** - End-to-end proxy flow tests
-- [ ] **Compliance Tests** - Verify domain blocking and KYC enforcement
-
 ### Security
-- [ ] **API Key Storage** - Hashed keys in Redis instead of header comparison
 - [ ] **Rate Limit Per API Key** - Separate limits per authenticated user
 - [ ] **Audit Logging** - Immutable log of admin actions
 

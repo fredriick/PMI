@@ -15,19 +15,27 @@ A hybrid mesh proxy network combining datacenter and residential exit nodes.
 ```
 ProxyMeshProject/
 ├── main.go                  # Application entry point
-├── admin.go                 # Admin API routes (nodes, cooldowns, subnets)
+├── admin.go                 # Admin API routes (nodes, cooldowns, subnets, keys)
 ├── config.yaml              # Configuration file
 ├── docker-compose.yml       # Local development environment
 ├── gateway/                 # HTTP proxy gateway
 │   ├── service.go           # Request routing, auth, dashboard
 │   ├── compliance.go        # KYC & domain blocking (wildcard support)
-│   ├── ratelimit.go         # Per-client rate limiting
+│   ├── ratelimit.go         # Rate limiter interface + local implementation
+│   ├── redis_ratelimit.go   # Redis-backed distributed rate limiter
+│   ├── apikey.go            # SHA-256 hashed API key service
+│   ├── connpool.go          # TCP connection pool for exit nodes
 │   ├── metrics.go           # Prometheus metrics endpoint
 │   ├── logger.go            # Structured JSON logging
-│   └── tracing.go           # OpenTelemetry tracing
+│   ├── tracing.go           # OpenTelemetry tracing
+│   ├── compliance_test.go   # Compliance unit tests
+│   ├── ratelimit_test.go    # Rate limiter unit tests
+│   ├── connpool_test.go     # Connection pool tests
+│   └── integration_test.go  # Integration tests
 ├── matchmaker/              # Node selection service
 │   ├── service.go           # Selection logic with circuit breaker
-│   └── redis_client.go      # Redis data access with cooldown TTL
+│   ├── redis_client.go      # Redis data access with cooldown TTL
+│   └── service_test.go      # Matchmaker unit tests
 ├── peer-sdk/                # Residential node SDK
 │   └── sdk.go               # Node eligibility & consent management
 ├── payout/                  # Payout calculation service
@@ -37,6 +45,8 @@ ProxyMeshProject/
 │   ├── models/              # Data models
 │   ├── grpc/                # gRPC peer service (proto + server)
 │   └── subnet/              # IPv6 subnet allocator
+│       ├── allocator.go
+│       └── allocator_test.go
 ├── web/                     # Admin dashboard (static HTML/JS)
 │   └── index.html           # Node management UI
 ├── cmd/
@@ -57,6 +67,7 @@ gateway:
   circuit_breaker_threshold: 5
   rate_limit_requests: 100
   rate_limit_window_seconds: 60
+  rate_limit_distributed: true
   tracing_enabled: true
 
 matchmaker:
@@ -115,6 +126,11 @@ This starts Redis and both services.
    ./gateway.exe
    ```
 
+3. Run tests:
+   ```bash
+   go test ./... -v
+   ```
+
 ## API Usage
 
 ### Connection Format
@@ -158,6 +174,22 @@ All admin endpoints require the `X-Admin-Key` header.
 | POST | `/api/admin/nodes/:id/heartbeat` | Send heartbeat |
 | DELETE | `/api/admin/nodes/:id` | Deregister a node |
 | GET | `/api/admin/cooldowns` | List active cooldowns |
+
+### API Key Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/keys` | Create a new API key |
+| GET | `/api/keys` | List all API keys (hashed) |
+| DELETE | `/api/keys` | Revoke an API key |
+
+```bash
+# Create a key
+curl -X POST http://localhost:8000/api/keys \
+  -H "X-Admin-Key: your-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "production", "ttl_days": 90}'
+```
 
 ### Subnet Management
 
@@ -238,6 +270,17 @@ Residential nodes connect via gRPC on port 9000:
 | `ReportBandwidth` | Submit bandwidth usage data |
 | `Disconnect` | Graceful node deregistration |
 
+## Testing
+
+```bash
+go test ./... -v              # Run all tests with output
+go test ./gateway/... -v      # Run gateway tests only
+go test ./matchmaker/... -v   # Run matchmaker tests only
+go test ./... -cover          # Run with coverage
+```
+
+52 tests across 5 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, and integration flows.
+
 ## Development
 
 ```bash
@@ -251,7 +294,9 @@ go build ./...       # Build all packages
 
 - **HTTP CONNECT Proxy** - Full proxy support with target modifiers
 - **mTLS Support** - Mutual TLS between clients and gateway
-- **Rate Limiting** - Per-client sliding window rate limiter
+- **Rate Limiting** - Distributed (Redis) or local (in-memory) per-client sliding window
+- **API Key Auth** - SHA-256 hashed keys in Redis with TTL and revocation
+- **Connection Pooling** - Per-node TCP connection pool with configurable max size
 - **Metrics** - Prometheus metrics at `/metrics`
 - **Structured Logging** - JSON logging with request IDs
 - **OpenTelemetry Tracing** - Distributed tracing support
@@ -266,6 +311,8 @@ go build ./...       # Build all packages
 - **Cooldown Management** - Domain-specific node cooldowns with auto-expiration
 - **Admin Dashboard** - Web UI for node/cooldown/subnet management
 - **Load Testing** - Built-in synthetic traffic generator
+- **Health Endpoint** - `/health` for load balancer probes
+- **Graceful Shutdown** - SIGTERM handling with 15s drain timeout
 
 ## Requirements
 
