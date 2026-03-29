@@ -113,6 +113,36 @@ func (s *APIKeyService) ListKeys() ([]map[string]string, error) {
 	return result, nil
 }
 
+// SetKeyRateLimit sets a per-key rate limit (requests per window).
+func (s *APIKeyService) SetKeyRateLimit(rawKey string, requests int, windowSeconds int) error {
+	hash := hashKey(rawKey)
+	rlKey := fmt.Sprintf("apikey_rl:%s", hash)
+	return s.client.HSet(s.ctx, rlKey, map[string]interface{}{
+		"requests": requests,
+		"window":   windowSeconds,
+	}).Err()
+}
+
+// GetKeyRateLimit returns the per-key rate limit. Returns 0,0 if not set.
+func (s *APIKeyService) GetKeyRateLimit(rawKey string) (int, int, error) {
+	hash := hashKey(rawKey)
+	rlKey := fmt.Sprintf("apikey_rl:%s", hash)
+	data, err := s.client.HGetAll(s.ctx, rlKey).Result()
+	if err != nil || len(data) == 0 {
+		return 0, 0, err
+	}
+
+	var requests, window int
+	fmt.Sscanf(data["requests"], "%d", &requests)
+	fmt.Sscanf(data["window"], "%d", &window)
+	return requests, window, nil
+}
+
+// GetKeyHash returns the hash of a raw API key.
+func (s *APIKeyService) GetKeyHash(rawKey string) string {
+	return hashKey(rawKey)
+}
+
 func hashKey(key string) string {
 	h := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(h[:])

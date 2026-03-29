@@ -61,7 +61,22 @@ func main() {
 	apiKeyService := gateway.NewAPIKeyService(redisClient.Client())
 	gw.SetAPIKeyService(apiKeyService)
 
-	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService)
+	auditLogger, err := gateway.NewAuditLogger("audit.log", redisClient.Client())
+	if err != nil {
+		log.Printf("Warning: failed to create audit logger: %v", err)
+	} else {
+		defer auditLogger.Close()
+		log.Printf("Audit logging enabled")
+	}
+
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger)
+
+	config.OnChange(func(newCfg *config.Config) {
+		gw.ReloadCompliance(&newCfg.Compliance)
+		log.Printf("Compliance config reloaded: %d blocked domains", len(newCfg.Compliance.BlockedDomains))
+	})
+
+	config.Watch()
 
 	server, err := gw.StartServer()
 	if err != nil {

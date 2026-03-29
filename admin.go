@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"proxymesh/gateway"
@@ -10,9 +12,12 @@ import (
 	"proxymesh/matchmaker"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
+	if auditLog != nil {
+		admin.Use(auditLog.AuditMiddleware())
+	}
 	{
 		admin.POST("/nodes", registerNodeHandler(mm))
 		admin.POST("/nodes/:id/heartbeat", heartbeatHandler(mm))
@@ -20,6 +25,9 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/nodes/:id", getNodeHandler(mm))
 		admin.GET("/nodes", listNodesHandler(mm))
 		admin.GET("/cooldowns", listCooldownsHandler(mm))
+		if auditLog != nil {
+			admin.GET("/audit", listAuditEntriesHandler(auditLog))
+		}
 	}
 
 	if apiKeySvc != nil {
@@ -29,6 +37,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 			keys.POST("", createAPIKeyHandler(apiKeySvc))
 			keys.GET("", listAPIKeysHandler(apiKeySvc))
 			keys.DELETE("", revokeAPIKeyHandler(apiKeySvc))
+			keys.POST("/ratelimit", setKeyRateLimitHandler(apiKeySvc))
 		}
 	}
 
@@ -364,6 +373,57 @@ func revokeAPIKeyHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "success",
 			"message": "API key revoked",
+		})
+	}
+}
+
+func setKeyRateLimitHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Key           string `json:"key" binding:"required"`
+			Requests      int    `json:"requests" binding:"required"`
+			WindowSeconds int    `json:"window_seconds" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := svc.SetKeyRateLimit(req.Key, req.Requests, req.WindowSeconds); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": fmt.Sprintf("Rate limit set: %d requests per %d seconds", req.Requests, req.WindowSeconds),
+		})
+	}
+}
+
+func listAuditEntriesHandler(al *gateway.AuditLogger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		date := c.Query("date")
+		if date == "" {
+			date = time.Now().Format("2006-01-02")
+		}
+		action := c.Query("action")
+		limit := int64(100)
+		if l := c.Query("limit"); l != "" {
+			fmt.Sscanf(l, "%d", &limit)
+		}
+
+		entries, err := al.GetEntries(date, action, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"date":    date,
+			"count":   len(entries),
+			"entries": entries,
 		})
 	}
 }

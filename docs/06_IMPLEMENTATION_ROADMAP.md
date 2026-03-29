@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 3 Complete ✓
+## Status: Phase 4 Complete ✓
 
 ---
 
@@ -64,6 +64,11 @@
 - [x] **Connection Pool Tests** - 5 tests: dial new, put/get reuse, max size enforcement, close cleanup, dial failure
 - [x] **52 Total Tests** - All passing across 5 test files
 
+### Phase 4 Additions
+- [x] **Configuration Hot Reload** - Viper `WatchConfig` with fsnotify, subscriber callback pattern via `config.OnChange()`, compliance service auto-reloads on config change
+- [x] **Per-Key Rate Limiting** - `SetKeyRateLimit`/`GetKeyRateLimit` on APIKeyService, admin endpoint `POST /api/keys/ratelimit`, configurable requests-per-window per key
+- [x] **Audit Logging** - `AuditLogger` writes structured JSON to file + Redis lists, `GET /api/admin/audit?date=&action=&limit=`, middleware auto-logs non-GET admin requests
+
 ---
 
 ## Pending
@@ -81,13 +86,6 @@
 - [ ] **Real System Metrics** - Actual battery/CPU/WiFi detection (currently stubbed)
 - [ ] **Automatic Reconnection** - Exponential backoff on disconnect
 - [ ] **Multi-platform Support** - Windows, macOS, Linux native agents
-
-### Infrastructure
-- [ ] **Configuration Hot Reload** - Watch config.yaml for changes
-
-### Security
-- [ ] **Rate Limit Per API Key** - Separate limits per authenticated user
-- [ ] **Audit Logging** - Immutable log of admin actions
 
 ---
 

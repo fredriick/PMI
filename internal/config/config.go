@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
@@ -62,8 +64,10 @@ type SubnetConfig struct {
 }
 
 var (
-	cfg  *Config
-	once sync.Once
+	cfg         *Config
+	once        sync.Once
+	mu          sync.RWMutex
+	subscribers []func(*Config)
 )
 
 func Load(path string) (*Config, error) {
@@ -89,5 +93,40 @@ func Load(path string) (*Config, error) {
 }
 
 func Get() *Config {
+	mu.RLock()
+	defer mu.RUnlock()
 	return cfg
+}
+
+// OnChange registers a callback that fires when config changes.
+func OnChange(fn func(*Config)) {
+	mu.Lock()
+	defer mu.Unlock()
+	subscribers = append(subscribers, fn)
+}
+
+// Watch starts watching the config file for changes and reloads automatically.
+func Watch() {
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		log.Printf("Config file changed: %s", e.Name)
+
+		newCfg := &Config{}
+		if err := viper.Unmarshal(newCfg); err != nil {
+			log.Printf("Failed to reload config: %v", err)
+			return
+		}
+
+		mu.Lock()
+		cfg = newCfg
+		subs := make([]func(*Config), len(subscribers))
+		copy(subs, subscribers)
+		mu.Unlock()
+
+		for _, fn := range subs {
+			fn(newCfg)
+		}
+
+		log.Println("Config reloaded successfully")
+	})
 }

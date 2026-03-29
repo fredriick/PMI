@@ -25,6 +25,7 @@ ProxyMeshProject/
 │   ├── redis_ratelimit.go   # Redis-backed distributed rate limiter
 │   ├── apikey.go            # SHA-256 hashed API key service
 │   ├── connpool.go          # TCP connection pool for exit nodes
+│   ├── audit.go             # Audit logging for admin actions
 │   ├── metrics.go           # Prometheus metrics endpoint
 │   ├── logger.go            # Structured JSON logging
 │   ├── tracing.go           # OpenTelemetry tracing
@@ -174,6 +175,7 @@ All admin endpoints require the `X-Admin-Key` header.
 | POST | `/api/admin/nodes/:id/heartbeat` | Send heartbeat |
 | DELETE | `/api/admin/nodes/:id` | Deregister a node |
 | GET | `/api/admin/cooldowns` | List active cooldowns |
+| GET | `/api/admin/audit` | Query audit log entries |
 
 ### API Key Management
 
@@ -182,6 +184,7 @@ All admin endpoints require the `X-Admin-Key` header.
 | POST | `/api/keys` | Create a new API key |
 | GET | `/api/keys` | List all API keys (hashed) |
 | DELETE | `/api/keys` | Revoke an API key |
+| POST | `/api/keys/ratelimit` | Set per-key rate limit |
 
 ```bash
 # Create a key
@@ -189,6 +192,16 @@ curl -X POST http://localhost:8000/api/keys \
   -H "X-Admin-Key: your-admin-key" \
   -H "Content-Type: application/json" \
   -d '{"name": "production", "ttl_days": 90}'
+
+# Set per-key rate limit (500 requests per 60 seconds)
+curl -X POST http://localhost:8000/api/keys/ratelimit \
+  -H "X-Admin-Key: your-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "the-api-key", "requests": 500, "window_seconds": 60}'
+
+# Query audit log for today
+curl http://localhost:8000/api/admin/audit?date=2026-03-29&limit=50 \
+  -H "X-Admin-Key: your-admin-key"
 ```
 
 ### Subnet Management
@@ -295,8 +308,11 @@ go build ./...       # Build all packages
 - **HTTP CONNECT Proxy** - Full proxy support with target modifiers
 - **mTLS Support** - Mutual TLS between clients and gateway
 - **Rate Limiting** - Distributed (Redis) or local (in-memory) per-client sliding window
+- **Per-Key Rate Limiting** - Configurable rate limits per API key
 - **API Key Auth** - SHA-256 hashed keys in Redis with TTL and revocation
 - **Connection Pooling** - Per-node TCP connection pool with configurable max size
+- **Config Hot Reload** - Automatic config.yaml reload on file changes (fsnotify)
+- **Audit Logging** - Structured audit trail of admin actions to file and Redis
 - **Metrics** - Prometheus metrics at `/metrics`
 - **Structured Logging** - JSON logging with request IDs
 - **OpenTelemetry Tracing** - Distributed tracing support

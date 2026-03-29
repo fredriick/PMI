@@ -41,6 +41,12 @@ func (g *Gateway) SetAPIKeyService(svc *APIKeyService) {
 	g.apiKeyService = svc
 }
 
+func (g *Gateway) ReloadCompliance(cfg *config.ComplianceConfig) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.compliance = NewComplianceService(cfg)
+}
+
 func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer, rateLimiter RateLimiter) *Gateway {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
