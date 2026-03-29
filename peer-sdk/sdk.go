@@ -92,26 +92,6 @@ func (p *PeerSDK) checkEligibility() bool {
 	return true
 }
 
-func (p *PeerSDK) getBatteryLevel() int {
-	return 50
-}
-
-func (p *PeerSDK) isCharging() bool {
-	return false
-}
-
-func (p *PeerSDK) getCPUUsage() float64 {
-	return 10.0
-}
-
-func (p *PeerSDK) isOnUnmeteredWiFi() bool {
-	return true
-}
-
-func (p *PeerSDK) getLocalIP() string {
-	return "192.168.1.100"
-}
-
 func (p *PeerSDK) startHealthMonitor() {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)

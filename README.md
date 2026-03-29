@@ -38,7 +38,8 @@ ProxyMeshProject/
 │   ├── redis_client.go      # Redis data access with cooldown TTL
 │   └── service_test.go      # Matchmaker unit tests
 ├── peer-sdk/                # Residential node SDK
-│   └── sdk.go               # Node eligibility & consent management
+│   ├── sdk.go               # Node eligibility & consent management
+│   └── metrics.go           # Real system metrics (battery, CPU, WiFi, IP)
 ├── payout/                  # Payout calculation service
 │   └── service.go           # Compensation calculation for peers
 ├── internal/                # Shared packages
@@ -306,6 +307,7 @@ go build ./...       # Build all packages
 ## Features
 
 - **HTTP CONNECT Proxy** - Full proxy support with target modifiers
+- **WebSocket Proxy** - Upgrade-aware proxying with bidirectional tunneling
 - **mTLS Support** - Mutual TLS between clients and gateway
 - **Rate Limiting** - Distributed (Redis) or local (in-memory) per-client sliding window
 - **Per-Key Rate Limiting** - Configurable rate limits per API key
@@ -323,12 +325,14 @@ go build ./...       # Build all packages
 - **Circuit Breaker** - Per-node failure tracking with automatic recovery
 - **Health Monitoring** - Background node health checks every 30s
 - **Geographic Routing** - Country and city-level node selection
+- **Weighted Node Selection** - Combines reputation score and load for optimal routing
 - **IPv6 Subnet Allocation** - Pool-based /64 subnet assignment for datacenter nodes
 - **Cooldown Management** - Domain-specific node cooldowns with auto-expiration
 - **Admin Dashboard** - Web UI for node/cooldown/subnet management
 - **Load Testing** - Built-in synthetic traffic generator
 - **Health Endpoint** - `/health` for load balancer probes
 - **Graceful Shutdown** - SIGTERM handling with 15s drain timeout
+- **Real System Metrics** - Peer SDK reads actual battery, CPU, WiFi, IP from system
 
 ## Requirements
 

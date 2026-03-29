@@ -279,7 +279,112 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 	localAddr := g.bindToIPv6Subnet(node)
 	c.Header("X-Proxy-Local-Addr", localAddr)
 
+	if g.isWebSocketRequest(c) {
+		g.forwardWebSocket(c, node, localAddr)
+		return
+	}
+
 	g.forwardRequest(c, node, localAddr)
+}
+
+func (g *Gateway) isWebSocketRequest(c *gin.Context) bool {
+	return strings.ToLower(c.GetHeader("Upgrade")) == "websocket"
+}
+
+func (g *Gateway) forwardWebSocket(c *gin.Context, node *models.Node, localAddr string) {
+	defer g.matchmaker.DecrementNodeLoad(node.ID)
+
+	target := c.Query("url")
+	if target == "" {
+		target = c.Param("path")
+	}
+	targetHost := g.extractHostFromTarget(target)
+	if targetHost == "" {
+		targetHost = c.Request.Host
+	}
+
+	nodeConn, err := g.connPool.Get(node.IP)
+	if err != nil {
+		g.recordFailure(node.ID)
+		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
+			"error": "Failed to connect to node: " + err.Error(),
+		})
+		return
+	}
+
+	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetHost, targetHost)
+	if _, err = nodeConn.Write([]byte(connectReq)); err != nil {
+		g.connPool.Put(node.IP, nodeConn)
+		g.recordFailure(node.ID)
+		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
+			"error": "Failed to send CONNECT to node",
+		})
+		return
+	}
+
+	buf := make([]byte, 1024)
+	nodeConn.Read(buf)
+
+	hijacker, ok := c.Writer.(http.Hijacker)
+	if !ok {
+		nodeConn.Close()
+		g.recordFailure(node.ID)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "WebSocket hijacking not supported",
+		})
+		return
+	}
+
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		nodeConn.Close()
+		g.recordFailure(node.ID)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to hijack connection",
+		})
+		return
+	}
+
+	g.recordSuccess(node.ID)
+
+	go g.bidirectionalCopy(clientConn, nodeConn)
+}
+
+func (g *Gateway) bidirectionalCopy(src, dst net.Conn) {
+	defer src.Close()
+	defer dst.Close()
+
+	done := make(chan struct{}, 2)
+
+	go func() {
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := src.Read(buf)
+			if n > 0 {
+				dst.Write(buf[:n])
+			}
+			if err != nil {
+				done <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	go func() {
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := dst.Read(buf)
+			if n > 0 {
+				src.Write(buf[:n])
+			}
+			if err != nil {
+				done <- struct{}{}
+				return
+			}
+		}
+	}()
+
+	<-done
 }
 
 func (g *Gateway) extractTarget(c *gin.Context, targetType string) string {

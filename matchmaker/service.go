@@ -172,24 +172,27 @@ func (m *Matchmaker) filterEligibleNodes(candidates []string, targetDomain strin
 }
 
 func (m *Matchmaker) selectByLoad(nodes []string) (string, error) {
-	type nodeWithLoad struct {
-		id   string
-		load int64
+	type nodeWithScore struct {
+		id     string
+		weight float64
 	}
 
-	var nodeLoads []nodeWithLoad
+	var candidates []nodeWithScore
 	for _, nodeID := range nodes {
 		load, _ := m.redis.GetNodeLoad(nodeID)
-		nodeLoads = append(nodeLoads, nodeWithLoad{id: nodeID, load: load})
+		reputation, _ := m.redis.GetNodeReputation(nodeID, "")
+
+		weight := reputation / (float64(load) + 1.0)
+		candidates = append(candidates, nodeWithScore{id: nodeID, weight: weight})
 	}
 
-	var lowestLoad int64 = 1 << 60
+	var bestWeight float64 = -1
 	var selected string
 
-	for _, nl := range nodeLoads {
-		if nl.load < lowestLoad {
-			lowestLoad = nl.load
-			selected = nl.id
+	for _, c := range candidates {
+		if c.weight > bestWeight {
+			bestWeight = c.weight
+			selected = c.id
 		}
 	}
 

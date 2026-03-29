@@ -303,6 +303,23 @@ func (r *RedisClient) GetNodeLoad(nodeID string) (int64, error) {
 	return load, err
 }
 
+func (r *RedisClient) GetNodeReputation(nodeID string, country string) (float64, error) {
+	key := fmt.Sprintf("nodes:%s", country)
+	score, err := r.client.ZScore(r.ctx, key, nodeID).Result()
+	if err == redis.Nil {
+		return 100.0, nil
+	}
+	return score, err
+}
+
+func (r *RedisClient) UpdateNodeReputation(nodeID string, country string, score float64) error {
+	key := fmt.Sprintf("nodes:%s", country)
+	return r.client.ZAdd(r.ctx, key, &redis.Z{
+		Score:  score,
+		Member: nodeID,
+	}).Err()
+}
+
 func (r *RedisClient) IncrementNodeLoad(nodeID string) error {
 	key := fmt.Sprintf("node_load:%s", nodeID)
 	return r.client.Incr(r.ctx, key).Err()

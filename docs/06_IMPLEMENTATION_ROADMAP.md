@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 4 Complete ✓
+## Status: Phase 5 Complete ✓
 
 ---
 
@@ -69,23 +69,25 @@
 - [x] **Per-Key Rate Limiting** - `SetKeyRateLimit`/`GetKeyRateLimit` on APIKeyService, admin endpoint `POST /api/keys/ratelimit`, configurable requests-per-window per key
 - [x] **Audit Logging** - `AuditLogger` writes structured JSON to file + Redis lists, `GET /api/admin/audit?date=&action=&limit=`, middleware auto-logs non-GET admin requests
 
+### Phase 5 Additions
+- [x] **Weighted Node Selection** - `selectByLoad` replaced with weighted scoring combining reputation and load (`reputation / (load + 1)`), `GetNodeReputation`/`UpdateNodeReputation` on RedisClient
+- [x] **WebSocket Proxy Support** - Detects `Upgrade: websocket` header, hijacks HTTP connection, establishes CONNECT tunnel to node, bidirectional byte copying with 32KB buffers
+- [x] **Real System Metrics** - Peer SDK reads actual battery from `/sys/class/power_supply/BAT0`, CPU from `/proc/stat` with 500ms sample, IP from `net.InterfaceAddrs`, charging status from sysfs
+
 ---
 
 ## Pending
 
 ### Gateway Features
-- [ ] **WebSocket Proxy Support** - Upgrade-aware proxying for WS/WSS connections
 - [ ] **Sticky Session Expiration UI** - Dashboard controls for session TTL
 
 ### Matchmaker Features
-- [ ] **Weighted Selection** - Factor in reputation score, not just load
 - [ ] **GeoIP Database Integration** - Automatic country/city detection from IP
 - [ ] **Node Capacity Planning** - Predictive scaling based on traffic patterns
 
 ### Peer SDK Features
-- [ ] **Real System Metrics** - Actual battery/CPU/WiFi detection (currently stubbed)
 - [ ] **Automatic Reconnection** - Exponential backoff on disconnect
-- [ ] **Multi-platform Support** - Windows, macOS, Linux native agents
+- [ ] **Multi-platform Support** - Windows, macOS native agents (Linux implemented)
 
 ---
 
