@@ -8,7 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type RateLimiter struct {
+type RateLimiter interface {
+	Allow(clientID string) (bool, error)
+	Middleware() gin.HandlerFunc
+}
+
+type LocalRateLimiter struct {
 	requests map[string]*clientRateLimit
 	mu       sync.RWMutex
 	limit    int
@@ -20,8 +25,8 @@ type clientRateLimit struct {
 	resetTime time.Time
 }
 
-func NewRateLimiter(requestsPerWindow int, windowSeconds int) *RateLimiter {
-	rl := &RateLimiter{
+func NewLocalRateLimiter(requestsPerWindow int, windowSeconds int) *LocalRateLimiter {
+	rl := &LocalRateLimiter{
 		requests: make(map[string]*clientRateLimit),
 		limit:    requestsPerWindow,
 		window:   time.Duration(windowSeconds) * time.Second,
@@ -32,7 +37,7 @@ func NewRateLimiter(requestsPerWindow int, windowSeconds int) *RateLimiter {
 	return rl
 }
 
-func (rl *RateLimiter) cleanup() {
+func (rl *LocalRateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
@@ -48,7 +53,7 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-func (rl *RateLimiter) Allow(clientID string) bool {
+func (rl *LocalRateLimiter) Allow(clientID string) (bool, error) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -60,19 +65,19 @@ func (rl *RateLimiter) Allow(clientID string) bool {
 			count:     1,
 			resetTime: now.Add(rl.window),
 		}
-		return true
+		return true, nil
 	}
 
 	if client.count >= rl.limit {
 		metrics.IncRateLimited()
-		return false
+		return false, nil
 	}
 
 	client.count++
-	return true
+	return true, nil
 }
 
-func (rl *RateLimiter) Middleware() gin.HandlerFunc {
+func (rl *LocalRateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -84,7 +89,8 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			clientID = clientID + ":" + authHeader
 		}
 
-		if !rl.Allow(clientID) {
+		allowed, _ := rl.Allow(clientID)
+		if !allowed {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": "Rate limit exceeded",
 			})

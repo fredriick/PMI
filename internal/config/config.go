@@ -26,6 +26,7 @@ type GatewayConfig struct {
 	CircuitBreakerThreshold int    `mapstructure:"circuit_breaker_threshold"`
 	RateLimitRequests       int    `mapstructure:"rate_limit_requests"`
 	RateLimitWindowSeconds  int    `mapstructure:"rate_limit_window_seconds"`
+	RateLimitDistributed    bool   `mapstructure:"rate_limit_distributed"`
 	TracingEnabled          bool   `mapstructure:"tracing_enabled"`
 }
 

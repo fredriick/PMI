@@ -47,9 +47,21 @@ func main() {
 		log.Printf("Warning: failed to initialize tracing: %v", err)
 	}
 
-	gw := gateway.NewGateway(cfg, mm, compliance, tracer)
+	var rateLimiter gateway.RateLimiter
+	if cfg.Gateway.RateLimitDistributed {
+		rateLimiter = gateway.NewDistributedRateLimiter(redisClient.Client(), cfg.Gateway.RateLimitRequests, cfg.Gateway.RateLimitWindowSeconds)
+		log.Printf("Using distributed rate limiter (Redis)")
+	} else {
+		rateLimiter = gateway.NewLocalRateLimiter(cfg.Gateway.RateLimitRequests, cfg.Gateway.RateLimitWindowSeconds)
+		log.Printf("Using local rate limiter (in-memory)")
+	}
 
-	setupAdminRoutes(gw.Router(), mm, subnetAllocator)
+	gw := gateway.NewGateway(cfg, mm, compliance, tracer, rateLimiter)
+
+	apiKeyService := gateway.NewAPIKeyService(redisClient.Client())
+	gw.SetAPIKeyService(apiKeyService)
+
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService)
 
 	server, err := gw.StartServer()
 	if err != nil {

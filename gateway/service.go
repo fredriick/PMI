@@ -23,8 +23,10 @@ type Gateway struct {
 	router                  *gin.Engine
 	matchmaker              *matchmaker.Matchmaker
 	compliance              *ComplianceService
-	rateLimiter             *RateLimiter
+	rateLimiter             RateLimiter
 	tracing                 *Tracer
+	apiKeyService           *APIKeyService
+	connPool                *ConnPool
 	config                  *config.GatewayConfig
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
@@ -35,12 +37,16 @@ func (g *Gateway) Router() *gin.Engine {
 	return g.router
 }
 
-func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer) *Gateway {
+func (g *Gateway) SetAPIKeyService(svc *APIKeyService) {
+	g.apiKeyService = svc
+}
+
+func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer, rateLimiter RateLimiter) *Gateway {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	rateLimiter := NewRateLimiter(cfg.Gateway.RateLimitRequests, cfg.Gateway.RateLimitWindowSeconds)
+	connPool := NewConnPool(10, 5*time.Second)
 
 	gw := &Gateway{
 		router:                  router,
@@ -48,6 +54,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		compliance:              comp,
 		rateLimiter:             rateLimiter,
 		tracing:                 tracer,
+		connPool:                connPool,
 		config:                  &cfg.Gateway,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
@@ -127,7 +134,19 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if !g.validateAPIKey(authHeader) {
+		if g.apiKeyService != nil {
+			key := extractBearerToken(authHeader)
+			if key == "" {
+				key = authHeader
+			}
+			valid, err := g.apiKeyService.ValidateKey(key)
+			if err != nil || !valid {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid API key",
+				})
+				return
+			}
+		} else if !g.validateAPIKey(authHeader) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid API key",
 			})
@@ -136,6 +155,14 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func extractBearerToken(auth string) string {
+	const prefix = "Bearer "
+	if len(auth) > len(prefix) && auth[:len(prefix)] == prefix {
+		return auth[len(prefix):]
+	}
+	return ""
 }
 
 func (g *Gateway) tracingMiddleware() gin.HandlerFunc {
@@ -310,7 +337,7 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 		targetHost = "80.80.80.80:80"
 	}
 
-	nodeConn, err := net.Dial("tcp", node.IP)
+	nodeConn, err := g.connPool.Get(node.IP)
 	if err != nil {
 		g.recordFailure(node.ID)
 		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
@@ -318,11 +345,11 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 		})
 		return
 	}
-	defer nodeConn.Close()
 
 	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetHost, targetHost)
 	_, err = nodeConn.Write([]byte(connectReq))
 	if err != nil {
+		g.connPool.Put(node.IP, nodeConn)
 		g.recordFailure(node.ID)
 		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
 			"error": "Failed to send CONNECT to node",
@@ -332,6 +359,8 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 
 	buf := make([]byte, 1024)
 	nodeConn.Read(buf)
+
+	g.connPool.Put(node.IP, nodeConn)
 
 	c.Header("X-Proxy-Node-ID", node.ID)
 	c.Header("X-Proxy-Local-Addr", localAddr)

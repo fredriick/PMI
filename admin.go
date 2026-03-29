@@ -4,12 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"proxymesh/gateway"
 	"proxymesh/internal/models"
 	"proxymesh/internal/subnet"
 	"proxymesh/matchmaker"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
 	{
@@ -19,6 +20,16 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/nodes/:id", getNodeHandler(mm))
 		admin.GET("/nodes", listNodesHandler(mm))
 		admin.GET("/cooldowns", listCooldownsHandler(mm))
+	}
+
+	if apiKeySvc != nil {
+		keys := r.Group("/api/keys")
+		keys.Use(adminAuthMiddleware())
+		{
+			keys.POST("", createAPIKeyHandler(apiKeySvc))
+			keys.GET("", listAPIKeysHandler(apiKeySvc))
+			keys.DELETE("", revokeAPIKeyHandler(apiKeySvc))
+		}
 	}
 
 	if sa != nil {
@@ -288,6 +299,71 @@ func getNodeSubnetHandler(sa *subnet.SubnetAllocator) gin.HandlerFunc {
 			"status":  "success",
 			"node_id": nodeID,
 			"subnet":  subnetAddr,
+		})
+	}
+}
+
+// API Key handlers
+
+func createAPIKeyHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Name    string `json:"name" binding:"required"`
+			TTLDays int    `json:"ttl_days"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		key, err := svc.CreateKey(req.Name, req.TTLDays)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"status": "success",
+			"key":    key.Key,
+			"name":   key.Name,
+			"note":   "Store this key securely. It cannot be retrieved again.",
+		})
+	}
+}
+
+func listAPIKeysHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		keys, err := svc.ListKeys()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"keys":   keys,
+		})
+	}
+}
+
+func revokeAPIKeyHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Key string `json:"key" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := svc.RevokeKey(req.Key); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "API key revoked",
 		})
 	}
 }
