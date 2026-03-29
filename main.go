@@ -28,7 +28,9 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	mm := matchmaker.NewMatchmaker(redisClient, cfg.Gateway.CircuitBreakerThreshold, cfg.Matchmaker.CooldownTTLMinutes)
+	geoip := gateway.NewGeoIPService()
+
+	mm := matchmaker.NewMatchmaker(redisClient, cfg.Gateway.CircuitBreakerThreshold, cfg.Matchmaker.CooldownTTLMinutes, geoip.Lookup)
 
 	var subnetAllocator *subnet.SubnetAllocator
 	if cfg.Subnet.Enabled {

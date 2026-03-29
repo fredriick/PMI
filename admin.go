@@ -27,6 +27,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/cooldowns", listCooldownsHandler(mm))
 		admin.GET("/sessions", listSessionsHandler(mm))
 		admin.DELETE("/sessions/:id", deleteSessionHandler(mm))
+		admin.GET("/capacity", capacityReportHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
@@ -246,6 +247,19 @@ func deleteSessionHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 			"session_id": sessionID,
 			"message":    "Session deleted",
 		})
+	}
+}
+
+func capacityReportHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		cp := matchmaker.NewCapacityPlanner(mm.GetRedis())
+		report, err := cp.GenerateReport()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, report)
 	}
 }
 

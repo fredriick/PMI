@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-## Status: Phase 6 Complete ✓
+## Status: Phase 7 Complete ✓
 
 ---
 
@@ -80,15 +80,20 @@
 - [x] **Session Management** - `GET /api/admin/sessions` and `DELETE /api/admin/sessions/:id` endpoints, `ListSessions`/`DeleteSession` on RedisClient, Sessions tab in web dashboard with TTL display
 - [x] **57 Total Tests** - 5 new tests (GeoIP lookup, invalid IP, CSV load failure, GeoIP auto-detect, session validation)
 
+### Phase 7 Additions
+- [x] **Node Capacity Planning** - `CapacityPlanner` with `AnalyzeNode`/`GenerateReport`/`GetOverloadedNodes`, tracks bandwidth GB/day, utilization %, status (healthy/warning/critical), `GET /api/admin/capacity`, Capacity tab in dashboard
+- [x] **Multi-platform Peer SDK Metrics** - Platform-specific implementations via build tags: Linux (`/sys`, `/proc/stat`), macOS (`pmset`, `top`), Windows (`WMIC`), default fallback for unsupported platforms
+- [x] **Dashboard Capacity Tab** - Node capacity report with total/healthy/warning/critical counts, per-node GB/day, GB/week, utilization %, load
+
 ---
 
 ## Pending
 
 ### Matchmaker Features
-- [ ] **Node Capacity Planning** - Predictive scaling based on traffic patterns
+- [ ] **Predictive Scaling** - Auto-suggest scaling based on traffic trend projections
 
 ### Peer SDK Features
-- [ ] **Multi-platform Support** - Windows, macOS native agents (Linux implemented)
+- [ ] **iOS/Android Support** - Mobile platform metrics via native bindings
 
 ---
 

@@ -40,7 +40,11 @@ ProxyMeshProject/
 │   └── service_test.go      # Matchmaker unit tests
 ├── peer-sdk/                # Residential node SDK
 │   ├── sdk.go               # Node eligibility & consent management
-│   └── metrics.go           # Real system metrics (battery, CPU, WiFi, IP)
+│   ├── metrics_linux.go     # Linux system metrics (battery, CPU, WiFi)
+│   ├── metrics_darwin.go    # macOS system metrics (pmset, top)
+│   ├── metrics_windows.go   # Windows system metrics (WMIC)
+│   ├── metrics_default.go   # Fallback for unsupported platforms
+│   └── metrics_common.go    # Cross-platform (IP, system info)
 ├── payout/                  # Payout calculation service
 │   └── service.go           # Compensation calculation for peers
 ├── internal/                # Shared packages
@@ -179,6 +183,7 @@ All admin endpoints require the `X-Admin-Key` header.
 | GET | `/api/admin/cooldowns` | List active cooldowns |
 | GET | `/api/admin/sessions` | List active sessions |
 | DELETE | `/api/admin/sessions/:id` | Delete a session |
+| GET | `/api/admin/capacity` | Node capacity report |
 | GET | `/api/admin/audit` | Query audit log entries |
 
 ### API Key Management
@@ -244,6 +249,8 @@ Features:
 - **Nodes** - View, register, and deregister nodes
 - **Cooldowns** - View active domain cooldowns with TTL
 - **Subnets** - Manage IPv6 subnet pools and allocations
+- **Sessions** - View/delete active sessions with TTL
+- **Capacity** - Node capacity report with utilization and status
 - Auto-refreshes every 10 seconds
 
 ## Load Testing
@@ -337,6 +344,8 @@ go build ./...       # Build all packages
 - **Health Endpoint** - `/health` for load balancer probes
 - **Graceful Shutdown** - SIGTERM handling with 15s drain timeout
 - **Real System Metrics** - Peer SDK reads actual battery, CPU, WiFi, IP from system
+- **Multi-platform Support** - Linux (/sys, /proc), macOS (pmset, top), Windows (WMIC)
+- **Node Capacity Planning** - Bandwidth trend analysis, utilization reporting, capacity alerts
 
 ## Requirements
 

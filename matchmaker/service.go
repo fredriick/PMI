@@ -326,6 +326,10 @@ func (m *Matchmaker) GetAllNodes() ([]string, error) {
 	return m.redis.GetAllNodes()
 }
 
+func (m *Matchmaker) GetRedis() *RedisClient {
+	return m.redis
+}
+
 func (m *Matchmaker) GetSessionNode(sessionID string) (string, error) {
 	if sessionID == "" {
 		return "", fmt.Errorf("session_id is required")
