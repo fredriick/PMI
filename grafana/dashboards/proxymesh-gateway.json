@@ -1,0 +1,302 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Total Requests",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_requests_total",
+          "legendFormat": "Total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "id": 2,
+      "title": "Active Sessions",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_active_sessions",
+          "legendFormat": "Sessions"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "purple", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "id": 3,
+      "title": "Avg Latency (ms)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_avg_latency_ms",
+          "legendFormat": "Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "ms",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "id": 4,
+      "title": "Success Rate",
+      "type": "gauge",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_requests_total > 0 or proxymesh_requests_success > 0",
+          "legendFormat": "eligible",
+          "refId": "A"
+        },
+        {
+          "expr": "proxymesh_requests_success",
+          "legendFormat": "success",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "id": 5,
+      "title": "Rate Limited",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_rate_limited",
+          "legendFormat": "Blocked"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "id": 6,
+      "title": "Uptime",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_uptime_seconds",
+          "legendFormat": "Uptime"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 7,
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "rate(proxymesh_requests_total[1m])",
+          "legendFormat": "Total"
+        },
+        {
+          "expr": "rate(proxymesh_requests_success[1m])",
+          "legendFormat": "Success"
+        },
+        {
+          "expr": "rate(proxymesh_requests_failed[1m])",
+          "legendFormat": "Failed"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto"
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Total" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Success" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Failed" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      }
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 8,
+      "title": "Rate Limited Requests (req/s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "rate(proxymesh_rate_limited[1m])",
+          "legendFormat": "Rate Limited"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "drawStyle": "bars"
+          },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 9,
+      "title": "Nodes Selected (ops/s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "rate(proxymesh_nodes_selected[1m])",
+          "legendFormat": "Selections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15
+          },
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 10,
+      "title": "Active Sessions",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "proxymesh" },
+      "targets": [
+        {
+          "expr": "proxymesh_active_sessions",
+          "legendFormat": "Sessions"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "cyan" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "drawStyle": "line"
+          },
+          "unit": "short"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["proxymesh", "proxy", "gateway"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ProxyMesh Gateway",
+  "uid": "proxymesh-gateway",
+  "version": 1,
+  "refresh": "10s"
+}
