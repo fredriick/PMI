@@ -128,6 +128,15 @@ func (g *Gateway) Shutdown(ctx context.Context) error {
 
 func (g *Gateway) authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		if path == "/health" || path == "/metrics" || path == "/dashboard" ||
+			path == "/peer" || strings.HasPrefix(path, "/peer/") ||
+			strings.HasPrefix(path, "/api/") {
+			c.Next()
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			authHeader = c.Request.Header.Get("Proxy-Authorization")

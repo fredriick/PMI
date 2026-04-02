@@ -90,6 +90,13 @@
 - [x] **Bandwidth Trend Tracking** - `StoreBandwidthSnapshot`/`GetBandwidthSnapshots` stores time-windowed bandwidth data in Redis (capped at 48 entries), `calculateGrowthRate` computes growth % from snapshots
 - [x] **62 Total Tests** - 5 new capacity planner tests (growth rate, critical scaling, all healthy, high utilization, snapshot fields)
 
+### Phase 9 Additions - Peer Web PWA
+- [x] **Peer API Endpoints** - Token-based auth (`POST /api/peer/auth`), node status, bandwidth, earnings, consent toggle, disconnect — all in `peer_api.go`
+- [x] **PWA Shell** - `web/peer/` with `manifest.json`, service worker (`sw.js`) for offline caching, installable on mobile/desktop
+- [x] **SPA Dashboard** - Three-tab interface: Dashboard (status, battery, CPU, load, bandwidth), Earnings (payout calculation, rates, bandwidth breakdown), Settings (consent toggle, disconnect)
+- [x] **Dark-themed UI** - Mobile-first responsive design matching admin dashboard aesthetic
+- [x] **Auto-refresh** - Status/bandwidth/earnings refresh every 15 seconds with toast notifications
+
 ---
 
 ## All roadmap items complete. See Ideas/Backlog for future work.

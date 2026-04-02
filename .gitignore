@@ -22,3 +22,6 @@ coverage.txt
 # IDE
 .idea/
 .vscode/
+
+# Runtime
+audit.log

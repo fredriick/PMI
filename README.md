@@ -16,6 +16,7 @@ A hybrid mesh proxy network combining datacenter and residential exit nodes.
 ProxyMeshProject/
 ├── main.go                  # Application entry point
 ├── admin.go                 # Admin API routes (nodes, cooldowns, subnets, keys)
+├── peer_api.go              # Peer dashboard API routes (auth, status, earnings)
 ├── config.yaml              # Configuration file
 ├── docker-compose.yml       # Local development environment
 ├── gateway/                 # HTTP proxy gateway
@@ -54,8 +55,16 @@ ProxyMeshProject/
 │   └── subnet/              # IPv6 subnet allocator
 │       ├── allocator.go
 │       └── allocator_test.go
-├── web/                     # Admin dashboard (static HTML/JS)
-│   └── index.html           # Node management UI
+├── web/                     # Static web assets
+│   ├── index.html           # Admin dashboard UI
+│   └── peer/                # Peer operator PWA
+│       ├── index.html       # SPA shell
+│       ├── style.css        # Dark-themed styles
+│       ├── app.js           # SPA logic
+│       ├── manifest.json    # PWA manifest
+│       ├── sw.js            # Service worker
+│       ├── icon-192.png     # PWA icon
+│       └── icon-512.png     # PWA icon
 ├── cmd/
 │   └── loadtest/            # Load testing CLI tool
 │       └── main.go
@@ -70,7 +79,7 @@ Edit `config.yaml`:
 gateway:
   host: "0.0.0.0"
   port: 8000
-  mtls_enabled: true
+  mtls_enabled: false
   circuit_breaker_threshold: 5
   rate_limit_requests: 100
   rate_limit_window_seconds: 60
@@ -137,6 +146,18 @@ This starts Redis and both services.
    ```bash
    go test ./... -v
    ```
+
+### Quick Start (Peer PWA)
+
+1. Start Redis and gateway (see above)
+
+2. Register a test node (PowerShell):
+   ```powershell
+   $body = @{node_id="my-node-01";node_type="residential";country="US";city="New York";isp="Verizon";ip="72.1.2.3";os="linux"} | ConvertTo-Json
+   Invoke-RestMethod -Uri "http://localhost:8000/api/admin/nodes" -Method POST -Headers @{"X-Admin-Key"="test-admin-key"} -ContentType "application/json" -Body $body
+   ```
+
+3. Open http://localhost:8000/peer/ and enter `my-node-01` as the Node ID
 
 ## API Usage
 
@@ -254,6 +275,34 @@ Features:
 - **Capacity** - Node capacity report with utilization and status
 - Auto-refreshes every 10 seconds
 
+## Peer Dashboard (PWA)
+
+Access the peer dashboard at `http://localhost:8000/peer/`.
+
+Residential node operators can authenticate with their node ID to view status, track earnings, and manage participation.
+
+### Peer API
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/peer/auth` | None | Authenticate with `node_id`, returns session token |
+| GET | `/api/peer/status` | `X-Peer-Token` | Get node status, battery, CPU, load |
+| GET | `/api/peer/bandwidth` | `X-Peer-Token` | Get bandwidth data and history |
+| GET | `/api/peer/earnings` | `X-Peer-Token` | Get payout calculation and rates |
+| POST | `/api/peer/consent` | `X-Peer-Token` | Toggle node active/inactive |
+| POST | `/api/peer/disconnect` | `X-Peer-Token` | Disconnect and revoke session |
+
+```bash
+# Authenticate
+curl -X POST http://localhost:8000/api/peer/auth \
+  -H "Content-Type: application/json" \
+  -d '{"node_id": "my-residential-node"}'
+
+# Check status (use returned token)
+curl http://localhost:8000/api/peer/status \
+  -H "X-Peer-Token: <token>"
+```
+
 ## Load Testing
 
 Build and run the load testing tool:
@@ -348,6 +397,13 @@ go build ./...       # Build all packages
 - **Multi-platform Support** - Linux (/sys, /proc), macOS (pmset, top), Windows (WMIC)
 - **Node Capacity Planning** - Bandwidth trend analysis, utilization reporting, capacity alerts
 - **Predictive Scaling** - Automatic scaling recommendations based on traffic growth rates
+
+### Peer Dashboard (PWA)
+- **Peer Web Dashboard** - Installable PWA at `/peer` for residential node operators
+- **Real-time Node Status** - Battery, CPU, load, country, ISP displayed with 15s auto-refresh
+- **Earnings Tracker** - Current month payout, rates per GB, bandwidth breakdown
+- **Consent Management** - Toggle node active/inactive, disconnect from the network
+- **Offline Support** - Service worker caches static assets for offline awareness
 
 ## Requirements
 

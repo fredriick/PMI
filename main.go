@@ -14,6 +14,7 @@ import (
 	"proxymesh/internal/grpc"
 	"proxymesh/internal/subnet"
 	"proxymesh/matchmaker"
+	"proxymesh/payout"
 )
 
 func main() {
@@ -71,19 +72,25 @@ func main() {
 		log.Printf("Audit logging enabled")
 	}
 
+	payoutSvc := payout.NewPayoutService(mm, mm.GetRedis())
+
 	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger)
+	setupPeerRoutes(gw.Router(), mm, payoutSvc)
 
 	config.OnChange(func(newCfg *config.Config) {
 		gw.ReloadCompliance(&newCfg.Compliance)
 		log.Printf("Compliance config reloaded: %d blocked domains", len(newCfg.Compliance.BlockedDomains))
 	})
+	log.Printf("Config change handler registered")
 
 	config.Watch()
+	log.Printf("Config watcher started")
 
 	server, err := gw.StartServer()
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
+	log.Printf("Server object created")
 
 	go func() {
 		log.Printf("Starting Gateway on %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
