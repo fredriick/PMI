@@ -39,3 +39,21 @@ subnet:
   enabled: true
   prefix: "2001:db8::"
   prefix_len: 48
+
+pricing:
+  tiers:
+    - name: Basic
+      min_gb_monthly: 0
+      max_gb_monthly: 10
+      rate_per_gb_sent: 0.30
+      rate_per_gb_recv: 0.15
+    - name: Premium
+      min_gb_monthly: 10
+      max_gb_monthly: 100
+      rate_per_gb_sent: 0.50
+      rate_per_gb_recv: 0.30
+    - name: Enterprise
+      min_gb_monthly: 100
+      max_gb_monthly: 10000
+      rate_per_gb_sent: 0.80
+      rate_per_gb_recv: 0.50

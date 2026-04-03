@@ -169,11 +169,13 @@ func peerEarningsHandler(mm *matchmaker.Matchmaker, ps *payout.PayoutService) gi
 		}
 
 		rates := ps.GetRates()
+		tiers := ps.GetTiers()
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 			"payout": payoutData,
 			"rates":  rates,
+			"tiers":  tiers,
 		})
 	}
 }

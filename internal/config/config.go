@@ -16,6 +16,7 @@ type Config struct {
 	Compliance ComplianceConfig `mapstructure:"compliance"`
 	Peer       PeerConfig       `mapstructure:"peer"`
 	Subnet     SubnetConfig     `mapstructure:"subnet"`
+	Pricing    PricingConfig    `mapstructure:"pricing"`
 }
 
 type GatewayConfig struct {
@@ -61,6 +62,18 @@ type SubnetConfig struct {
 	Enabled   bool   `mapstructure:"enabled"`
 	Prefix    string `mapstructure:"prefix"`
 	PrefixLen int    `mapstructure:"prefix_len"`
+}
+
+type PricingConfig struct {
+	Tiers []PricingTier `mapstructure:"tiers"`
+}
+
+type PricingTier struct {
+	Name          string  `mapstructure:"name"`
+	MinGBMonthly  int     `mapstructure:"min_gb_monthly"`
+	MaxGBMonthly  int     `mapstructure:"max_gb_monthly"`
+	RatePerGBSent float64 `mapstructure:"rate_per_gb_sent"`
+	RatePerGBRecv float64 `mapstructure:"rate_per_gb_recv"`
 }
 
 var (

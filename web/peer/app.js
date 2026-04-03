@@ -176,12 +176,23 @@
     const res = await api('GET', '/earnings');
     const p = res.payout || {};
     const rates = res.rates || {};
+    const tiers = res.tiers || [];
 
     $('e-amount').textContent = '$' + (p.amount || 0).toFixed(2);
     $('e-period').textContent = p.period || 'Current Month';
+    $('e-tier').textContent = p.tier || 'Basic';
+    $('r-tier').textContent = p.tier || 'Basic';
 
-    $('r-sent').textContent = '$' + (rates.RatePerGBSent || 0.50).toFixed(2);
-    $('r-received').textContent = '$' + (rates.RatePerGBReceived || 0.30).toFixed(2);
+    if (p.tier) {
+      const tierInfo = tiers.find(t => t.name === p.tier);
+      if (tierInfo) {
+        $('r-sent').textContent = '$' + tierInfo.rate_per_gb_sent.toFixed(2);
+        $('r-received').textContent = '$' + tierInfo.rate_per_gb_recv.toFixed(2);
+      }
+    } else {
+      $('r-sent').textContent = '$' + (rates.RatePerGBSent || 0.50).toFixed(2);
+      $('r-received').textContent = '$' + (rates.RatePerGBReceived || 0.30).toFixed(2);
+    }
     $('r-min').textContent = '$' + (rates.MinPayoutAmount || 10.00).toFixed(2);
 
     const gbSent = p.gb_sent || 0;

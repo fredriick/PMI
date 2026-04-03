@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/matchmaker"
 )
@@ -14,6 +15,7 @@ type PayoutService struct {
 	matchmaker *matchmaker.Matchmaker
 	redis      *matchmaker.RedisClient
 	rates      PayoutRates
+	tiers      []config.PricingTier
 }
 
 type PayoutRates struct {
@@ -30,6 +32,7 @@ type Payout struct {
 	GBSent        float64   `json:"gb_sent"`
 	GBReceived    float64   `json:"gb_received"`
 	Amount        float64   `json:"amount"`
+	Tier          string    `json:"tier,omitempty"`
 	CalculatedAt  time.Time `json:"calculated_at"`
 }
 
@@ -42,7 +45,20 @@ func NewPayoutService(mm *matchmaker.Matchmaker, redis *matchmaker.RedisClient) 
 			RatePerGBReceived: 0.30,
 			MinPayoutAmount:   10.00,
 		},
+		tiers: []config.PricingTier{
+			{Name: "Basic", MinGBMonthly: 0, MaxGBMonthly: 10, RatePerGBSent: 0.30, RatePerGBRecv: 0.15},
+			{Name: "Premium", MinGBMonthly: 10, MaxGBMonthly: 100, RatePerGBSent: 0.50, RatePerGBRecv: 0.30},
+			{Name: "Enterprise", MinGBMonthly: 100, MaxGBMonthly: 10000, RatePerGBSent: 0.80, RatePerGBRecv: 0.50},
+		},
 	}
+}
+
+func (p *PayoutService) SetTiers(tiers []config.PricingTier) {
+	p.tiers = tiers
+}
+
+func (p *PayoutService) GetTiers() []config.PricingTier {
+	return p.tiers
 }
 
 func (p *PayoutService) CalculatePayout(nodeID string, period time.Time) (*Payout, error) {
@@ -53,8 +69,12 @@ func (p *PayoutService) CalculatePayout(nodeID string, period time.Time) (*Payou
 
 	gbSent := float64(bandwidth.BytesSent) / 1_073_741_824
 	gbReceived := float64(bandwidth.BytesReceived) / 1_073_741_824
+	totalGB := gbSent + gbReceived
 
-	amount := (gbSent * p.rates.RatePerGBSent) + (gbReceived * p.rates.RatePerGBReceived)
+	tier := p.findTier(totalGB)
+	rateSent, rateRecv := p.getTierRates(tier)
+
+	amount := (gbSent * rateSent) + (gbReceived * rateRecv)
 
 	if amount < p.rates.MinPayoutAmount {
 		amount = 0
@@ -68,8 +88,27 @@ func (p *PayoutService) CalculatePayout(nodeID string, period time.Time) (*Payou
 		GBSent:        gbSent,
 		GBReceived:    gbReceived,
 		Amount:        amount,
+		Tier:          tier,
 		CalculatedAt:  time.Now(),
 	}, nil
+}
+
+func (p *PayoutService) findTier(totalGB float64) string {
+	for _, tier := range p.tiers {
+		if totalGB >= float64(tier.MinGBMonthly) && totalGB < float64(tier.MaxGBMonthly) {
+			return tier.Name
+		}
+	}
+	return "Basic"
+}
+
+func (p *PayoutService) getTierRates(tierName string) (float64, float64) {
+	for _, tier := range p.tiers {
+		if tier.Name == tierName {
+			return tier.RatePerGBSent, tier.RatePerGBRecv
+		}
+	}
+	return p.rates.RatePerGBSent, p.rates.RatePerGBReceived
 }
 
 func (p *PayoutService) CalculateAllPayouts(period time.Time) ([]Payout, error) {

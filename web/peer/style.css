@@ -351,6 +351,18 @@ main {
   margin-top: 4px;
 }
 
+.earnings-tier {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 12px;
+  margin-top: 8px;
+  background: var(--accent);
+  color: white;
+}
+
 .rate-row {
   display: flex;
   justify-content: space-between;
