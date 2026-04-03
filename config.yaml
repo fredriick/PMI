@@ -57,3 +57,13 @@ pricing:
       max_gb_monthly: 10000
       rate_per_gb_sent: 0.80
       rate_per_gb_recv: 0.50
+
+federation:
+  enabled: false
+  regions:
+    - us-east
+    - us-west
+    - eu-west
+    - ap-south
+  heartbeat_interval_seconds: 30
+  sync_interval_seconds: 60

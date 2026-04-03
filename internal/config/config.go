@@ -17,11 +17,13 @@ type Config struct {
 	Peer       PeerConfig       `mapstructure:"peer"`
 	Subnet     SubnetConfig     `mapstructure:"subnet"`
 	Pricing    PricingConfig    `mapstructure:"pricing"`
+	Federation FederationConfig `mapstructure:"federation"`
 }
 
 type GatewayConfig struct {
 	Host                    string `mapstructure:"host"`
 	Port                    int    `mapstructure:"port"`
+	Region                  string `mapstructure:"region"`
 	MTLSEnabled             bool   `mapstructure:"mtls_enabled"`
 	CACertPath              string `mapstructure:"ca_cert_path"`
 	ServerCertPath          string `mapstructure:"server_cert_path"`
@@ -66,6 +68,13 @@ type SubnetConfig struct {
 
 type PricingConfig struct {
 	Tiers []PricingTier `mapstructure:"tiers"`
+}
+
+type FederationConfig struct {
+	Enabled           bool     `mapstructure:"enabled"`
+	Regions           []string `mapstructure:"regions"`
+	HeartbeatInterval int      `mapstructure:"heartbeat_interval_seconds"`
+	SyncInterval      int      `mapstructure:"sync_interval_seconds"`
 }
 
 type PricingTier struct {

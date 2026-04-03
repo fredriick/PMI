@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"proxymesh/federation"
 	"proxymesh/gateway"
 	"proxymesh/internal/config"
 	"proxymesh/internal/grpc"
@@ -73,6 +74,11 @@ func main() {
 	}
 
 	payoutSvc := payout.NewPayoutService(mm, mm.GetRedis())
+
+	fedSvc := federation.NewFederationService(cfg, mm)
+	if err := fedSvc.Start(); err != nil {
+		log.Printf("Warning: failed to start federation: %v", err)
+	}
 
 	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger)
 	setupPeerRoutes(gw.Router(), mm, payoutSvc)
