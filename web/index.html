@@ -91,6 +91,15 @@ tr:hover{background:#161b22}
 <h2 style="font-size:1.2em">Registered Nodes</h2>
 <button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
 </div>
+
+<!-- Map Visualization -->
+<div class="card" style="margin-bottom:16px">
+<h3>Geographic Distribution</h3>
+<div id="map-container" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 0">
+<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">Loading node locations...</div>
+</div>
+</div>
+
 <div id="register-form" style="display:none" class="card" style="margin-bottom:16px">
 <h3>Register New Node</h3>
 <div class="form-row" style="margin-top:12px">
@@ -225,6 +234,7 @@ const data=await r.json();
 const tbody=document.getElementById('nodes-table');
 if(!data.nodes||data.nodes.length===0){
 tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">No nodes registered</td></tr>';
+updateNodeMap([]);
 return;
 }
 tbody.innerHTML=data.nodes.map(n=>{
@@ -242,7 +252,31 @@ return `<tr>
 <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
 </tr>`;
 }).join('');
+updateNodeMap(data.nodes);
 }catch(e){console.error('Failed to load nodes:',e)}
+}
+
+function updateNodeMap(nodes){
+const container=document.getElementById('map-container');
+if(!container)return;
+if(nodes.length===0){
+container.innerHTML='<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">No nodes to display</div>';
+return;
+}
+const countryCounts={};
+nodes.forEach(n=>{
+const c=n.node?.country||'Unknown';
+countryCounts[c]=(countryCounts[c]||0)+1;
+});
+const flags={US:'🇺🇸',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',CA:'🇨🇦',AU:'🇦🇺',JP:'🇯🇵',IN:'🇮🇳',BR:'🇧🇷',MX:'🇲🇽'};
+let html='<div style="width:100%;font-size:0.85em;color:#8b949e;margin-bottom:8px">Node count by country:</div>';
+html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).forEach(([country,count])=>{
+const flag=flags[country]||'🌐';
+html+=`<div style="background:#21262d;padding:4px 10px;border-radius:6px;font-size:0.85em">${flag} ${country}: <strong>${count}</strong></div>`;
+});
+html+='</div>';
+container.innerHTML=html;
 }
 
 async function deregisterNode(id){
