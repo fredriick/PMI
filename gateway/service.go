@@ -79,8 +79,18 @@ func (g *Gateway) setupRoutes() {
 	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
 
+	g.router.GET("/v1/health", g.healthHandler)
+	g.router.GET("/v1/metrics", func(c *gin.Context) {
+		c.Header("Content-Type", "text/plain")
+		c.String(200, metrics.String())
+	})
+	g.router.GET("/v1/dashboard", g.serveDashboard)
+
 	g.router.Use(g.authMiddleware())
 	g.router.Use(g.tracingMiddleware())
+
+	g.router.Any("/v1/:path", g.proxyHandler)
+	g.router.Any("/v1/", g.proxyHandler)
 	g.router.Any("/:path", g.proxyHandler)
 	g.router.Any("/", g.proxyHandler)
 }
@@ -132,7 +142,9 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 
 		if path == "/health" || path == "/metrics" || path == "/dashboard" ||
 			path == "/peer" || strings.HasPrefix(path, "/peer/") ||
-			strings.HasPrefix(path, "/api/") {
+			strings.HasPrefix(path, "/api/") ||
+			path == "/v1/health" || path == "/v1/metrics" || path == "/v1/dashboard" ||
+			strings.HasPrefix(path, "/v1/api/") {
 			c.Next()
 			return
 		}
