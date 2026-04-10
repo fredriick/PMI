@@ -105,9 +105,26 @@
 
 ## Ideas / Backlog
 
-- Node geographic distribution visualization (map-based)
 - Residential node mobile app (iOS/Android)
-- Prometheus Grafana dashboards (pre-built JSON)
-- gRPC streaming for real-time node telemetry
-- Multi-region gateway federation
-- Bandwidth-based pricing tiers
+- ~~Node geographic distribution visualization~~ (completed)
+- ~~Prometheus Grafana dashboards~~ (completed)
+- ~~gRPC streaming for real-time node telemetry~~ (skipped - requires protoc)
+- ~~Multi-region gateway federation~~ (completed)
+- ~~Bandwidth-based pricing tiers~~ (completed)
+
+---
+
+## Recent Additions (Post-Roadmap)
+
+### CLI Enhancements
+- [x] **Cobra-based CLI** - `cmd/cli/` with node, key, status management commands
+- [x] **Node Commands** - list, register, deregister, status
+- [x] **Key Commands** - list, create, delete, rate-limit
+- [x] **Status Commands** - health, metrics, capacity
+
+### Features Implemented This Session
+- [x] **Peer Operator PWA** - Web-based dashboard for residential node operators
+- [x] **Grafana Integration** - Pre-built dashboards with Prometheus metrics
+- [x] **Pricing Tiers** - Basic/Premium/Enterprise bandwidth-based pricing
+- [x] **Map Visualization** - Geographic node distribution with country flags
+- [x] **Multi-region Federation** - FederationService for regional gateway deployment
