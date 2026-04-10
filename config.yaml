@@ -67,3 +67,8 @@ federation:
     - ap-south
   heartbeat_interval_seconds: 30
   sync_interval_seconds: 60
+
+jwt:
+  enabled: false
+  secret_key: ""
+  expiration: 24h

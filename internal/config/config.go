@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -18,6 +19,7 @@ type Config struct {
 	Subnet     SubnetConfig     `mapstructure:"subnet"`
 	Pricing    PricingConfig    `mapstructure:"pricing"`
 	Federation FederationConfig `mapstructure:"federation"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
 }
 
 type GatewayConfig struct {
@@ -83,6 +85,12 @@ type PricingTier struct {
 	MaxGBMonthly  int     `mapstructure:"max_gb_monthly"`
 	RatePerGBSent float64 `mapstructure:"rate_per_gb_sent"`
 	RatePerGBRecv float64 `mapstructure:"rate_per_gb_recv"`
+}
+
+type JWTConfig struct {
+	Enabled    bool          `mapstructure:"enabled"`
+	SecretKey  string        `mapstructure:"secret_key"`
+	Expiration time.Duration `mapstructure:"expiration"`
 }
 
 var (
