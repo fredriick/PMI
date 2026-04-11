@@ -31,6 +31,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/scaling", scalingRecommendationsHandler(mm))
 		admin.GET("/circuitbreakers", circuitBreakersHandler(mm))
 		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
+		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
@@ -305,6 +306,39 @@ func resetCircuitBreakerHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 			"status":  "success",
 			"node_id": nodeID,
 			"message": "Circuit breaker reset",
+		})
+	}
+}
+
+func latencyRankingHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		latencyTracker := mm.GetLatencyTracker()
+		if latencyTracker == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Latency tracking not enabled"})
+			return
+		}
+
+		count := 10
+		if n := c.Query("count"); n != "" {
+			fmt.Sscanf(n, "%d", &count)
+		}
+
+		topNodes := latencyTracker.GetTopNodes(count)
+
+		var rankings []map[string]interface{}
+		for _, nodeID := range topNodes {
+			avg, min, max := latencyTracker.GetLatencyStats(nodeID)
+			rankings = append(rankings, map[string]interface{}{
+				"node_id": nodeID,
+				"avg_ms":  avg,
+				"min_ms":  min,
+				"max_ms":  max,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"rankings": rankings,
+			"count":    len(rankings),
 		})
 	}
 }

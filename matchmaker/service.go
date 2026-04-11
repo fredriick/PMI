@@ -385,3 +385,7 @@ func (m *Matchmaker) ResetCircuitBreaker(nodeID string) {
 		cb.State = "closed"
 	}
 }
+
+func (m *Matchmaker) GetLatencyTracker() *LatencyTracker {
+	return nil
+}

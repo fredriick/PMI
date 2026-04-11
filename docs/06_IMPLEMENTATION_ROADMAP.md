@@ -146,3 +146,6 @@
 - [x] **Circuit Breaker Dashboard** - API endpoint for circuit breaker status, reset handler
 - [x] **Traffic Shaping** - Token bucket rate limiting per client, configurable rates
 - [x] **DDoS Protection** - Automatic IP blocking based on failed request threshold
+- [x] **Node Latency Ranking** - LatencyTracker with avg/min/max stats, API endpoint
+- [x] **Request Queuing** - RequestQueue for overloaded nodes with enqueue/dequeue
+- [x] **Reputation Decay** - Automatic reputation decay over time with configurable rate
