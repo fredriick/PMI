@@ -128,3 +128,14 @@
 - [x] **Pricing Tiers** - Basic/Premium/Enterprise bandwidth-based pricing
 - [x] **Map Visualization** - Geographic node distribution with country flags
 - [x] **Multi-region Federation** - FederationService for regional gateway deployment
+- [x] **JWT Authentication** - Token-based auth with role support
+- [x] **API Versioning** - v1 prefix, deprecation headers, rate limit tiers
+- [x] **WebSocket Admin** - Real-time updates via /ws endpoint
+- [x] **Admin RBAC** - Role-based access control with superadmin/admin/operator/viewer
+- [x] **RBAC UI** - User management in admin dashboard
+- [x] **Request Timeouts** - HTTP server configured with Read/Write/Idle timeouts
+- [x] **Redis Cluster Support** - Cluster mode with pool_size and max_retries
+- [x] **Prometheus PushGateway** - Metrics export to push gateway at intervals
+- [x] **Client IP Rate Limiting** - Per-client rate limits with Redis backend, IP whitelist
+- [x] **Graceful Shutdown** - Clean HTTP server and prometheus pusher shutdown
+- [x] **Traffic Analytics** - /v1/analytics endpoints for summary/country/node stats

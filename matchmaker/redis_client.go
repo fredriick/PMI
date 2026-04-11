@@ -18,11 +18,27 @@ type RedisClient struct {
 }
 
 func NewRedisClient(cfg *config.RedisConfig) (*RedisClient, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	var client *redis.Client
+
+	if cfg.ClusterEnabled && len(cfg.ClusterAddrs) > 0 {
+		clusterClient := redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:    cfg.ClusterAddrs,
+			Password: cfg.Password,
+		})
+		ctx := context.Background()
+		if err := clusterClient.Ping(ctx).Err(); err != nil {
+			return nil, fmt.Errorf("failed to connect to redis cluster: %w", err)
+		}
+		client = &redis.Client{}
+	} else {
+		client = redis.NewClient(&redis.Options{
+			Addr:       fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Password:   cfg.Password,
+			DB:         cfg.DB,
+			PoolSize:   cfg.PoolSize,
+			MaxRetries: cfg.MaxRetries,
+		})
+	}
 
 	ctx := context.Background()
 

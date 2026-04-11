@@ -7,18 +7,19 @@ gateway:
   rate_limit_window_seconds: 60
   rate_limit_distributed: true
   tracing_enabled: true
-
-matchmaker:
-  host: "localhost"
-  port: 6379
-  pool_size: 10
-  cooldown_ttl_minutes: 15
+  request_timeout_seconds: 30
+  idle_timeout_seconds: 120
+  read_header_timeout_seconds: 10
 
 redis:
   host: "localhost"
   port: 6379
   password: ""
   db: 0
+  cluster_enabled: false
+  cluster_addrs: []
+  pool_size: 10
+  max_retries: 3
 
 compliance:
   blocked_domains:
@@ -79,3 +80,9 @@ rbac:
   min_password_len: 8
   max_login_attempts: 5
   lockout_duration_minutes: 15
+
+prometheus:
+  enabled: false
+  push_gateway_url: "http://localhost:9091"
+  push_interval_seconds: 30
+  job_name: "proxymesh_gateway"

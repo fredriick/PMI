@@ -32,6 +32,7 @@ type Gateway struct {
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
 	mu                      sync.RWMutex
+	prometheusPusher        *PrometheusPusher
 }
 
 func (g *Gateway) Router() *gin.Engine {
@@ -40,6 +41,10 @@ func (g *Gateway) Router() *gin.Engine {
 
 func (g *Gateway) SetAPIKeyService(svc *APIKeyService) {
 	g.apiKeyService = svc
+}
+
+func (g *Gateway) SetPrometheusPusher(p *PrometheusPusher) {
+	g.prometheusPusher = p
 }
 
 func (g *Gateway) ReloadCompliance(cfg *config.ComplianceConfig) {
@@ -116,9 +121,17 @@ func (g *Gateway) serveDashboard(c *gin.Context) {
 func (g *Gateway) StartServer() (*http.Server, error) {
 	addr := fmt.Sprintf("%s:%d", g.config.Host, g.config.Port)
 
+	requestTimeout := time.Duration(g.config.RequestTimeoutSeconds) * time.Second
+	idleTimeout := time.Duration(g.config.IdleTimeoutSeconds) * time.Second
+	readHeaderTimeout := time.Duration(g.config.ReadHeaderTimeoutSeconds) * time.Second
+
 	server := &http.Server{
-		Addr:    addr,
-		Handler: g.router,
+		Addr:              addr,
+		Handler:           g.router,
+		ReadTimeout:       requestTimeout,
+		WriteTimeout:      requestTimeout,
+		IdleTimeout:       idleTimeout,
+		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
 	if g.config.MTLSEnabled {

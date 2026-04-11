@@ -21,21 +21,25 @@ type Config struct {
 	Federation FederationConfig `mapstructure:"federation"`
 	JWT        JWTConfig        `mapstructure:"jwt"`
 	RBAC       RBACConfig       `mapstructure:"rbac"`
+	Prometheus PrometheusConfig `mapstructure:"prometheus"`
 }
 
 type GatewayConfig struct {
-	Host                    string `mapstructure:"host"`
-	Port                    int    `mapstructure:"port"`
-	Region                  string `mapstructure:"region"`
-	MTLSEnabled             bool   `mapstructure:"mtls_enabled"`
-	CACertPath              string `mapstructure:"ca_cert_path"`
-	ServerCertPath          string `mapstructure:"server_cert_path"`
-	ServerKeyPath           string `mapstructure:"server_key_path"`
-	CircuitBreakerThreshold int    `mapstructure:"circuit_breaker_threshold"`
-	RateLimitRequests       int    `mapstructure:"rate_limit_requests"`
-	RateLimitWindowSeconds  int    `mapstructure:"rate_limit_window_seconds"`
-	RateLimitDistributed    bool   `mapstructure:"rate_limit_distributed"`
-	TracingEnabled          bool   `mapstructure:"tracing_enabled"`
+	Host                     string `mapstructure:"host"`
+	Port                     int    `mapstructure:"port"`
+	Region                   string `mapstructure:"region"`
+	MTLSEnabled              bool   `mapstructure:"mtls_enabled"`
+	CACertPath               string `mapstructure:"ca_cert_path"`
+	ServerCertPath           string `mapstructure:"server_cert_path"`
+	ServerKeyPath            string `mapstructure:"server_key_path"`
+	CircuitBreakerThreshold  int    `mapstructure:"circuit_breaker_threshold"`
+	RateLimitRequests        int    `mapstructure:"rate_limit_requests"`
+	RateLimitWindowSeconds   int    `mapstructure:"rate_limit_window_seconds"`
+	RateLimitDistributed     bool   `mapstructure:"rate_limit_distributed"`
+	TracingEnabled           bool   `mapstructure:"tracing_enabled"`
+	RequestTimeoutSeconds    int    `mapstructure:"request_timeout_seconds"`
+	IdleTimeoutSeconds       int    `mapstructure:"idle_timeout_seconds"`
+	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`
 }
 
 type MatchmakerConfig struct {
@@ -46,10 +50,14 @@ type MatchmakerConfig struct {
 }
 
 type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	Host           string   `mapstructure:"host"`
+	Port           int      `mapstructure:"port"`
+	Password       string   `mapstructure:"password"`
+	DB             int      `mapstructure:"db"`
+	ClusterEnabled bool     `mapstructure:"cluster_enabled"`
+	ClusterAddrs   []string `mapstructure:"cluster_addrs"`
+	PoolSize       int      `mapstructure:"pool_size"`
+	MaxRetries     int      `mapstructure:"max_retries"`
 }
 
 type ComplianceConfig struct {
@@ -100,6 +108,13 @@ type RBACConfig struct {
 	MinPasswordLen   int    `mapstructure:"min_password_len"`
 	MaxLoginAttempts int    `mapstructure:"max_login_attempts"`
 	LockoutDuration  int    `mapstructure:"lockout_duration_minutes"`
+}
+
+type PrometheusConfig struct {
+	Enabled             bool   `mapstructure:"enabled"`
+	PushGatewayURL      string `mapstructure:"push_gateway_url"`
+	PushIntervalSeconds int    `mapstructure:"push_interval_seconds"`
+	JobName             string `mapstructure:"job_name"`
 }
 
 var (

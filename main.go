@@ -73,6 +73,14 @@ func main() {
 		log.Printf("Audit logging enabled")
 	}
 
+	promPusher := gateway.NewPrometheusPusher(&cfg.Prometheus)
+	if cfg.Prometheus.Enabled {
+		promPusher.Start()
+		log.Printf("Prometheus metrics pusher started")
+	}
+
+	gw.SetPrometheusPusher(promPusher)
+
 	payoutSvc := payout.NewPayoutService(mm, mm.GetRedis())
 
 	fedSvc := federation.NewFederationService(cfg, mm)
@@ -125,6 +133,11 @@ func main() {
 
 	mm.StopHealthCheck()
 	mm.StopCooldownCleanup()
+
+	if promPusher != nil {
+		promPusher.Stop()
+		log.Println("Prometheus pusher stopped")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
