@@ -139,3 +139,5 @@
 - [x] **Client IP Rate Limiting** - Per-client rate limits with Redis backend, IP whitelist
 - [x] **Graceful Shutdown** - Clean HTTP server and prometheus pusher shutdown
 - [x] **Traffic Analytics** - /v1/analytics endpoints for summary/country/node stats
+- [x] **Request Deduplication** - SHA256-based key for identical concurrent requests, ref counting
+- [x] **Retry Logic** - Exponential backoff with jitter for node failures, configurable retryable errors
