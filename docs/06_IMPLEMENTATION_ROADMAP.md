@@ -149,3 +149,6 @@
 - [x] **Node Latency Ranking** - LatencyTracker with avg/min/max stats, API endpoint
 - [x] **Request Queuing** - RequestQueue for overloaded nodes with enqueue/dequeue
 - [x] **Reputation Decay** - Automatic reputation decay over time with configurable rate
+- [x] **WebSocket Heartbeat** - Track peer connections with ping/pong, alive status
+- [x] **Request Validation** - RequestValidator with body size limits, content-type checking
+- [x] **Node Selection Strategies** - Random/LeastLoad/LowestLatency/HighestRep/RoundRobin
