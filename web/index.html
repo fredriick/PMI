@@ -63,6 +63,7 @@ tr:hover{background:#161b22}
 <button onclick="showSection('subnets')">Subnets</button>
 <button onclick="showSection('sessions')">Sessions</button>
 <button onclick="showSection('capacity')">Capacity</button>
+<button onclick="showSection('users')">Users</button>
 </div>
 </div>
 </div>
@@ -170,6 +171,36 @@ tr:hover{background:#161b22}
 </table>
 </div>
 
+<!-- Users -->
+<div id="users" class="section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h2 style="font-size:1.2em">User Management</h2>
+<button class="btn btn-primary" onclick="showUserForm()">+ Add User</button>
+</div>
+<div id="user-form" style="display:none" class="card" style="margin-bottom:16px">
+<h3>Create User</h3>
+<div class="form-row" style="margin-top:12px">
+<input id="user-username" placeholder="Username">
+<input id="user-password" type="password" placeholder="Password">
+</div>
+<div class="form-row">
+<input id="user-email" placeholder="Email">
+<select id="user-role">
+<option value="viewer">Viewer</option>
+<option value="operator">Operator</option>
+<option value="admin">Admin</option>
+<option value="superadmin">Super Admin</option>
+</select>
+<button class="btn btn-primary" onclick="createUser()">Create</button>
+<button class="btn" onclick="document.getElementById('user-form').style.display='none'">Cancel</button>
+</div>
+</div>
+<table>
+<thead><tr><th>Username</th><th>Email</th><th>Roles</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+<tbody id="users-table"></tbody>
+</table>
+</div>
+
 </div>
 
 <script>
@@ -190,6 +221,7 @@ if(name==='cooldowns')loadCooldowns();
 if(name==='subnets')loadPools();
 if(name==='sessions')loadSessions();
 if(name==='capacity')loadCapacity();
+if(name==='users')loadUsers();
 }
 
 function toast(msg,type){
@@ -420,6 +452,57 @@ return `<tr>
 }catch(e){console.error('Failed to load capacity:',e)}
 }
 
+function showUserForm(){document.getElementById('user-form').style.display='block'}
+
+async function createUser(){
+const username=document.getElementById('user-username').value;
+const password=document.getElementById('user-password').value;
+const email=document.getElementById('user-email').value;
+const role=document.getElementById('user-role').value;
+if(!username||!password){toast('Username and password required','error');return;}
+try{
+const r=await fetch(API+'/users',{method:'POST',headers:headers(),body:JSON.stringify({username,password,email,role})});
+const data=await r.json();
+if(data.id){toast('User created','success');document.getElementById('user-form').style.display='none';loadUsers();}
+else toast(data.error||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
+async function loadUsers(){
+try{
+const r=await fetch(API+'/users',{headers:headers()});
+const data=await r.json();
+const tbody=document.getElementById('users-table');
+if(!data.users||data.users.length===0){
+tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px">No users</td></tr>';
+return;
+}
+tbody.innerHTML=data.users.map(u=>{
+const roles=u.roles?u.roles.join(', '):'--';
+const status=u.active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-red">Inactive</span>';
+const lastLogin=u.last_login?new Date(u.last_login).toLocaleString():'Never';
+return `<tr>
+<td><strong>${u.username}</strong></td>
+<td>${u.email||'--'}</td>
+<td>${roles}</td>
+<td>${status}</td>
+<td>${lastLogin}</td>
+<td><button class="btn btn-danger" onclick="deleteUser('${u.username}')">Delete</button></td>
+</tr>`;
+}).join('');
+}catch(e){console.error('Failed to load users:',e)}
+}
+
+async function deleteUser(username){
+if(!confirm('Delete user '+username+'?'))return;
+try{
+const r=await fetch(API+'/users/'+username,{method:'DELETE',headers:headers()});
+const data=await r.json();
+if(data.status==='success'){toast('User deleted','success');loadUsers();}
+else toast(data.error||'Failed','error');
+}catch(e){toast('Request failed','error')}
+}
+
 function startAutoRefresh(){
 if(refreshTimer)clearInterval(refreshTimer);
 if(document.getElementById('autoRefresh').checked){
@@ -431,6 +514,7 @@ if(activeSection.id==='cooldowns')loadCooldowns();
 if(activeSection.id==='subnets')loadPools();
 if(activeSection.id==='sessions')loadSessions();
 if(activeSection.id==='capacity')loadCapacity();
+if(activeSection.id==='users')loadUsers();
 },10000);
 }
 }

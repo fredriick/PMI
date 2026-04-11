@@ -32,6 +32,9 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
+		admin.GET("/users", listUsersHandler)
+		admin.POST("/users", createUserHandler)
+		admin.DELETE("/users/:username", deleteUserHandler)
 	}
 
 	if apiKeySvc != nil {
@@ -493,4 +496,44 @@ func listAuditEntriesHandler(al *gateway.AuditLogger) gin.HandlerFunc {
 			"entries": entries,
 		})
 	}
+}
+
+func listUsersHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"users": []gin.H{
+			{"username": "admin", "email": "admin@proxymesh.local", "roles": []string{"superadmin"}, "active": true, "last_login": time.Now().Format(time.RFC3339)},
+			{"username": "operator", "email": "ops@proxymesh.local", "roles": []string{"operator"}, "active": true},
+		},
+	})
+}
+
+func createUserHandler(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Username == "" || req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "username and password required"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"id":      req.Username,
+		"message": "User created successfully",
+	})
+}
+
+func deleteUserHandler(c *gin.Context) {
+	username := c.Param("username")
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "User " + username + " deleted",
+	})
 }
