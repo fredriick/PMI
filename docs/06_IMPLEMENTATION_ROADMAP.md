@@ -141,3 +141,5 @@
 - [x] **Traffic Analytics** - /v1/analytics endpoints for summary/country/node stats
 - [x] **Request Deduplication** - SHA256-based key for identical concurrent requests, ref counting
 - [x] **Retry Logic** - Exponential backoff with jitter for node failures, configurable retryable errors
+- [x] **Request Buffering** - SlowClientBuffer with body size limits, RequestBuffer for stats
+- [x] **Connection Draining** - ConnectionDrainer with active connection tracking, GracefulShutdown manager
