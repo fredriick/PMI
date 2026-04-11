@@ -1,5 +1,7 @@
 # ProxyMesh
 
+![ProxyMesh Banner](web/banner.jpg)
+
 A hybrid mesh proxy network combining datacenter and residential exit nodes.
 
 ## Architecture
