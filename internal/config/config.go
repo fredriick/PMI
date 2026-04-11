@@ -20,6 +20,7 @@ type Config struct {
 	Pricing    PricingConfig    `mapstructure:"pricing"`
 	Federation FederationConfig `mapstructure:"federation"`
 	JWT        JWTConfig        `mapstructure:"jwt"`
+	RBAC       RBACConfig       `mapstructure:"rbac"`
 }
 
 type GatewayConfig struct {
@@ -91,6 +92,14 @@ type JWTConfig struct {
 	Enabled    bool          `mapstructure:"enabled"`
 	SecretKey  string        `mapstructure:"secret_key"`
 	Expiration time.Duration `mapstructure:"expiration"`
+}
+
+type RBACConfig struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	DefaultRole      string `mapstructure:"default_role"`
+	MinPasswordLen   int    `mapstructure:"min_password_len"`
+	MaxLoginAttempts int    `mapstructure:"max_login_attempts"`
+	LockoutDuration  int    `mapstructure:"lockout_duration_minutes"`
 }
 
 var (

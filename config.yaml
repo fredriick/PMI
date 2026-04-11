@@ -72,3 +72,10 @@ jwt:
   enabled: false
   secret_key: ""
   expiration: 24h
+
+rbac:
+  enabled: false
+  default_role: viewer
+  min_password_len: 8
+  max_login_attempts: 5
+  lockout_duration_minutes: 15

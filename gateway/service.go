@@ -27,6 +27,7 @@ type Gateway struct {
 	tracing                 *Tracer
 	apiKeyService           *APIKeyService
 	connPool                *ConnPool
+	wsHub                   *Hub
 	config                  *config.GatewayConfig
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
@@ -61,12 +62,15 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		rateLimiter:             rateLimiter,
 		tracing:                 tracer,
 		connPool:                connPool,
+		wsHub:                   NewHub(),
 		config:                  &cfg.Gateway,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
 	}
 
 	gw.setupRoutes()
+	gw.setupWebSocket()
+	go gw.wsHub.Run()
 	return gw
 }
 
