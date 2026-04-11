@@ -29,6 +29,8 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.DELETE("/sessions/:id", deleteSessionHandler(mm))
 		admin.GET("/capacity", capacityReportHandler(mm))
 		admin.GET("/scaling", scalingRecommendationsHandler(mm))
+		admin.GET("/circuitbreakers", circuitBreakersHandler(mm))
+		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
 		}
@@ -277,6 +279,33 @@ func scalingRecommendationsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, report)
+	}
+}
+
+func circuitBreakersHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		breakers := mm.GetCircuitBreakers()
+		c.JSON(http.StatusOK, gin.H{
+			"circuit_breakers": breakers,
+			"count":            len(breakers),
+		})
+	}
+}
+
+func resetCircuitBreakerHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.Param("nodeId")
+		if nodeID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "node_id required"})
+			return
+		}
+
+		mm.ResetCircuitBreaker(nodeID)
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"node_id": nodeID,
+			"message": "Circuit breaker reset",
+		})
 	}
 }
 

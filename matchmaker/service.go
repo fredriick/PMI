@@ -359,3 +359,29 @@ func (m *Matchmaker) ListSessions() ([]map[string]string, error) {
 func (m *Matchmaker) DeleteSession(sessionID string) error {
 	return m.redis.DeleteSession(sessionID)
 }
+
+func (m *Matchmaker) GetCircuitBreakers() map[string]*models.CircuitBreaker {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string]*models.CircuitBreaker)
+	for nodeID, cb := range m.circuitBreakers {
+		result[nodeID] = &models.CircuitBreaker{
+			FailureCount: cb.FailureCount,
+			Threshold:    cb.Threshold,
+			LastFailure:  cb.LastFailure,
+			State:        cb.State,
+		}
+	}
+	return result
+}
+
+func (m *Matchmaker) ResetCircuitBreaker(nodeID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if cb, exists := m.circuitBreakers[nodeID]; exists {
+		cb.FailureCount = 0
+		cb.State = "closed"
+	}
+}

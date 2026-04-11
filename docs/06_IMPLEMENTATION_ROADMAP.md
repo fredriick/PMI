@@ -143,3 +143,6 @@
 - [x] **Retry Logic** - Exponential backoff with jitter for node failures, configurable retryable errors
 - [x] **Request Buffering** - SlowClientBuffer with body size limits, RequestBuffer for stats
 - [x] **Connection Draining** - ConnectionDrainer with active connection tracking, GracefulShutdown manager
+- [x] **Circuit Breaker Dashboard** - API endpoint for circuit breaker status, reset handler
+- [x] **Traffic Shaping** - Token bucket rate limiting per client, configurable rates
+- [x] **DDoS Protection** - Automatic IP blocking based on failed request threshold
