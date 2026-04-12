@@ -170,3 +170,6 @@
 - [x] **Health History** - Node health timeline with uptime/latency stats
 - [x] **Request Replay** - Record and replay API requests for debugging
 - [x] **Endpoint Size Limits** - Configurable request body limits per endpoint
+- [x] **Peer Broadcasting** - Broadcast messages to peers with history
+- [x] **Config Notifications** - Notify admin clients on config reload
+- [x] **Response Compression** - Response compression middleware
