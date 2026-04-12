@@ -164,3 +164,6 @@
 - [x] **Session Persistence** - Session persistence with failover node support
 - [x] **Key Expiration** - API key expiration tracking with renewal
 - [x] **Bandwidth Quotas** - Monthly quota management per node
+- [x] **Node Groups** - Organize nodes by groups/tags for selection
+- [x] **Cost Estimation** - Calculate request costs per client
+- [x] **Audit Retention** - Configurable retention policies per audit action
