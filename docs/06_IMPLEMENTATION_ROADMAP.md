@@ -152,3 +152,6 @@
 - [x] **WebSocket Heartbeat** - Track peer connections with ping/pong, alive status
 - [x] **Request Validation** - RequestValidator with body size limits, content-type checking
 - [x] **Node Selection Strategies** - Random/LeastLoad/LowestLatency/HighestRep/RoundRobin
+- [x] **API Request Batching** - BatchProcessor for bulk operations in single request
+- [x] **Node Health Score** - Composite score from latency/load/success/reputation/uptime
+- [x] **Request Priority** - KeyPriority with weighted priority per API key
