@@ -155,3 +155,6 @@
 - [x] **API Request Batching** - BatchProcessor for bulk operations in single request
 - [x] **Node Health Score** - Composite score from latency/load/success/reputation/uptime
 - [x] **Request Priority** - KeyPriority with weighted priority per API key
+- [x] **API Response Caching** - ResponseCache with Redis backend, X-Cache headers
+- [x] **Node Retry Handler** - Retry logic with fallback nodes
+- [x] **Rate Limit Headers** - X-RateLimit-Limit/Remaining/Reset headers
