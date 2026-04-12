@@ -161,3 +161,6 @@
 - [x] **Request ID Generation** - X-Request-ID header with correlation tracking
 - [x] **Admin API Metrics** - GET /api/admin/metrics with calls/errors/latencies
 - [x] **Node Timeouts** - Configurable per-node dial/read/write/idle timeouts
+- [x] **Session Persistence** - Session persistence with failover node support
+- [x] **Key Expiration** - API key expiration tracking with renewal
+- [x] **Bandwidth Quotas** - Monthly quota management per node
