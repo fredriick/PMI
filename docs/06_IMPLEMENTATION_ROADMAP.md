@@ -167,3 +167,6 @@
 - [x] **Node Groups** - Organize nodes by groups/tags for selection
 - [x] **Cost Estimation** - Calculate request costs per client
 - [x] **Audit Retention** - Configurable retention policies per audit action
+- [x] **Health History** - Node health timeline with uptime/latency stats
+- [x] **Request Replay** - Record and replay API requests for debugging
+- [x] **Endpoint Size Limits** - Configurable request body limits per endpoint
