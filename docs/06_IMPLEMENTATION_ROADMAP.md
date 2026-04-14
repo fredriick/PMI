@@ -173,3 +173,6 @@
 - [x] **Peer Broadcasting** - Broadcast messages to peers with history
 - [x] **Config Notifications** - Notify admin clients on config reload
 - [x] **Response Compression** - Response compression middleware
+- [x] **Endpoint Timeouts** - Configurable timeout per endpoint
+- [x] **Node Webhooks** - Trigger webhooks on node state changes
+- [x] **Activity Dashboard** - Track admin API activity with user filtering
