@@ -176,3 +176,6 @@
 - [x] **Endpoint Timeouts** - Configurable timeout per endpoint
 - [x] **Node Webhooks** - Trigger webhooks on node state changes
 - [x] **Activity Dashboard** - Track admin API activity with user filtering
+- [x] **Peer Health Scoring** - Calculate health from latency/bandwidth/reliability
+- [x] **Request Deduplication** - SHA256-based request dedup to prevent duplicate processing
+- [x] **Rate Limit Tiers** - Assign tiers (free/basic/premium/enterprise) to clients
