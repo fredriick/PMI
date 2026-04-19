@@ -45,6 +45,9 @@
 - [x] **Bandwidth Tracking** - Report bandwidth usage per peer
 - [x] **Payout Calculation** - Calculate compensation for residential peers
 
+### Node Management
+- [x] **Cooldown Expiration** - Automatic TTL-based domain cooldown cleanup
+
 ### Phase 2 Additions
 - [x] **Automatic Domain Cooldown Expiration** - Redis TTL on cooldown sets, background cleanup loop, configurable TTL via `cooldown_ttl_minutes`
 - [x] **IPv6 Subnet Allocation** - Pool-based /64 subnet management for datacenter nodes, allocate/deallocate via admin API

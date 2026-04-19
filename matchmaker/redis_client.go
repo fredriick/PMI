@@ -144,10 +144,12 @@ func (r *RedisClient) GetNodeMeta(nodeID string) (*models.NodeMeta, error) {
 
 func (r *RedisClient) AddToCooldown(target string, nodeID string) error {
 	key := fmt.Sprintf("cooldown:%s", target)
-	if err := r.client.SAdd(r.ctx, key, nodeID).Err(); err != nil {
-		return err
-	}
-	return r.client.Expire(r.ctx, key, 15*time.Minute).Err()
+	return r.client.SAdd(r.ctx, key, nodeID).Err()
+}
+
+func (r *RedisClient) IsInCooldown(target string, nodeID string) (bool, error) {
+	key := fmt.Sprintf("cooldown:%s", target)
+	return r.client.SIsMember(r.ctx, key, nodeID).Result()
 }
 
 func (r *RedisClient) AddToCooldownWithTTL(target string, nodeID string, ttl time.Duration) error {
@@ -156,11 +158,6 @@ func (r *RedisClient) AddToCooldownWithTTL(target string, nodeID string, ttl tim
 		return err
 	}
 	return r.client.Expire(r.ctx, key, ttl).Err()
-}
-
-func (r *RedisClient) IsInCooldown(target string, nodeID string) (bool, error) {
-	key := fmt.Sprintf("cooldown:%s", target)
-	return r.client.SIsMember(r.ctx, key, nodeID).Result()
 }
 
 func (r *RedisClient) RemoveFromCooldown(target string, nodeID string) error {
@@ -181,31 +178,9 @@ func (r *RedisClient) GetCooldownEntries() (map[string][]string, error) {
 			continue
 		}
 		target := key[len("cooldown:"):]
-		ttl, _ := r.client.TTL(r.ctx, key).Result()
-		label := fmt.Sprintf("%s (TTL: %s)", target, ttl)
-		result[label] = members
+		result[target] = members
 	}
 	return result, nil
-}
-
-func (r *RedisClient) CleanupExpiredCooldowns() (int, error) {
-	keys, err := r.client.Keys(r.ctx, "cooldown:*").Result()
-	if err != nil {
-		return 0, err
-	}
-
-	cleaned := 0
-	for _, key := range keys {
-		ttl, err := r.client.TTL(r.ctx, key).Result()
-		if err != nil {
-			continue
-		}
-		if ttl == -1 {
-			r.client.Del(r.ctx, key)
-			cleaned++
-		}
-	}
-	return cleaned, nil
 }
 
 func (r *RedisClient) Close() error {

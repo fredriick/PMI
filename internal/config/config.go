@@ -27,7 +27,6 @@ type Config struct {
 type GatewayConfig struct {
 	Host                     string `mapstructure:"host"`
 	Port                     int    `mapstructure:"port"`
-	Region                   string `mapstructure:"region"`
 	MTLSEnabled              bool   `mapstructure:"mtls_enabled"`
 	CACertPath               string `mapstructure:"ca_cert_path"`
 	ServerCertPath           string `mapstructure:"server_cert_path"`
@@ -37,6 +36,7 @@ type GatewayConfig struct {
 	RateLimitWindowSeconds   int    `mapstructure:"rate_limit_window_seconds"`
 	RateLimitDistributed     bool   `mapstructure:"rate_limit_distributed"`
 	TracingEnabled           bool   `mapstructure:"tracing_enabled"`
+	CooldownSeconds          int    `mapstructure:"cooldown_seconds"`
 	RequestTimeoutSeconds    int    `mapstructure:"request_timeout_seconds"`
 	IdleTimeoutSeconds       int    `mapstructure:"idle_timeout_seconds"`
 	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`

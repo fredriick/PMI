@@ -1,9 +1,9 @@
 package matchmaker
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"math/big"
 	"sync"
 	"time"
@@ -59,9 +59,13 @@ func (m *Matchmaker) cooldownCleanupLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			cleaned, err := m.redis.CleanupExpiredCooldowns()
-			if err == nil && cleaned > 0 {
-				log.Printf("Cleaned up %d expired cooldown entries", cleaned)
+			ctx := context.Background()
+			keys, _ := m.redis.client.Keys(ctx, "cooldown:*").Result()
+			for _, key := range keys {
+				ttl, _ := m.redis.client.TTL(ctx, key).Result()
+				if ttl <= 0 {
+					_ = m.redis.client.Del(ctx, key).Err()
+				}
 			}
 		case <-m.stopCooldown:
 			return
@@ -259,7 +263,7 @@ func (m *Matchmaker) RecordSuccess(nodeID string) {
 	}
 }
 
-func (m *Matchmaker) AddToCooldown(target string, nodeID string) error {
+func (m *Matchmaker) AddToCooldown(target, nodeID string) error {
 	return m.redis.AddToCooldownWithTTL(target, nodeID, m.cooldownTTL)
 }
 
