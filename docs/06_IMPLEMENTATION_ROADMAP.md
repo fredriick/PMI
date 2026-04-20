@@ -100,6 +100,10 @@
 - [x] **Dark-themed UI** - Mobile-first responsive design matching admin dashboard aesthetic
 - [x] **Auto-refresh** - Status/bandwidth/earnings refresh every 15 seconds with toast notifications
 
+### Final Polish
+- [x] **RBAC MarshalJSON fix** - Replaced unsafe alias copy pattern with safe standalone struct, `go vet ./...` clean
+- [x] **All tests passing** - gateway, subnet, matchmaker packages all green
+
 ---
 
 ## All roadmap items complete. See Ideas/Backlog for future work.
