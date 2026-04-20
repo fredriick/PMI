@@ -276,15 +276,35 @@ func (s *RBACService) GetConfig() *Config {
 	return s.cfg
 }
 
-func (s *RBACService) MarshalJSON() (json.RawMessage, error) {
-	type Alias RBACService
-	return json.Marshal(&struct {
-		Alias
-		UserCount int `json:"user_count"`
-	}{
-		Alias:     Alias(*s),
-		UserCount: len(s.users),
-	})
+func (s *RBACService) MarshalJSON() ([]byte, error) {
+	type RBACConfig struct {
+		DefaultRole      Role   `json:"default_role"`
+		MinPasswordLen   int    `json:"min_password_len"`
+		MaxLoginAttempts int    `json:"max_login_attempts"`
+		LockoutDuration  int    `json:"lockout_duration_minutes"`
+		Users            []User `json:"users"`
+		Roles            []Role `json:"roles"`
+	}
+
+	userList := make([]User, 0, len(s.users))
+	for _, u := range s.users {
+		userList = append(userList, *u)
+	}
+
+	roleList := make([]Role, 0, len(s.perms))
+	for r := range s.perms {
+		roleList = append(roleList, r)
+	}
+
+	cfg := RBACConfig{
+		DefaultRole:      s.cfg.DefaultRole,
+		MinPasswordLen:   s.cfg.MinPasswordLen,
+		MaxLoginAttempts: s.cfg.MaxLoginAttempts,
+		LockoutDuration:  s.cfg.LockoutDuration,
+		Users:            userList,
+		Roles:            roleList,
+	}
+	return json.Marshal(cfg)
 }
 
 type RBACMiddleware struct {
