@@ -14,10 +14,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"
+	"proxymesh/gateway/web"
 	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/matchmaker"
 )
+
+
 
 type Gateway struct {
 	router                  *gin.Engine
@@ -25,14 +28,17 @@ type Gateway struct {
 	compliance              *ComplianceService
 	rateLimiter             RateLimiter
 	tracing                 *Tracer
+	webUI                   *web.WebUI
 	apiKeyService           *APIKeyService
+	prometheusPusher        *PrometheusPusher
+	auditLogger             *AuditLogger
+	config                  *config.GatewayConfig
 	connPool                *ConnPool
 	wsHub                   *Hub
-	config                  *config.GatewayConfig
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
+	nodeConnections         map[string]int64
 	mu                      sync.RWMutex
-	prometheusPusher        *PrometheusPusher
 }
 
 func (g *Gateway) Router() *gin.Engine {
@@ -59,18 +65,22 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 	router.Use(gin.Recovery())
 
 	connPool := NewConnPool(10, 5*time.Second)
-
 	gw := &Gateway{
 		router:                  router,
 		matchmaker:              mm,
 		compliance:              comp,
 		rateLimiter:             rateLimiter,
 		tracing:                 tracer,
+		webUI:                   web.NewWebUI(mm),
+		apiKeyService:           nil,
+		prometheusPusher:        nil,
+		auditLogger:             nil,
+		config:                  &cfg.Gateway,
 		connPool:                connPool,
 		wsHub:                   NewHub(),
-		config:                  &cfg.Gateway,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
+		nodeConnections:         make(map[string]int64),
 	}
 
 	gw.setupRoutes()
@@ -87,13 +97,14 @@ func (g *Gateway) setupRoutes() {
 
 	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
-
 	g.router.GET("/v1/health", g.healthHandler)
 	g.router.GET("/v1/metrics", func(c *gin.Context) {
 		c.Header("Content-Type", "text/plain")
 		c.String(200, metrics.String())
 	})
 	g.router.GET("/v1/dashboard", g.serveDashboard)
+
+	g.webUI.RegisterRoutes(g.router)
 
 	g.router.Use(g.authMiddleware())
 	g.router.Use(g.tracingMiddleware())
@@ -109,48 +120,11 @@ func (g *Gateway) healthHandler(c *gin.Context) {
 		"status":  "healthy",
 		"version": "1.0.0",
 	}
-
 	c.JSON(http.StatusOK, status)
 }
 
 func (g *Gateway) serveDashboard(c *gin.Context) {
-	c.File("web/index.html")
-}
-
-// StartServer returns the underlying *http.Server for graceful shutdown.
-func (g *Gateway) StartServer() (*http.Server, error) {
-	addr := fmt.Sprintf("%s:%d", g.config.Host, g.config.Port)
-
-	requestTimeout := time.Duration(g.config.RequestTimeoutSeconds) * time.Second
-	idleTimeout := time.Duration(g.config.IdleTimeoutSeconds) * time.Second
-	readHeaderTimeout := time.Duration(g.config.ReadHeaderTimeoutSeconds) * time.Second
-
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           g.router,
-		ReadTimeout:       requestTimeout,
-		WriteTimeout:      requestTimeout,
-		IdleTimeout:       idleTimeout,
-		ReadHeaderTimeout: readHeaderTimeout,
-	}
-
-	if g.config.MTLSEnabled {
-		tlsConfig, err := g.buildTLSConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build TLS config: %w", err)
-		}
-		server.TLSConfig = tlsConfig
-	}
-
-	return server, nil
-}
-
-// Shutdown gracefully shuts down the gateway.
-func (g *Gateway) Shutdown(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	Info("Gateway shutting down", nil)
-	return nil
+	g.webUI.DashboardHandler(c)
 }
 
 func (g *Gateway) authMiddleware() gin.HandlerFunc {
@@ -190,23 +164,10 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 				})
 				return
 			}
-		} else if !g.validateAPIKey(authHeader) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid API key",
-			})
-			return
 		}
 
 		c.Next()
 	}
-}
-
-func extractBearerToken(auth string) string {
-	const prefix = "Bearer "
-	if len(auth) > len(prefix) && auth[:len(prefix)] == prefix {
-		return auth[len(prefix):]
-	}
-	return ""
 }
 
 func (g *Gateway) tracingMiddleware() gin.HandlerFunc {
@@ -225,8 +186,11 @@ func (g *Gateway) tracingMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (g *Gateway) validateAPIKey(auth string) bool {
-	return strings.HasPrefix(auth, "Bearer ") || strings.Contains(auth, ":")
+func extractBearerToken(auth string) string {
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+	return ""
 }
 
 func (g *Gateway) proxyHandler(c *gin.Context) {
@@ -317,112 +281,7 @@ func (g *Gateway) proxyHandler(c *gin.Context) {
 	localAddr := g.bindToIPv6Subnet(node)
 	c.Header("X-Proxy-Local-Addr", localAddr)
 
-	if g.isWebSocketRequest(c) {
-		g.forwardWebSocket(c, node, localAddr)
-		return
-	}
-
 	g.forwardRequest(c, node, localAddr)
-}
-
-func (g *Gateway) isWebSocketRequest(c *gin.Context) bool {
-	return strings.ToLower(c.GetHeader("Upgrade")) == "websocket"
-}
-
-func (g *Gateway) forwardWebSocket(c *gin.Context, node *models.Node, localAddr string) {
-	defer g.matchmaker.DecrementNodeLoad(node.ID)
-
-	target := c.Query("url")
-	if target == "" {
-		target = c.Param("path")
-	}
-	targetHost := g.extractHostFromTarget(target)
-	if targetHost == "" {
-		targetHost = c.Request.Host
-	}
-
-	nodeConn, err := g.connPool.Get(node.IP)
-	if err != nil {
-		g.recordFailure(node.ID)
-		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
-			"error": "Failed to connect to node: " + err.Error(),
-		})
-		return
-	}
-
-	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetHost, targetHost)
-	if _, err = nodeConn.Write([]byte(connectReq)); err != nil {
-		g.connPool.Put(node.IP, nodeConn)
-		g.recordFailure(node.ID)
-		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
-			"error": "Failed to send CONNECT to node",
-		})
-		return
-	}
-
-	buf := make([]byte, 1024)
-	nodeConn.Read(buf)
-
-	hijacker, ok := c.Writer.(http.Hijacker)
-	if !ok {
-		nodeConn.Close()
-		g.recordFailure(node.ID)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "WebSocket hijacking not supported",
-		})
-		return
-	}
-
-	clientConn, _, err := hijacker.Hijack()
-	if err != nil {
-		nodeConn.Close()
-		g.recordFailure(node.ID)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to hijack connection",
-		})
-		return
-	}
-
-	g.recordSuccess(node.ID)
-
-	go g.bidirectionalCopy(clientConn, nodeConn)
-}
-
-func (g *Gateway) bidirectionalCopy(src, dst net.Conn) {
-	defer src.Close()
-	defer dst.Close()
-
-	done := make(chan struct{}, 2)
-
-	go func() {
-		buf := make([]byte, 32*1024)
-		for {
-			n, err := src.Read(buf)
-			if n > 0 {
-				dst.Write(buf[:n])
-			}
-			if err != nil {
-				done <- struct{}{}
-				return
-			}
-		}
-	}()
-
-	go func() {
-		buf := make([]byte, 32*1024)
-		for {
-			n, err := dst.Read(buf)
-			if n > 0 {
-				src.Write(buf[:n])
-			}
-			if err != nil {
-				done <- struct{}{}
-				return
-			}
-		}
-	}()
-
-	<-done
 }
 
 func (g *Gateway) extractTarget(c *gin.Context, targetType string) string {
@@ -486,7 +345,7 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 		targetHost = "80.80.80.80:80"
 	}
 
-	nodeConn, err := g.connPool.Get(node.IP)
+	conn, err := g.connPool.Get(node.IP)
 	if err != nil {
 		g.recordFailure(node.ID)
 		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
@@ -494,11 +353,11 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 		})
 		return
 	}
+	defer conn.Close()
 
 	connectReq := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetHost, targetHost)
-	_, err = nodeConn.Write([]byte(connectReq))
+	_, err = conn.Write([]byte(connectReq))
 	if err != nil {
-		g.connPool.Put(node.IP, nodeConn)
 		g.recordFailure(node.ID)
 		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{
 			"error": "Failed to send CONNECT to node",
@@ -507,12 +366,7 @@ func (g *Gateway) forwardRequest(c *gin.Context, node *models.Node, localAddr st
 	}
 
 	buf := make([]byte, 1024)
-	nodeConn.Read(buf)
-
-	g.connPool.Put(node.IP, nodeConn)
-
-	c.Header("X-Proxy-Node-ID", node.ID)
-	c.Header("X-Proxy-Local-Addr", localAddr)
+	conn.Read(buf)
 
 	g.recordSuccess(node.ID)
 	c.JSON(http.StatusOK, gin.H{
@@ -566,25 +420,24 @@ func (g *Gateway) validateKYC(username string) bool {
 	return true
 }
 
-func (g *Gateway) Start() error {
+func (g *Gateway) StartServer() (*http.Server, error) {
 	addr := fmt.Sprintf("%s:%d", g.config.Host, g.config.Port)
 
-	if g.config.MTLSEnabled {
-		server := &http.Server{
-			Addr:    addr,
-			Handler: g.router,
-		}
-
-		tlsConfig, err := g.buildTLSConfig()
-		if err != nil {
-			return fmt.Errorf("failed to build TLS config: %w", err)
-		}
-
-		server.TLSConfig = tlsConfig
-		return server.ListenAndServeTLS(g.config.ServerCertPath, g.config.ServerKeyPath)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: g.router,
 	}
 
-	return g.router.Run(addr)
+	if g.config.MTLSEnabled {
+		tlsConfig, err := g.buildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
+		}
+		server.TLSConfig = tlsConfig
+		return server, nil
+	}
+
+	return server, nil
 }
 
 func (g *Gateway) buildTLSConfig() (*tls.Config, error) {
@@ -602,4 +455,23 @@ func (g *Gateway) buildTLSConfig() (*tls.Config, error) {
 		ClientCAs:  caCertPool,
 		ClientAuth: tls.RequestClientCert,
 	}, nil
+}
+
+func (g *Gateway) Start() error {
+	server, err := g.StartServer()
+	if err != nil {
+		return err
+	}
+
+	if g.config.MTLSEnabled {
+		return server.ListenAndServeTLS(g.config.ServerCertPath, g.config.ServerKeyPath)
+	}
+	return server.ListenAndServe()
+}
+
+func (g *Gateway) Shutdown(ctx context.Context) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	Info("Gateway shutting down", nil)
+	return nil
 }

@@ -161,6 +161,14 @@ This starts Redis and both services.
 
 3. Open http://localhost:8000/peer/ and enter `my-node-01` as the Node ID
 
+## Admin Dashboard
+
+Open http://localhost:8000/dashboard for the dark-themed admin UI:
+- **Nodes** - Real-time node list with country, ISP, reputation, load, last seen
+- **Actions** - Reset circuit breaker, eject node, node management
+- **Cooldowns** - View active domain cooldowns with TTL
+- **API** - JSON endpoints at `/web/api/nodes`, `/web/api/cooldowns`
+
 ## API Usage
 
 ### Connection Format
