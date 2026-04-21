@@ -270,6 +270,11 @@ curl -X POST http://localhost:8000/api/admin/nodes \
     "ip": "54.1.2.3",
     "os": "linux"
   }'
+
+# Peer authentication example
+curl -X POST http://localhost:8000/api/peer/auth \
+  -H "Content-Type: application/json" \
+  -d '{"node_id": "my-residential-node"}'
 ```
 
 ## Web Dashboard
@@ -315,22 +320,61 @@ curl http://localhost:8000/api/peer/status \
 
 ## Load Testing
 
-Build and run the load testing tool:
+Build and run the built-in load testing tool to benchmark gateway throughput and latency.
 
 ```bash
 go build -o loadtest ./cmd/loadtest/
 ./loadtest -url http://localhost:8000 -c 20 -d 60s -nodes 10
 ```
 
+### Options
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-url` | `http://localhost:8000` | Gateway base URL |
-| `-c` | `10` | Concurrent workers |
-| `-d` | `30s` | Test duration |
-| `-nodes` | `5` | Synthetic nodes to register |
-| `-target` | `https://httpbin.org/get` | Target URL for requests |
-| `-country` | `US` | Country for node registration |
-| `-key` | `test-admin-key` | Admin API key |
+| `-c` | `10` | Concurrent workers (simulated users) |
+| `-d` | `30s` | Total test duration |
+| `-nodes` | `5` | Synthetic datacenter nodes to register |
+| `-target` | `https://httpbin.org/get` | Target URL for proxy requests |
+| `-country` | `US` | Country filter for node registration |
+| `-key` | `test-admin-key` | Admin API key for node registration |
+
+### How It Works
+
+1. Registers `N` synthetic datacenter nodes via the admin API
+2. Spawns `C` concurrent goroutines to fire proxy requests for `D` duration
+3. Each goroutine sends HTTP GET requests via Basic Auth through the gateway
+4. Tracks total requests, success/failures, rate-limits (429s), min/max/avg latency
+5. Deregisters all synthetic nodes when done
+
+### Example Output
+
+```
+ProxyMesh Load Test
+===================
+Target:     http://localhost:8000
+Concurrency: 50
+Duration:   30s
+Nodes:      10
+
+[1/4] Registering 10 synthetic nodes...
+      Registered 10 nodes
+
+[2/4] Starting load test...
+
+[3/4] Results:
+  Total Requests:   15000
+  Successful:       14980 (99.9%)
+  Failed:           5
+  Rate Limited:     15
+  Requests/sec:     500.2
+  Avg Latency:      12.3 ms
+  Min Latency:      2 ms
+  Max Latency:      89 ms
+
+[4/4] Cleaning up nodes...
+      Done.
+```
 
 The tool registers synthetic datacenter nodes, fires concurrent proxy requests, reports RPS/latency stats, and cleans up on exit.
 
