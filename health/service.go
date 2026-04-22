@@ -54,11 +54,12 @@ func NewHealthService(redisClient *redis.Client) *HealthService {
 }
 
 func (s *HealthService) CheckAll() *SystemHealth {
-	checks := []HealthCheck{
-		s.CheckRedis(),
-		s.CheckMemory(),
-		s.CheckDisk(),
+	checks := make([]HealthCheck, 0, 3)
+
+	if s.redisClient != nil {
+		checks = append(checks, s.CheckRedis())
 	}
+	checks = append(checks, s.CheckMemory(), s.CheckDisk())
 
 	overall := StatusHealthy
 	for _, c := range checks {
