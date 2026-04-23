@@ -68,7 +68,12 @@ ProxyMeshProject/
 │       ├── icon-192.png     # PWA icon
 │       └── icon-512.png     # PWA icon
 ├── cmd/
-│   └── loadtest/            # Load testing CLI tool
+│   ├── cli/                   # Cobra CLI tool (node, key, status)
+│   │   ├── main.go
+│   │   ├── node.go
+│   │   ├── key.go
+│   │   └── status.go
+│   └── loadtest/              # Load testing CLI tool
 │       └── main.go
 └── docs/                    # Documentation
 ```
@@ -407,7 +412,7 @@ go test ./matchmaker/... -v   # Run matchmaker tests only
 go test ./... -cover          # Run with coverage
 ```
 
-62 tests across 7 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, and integration flows.
+135+ tests across 15 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, integration flows, RBAC, JWT, federation, peer SDK, health, payout, and Web UI.
 
 ## Development
 
@@ -417,6 +422,15 @@ go build .           # Build binary
 go run .             # Run directly
 go build ./...       # Build all packages
 ```
+
+## CI/CD
+
+A GitHub Actions workflow runs on every push/PR to `main`:
+
+- **Test matrix** — Go 1.21, 1.22, 1.23 on Ubuntu with a Redis service container
+- **Steps** — `go build`, `go vet`, `go test -race -cover`
+- **Artifacts** — Coverage reports uploaded per Go version
+- **Lint** — `golangci-lint` (non-blocking)
 
 ## Features
 

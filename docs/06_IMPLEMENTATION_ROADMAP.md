@@ -186,3 +186,20 @@
 - [x] **Peer Health Scoring** - Calculate health from latency/bandwidth/reliability
 - [x] **Request Deduplication** - SHA256-based request dedup to prevent duplicate processing
 - [x] **Rate Limit Tiers** - Assign tiers (free/basic/premium/enterprise) to clients
+
+---
+
+## Test Coverage (Session 8 — Apr 22)
+
+- [x] **Peer SDK tests** (`peer_sdk_test.go`) — GenerateNodeID, GetSystemInfo, getLocalIP, ConsentManager, NewPeerSDK: **25.8%**
+- [x] **Payout tests** (`payout_test.go`) — tiers, rates, JSON serialisation, min-payout threshold: **32.4%**
+- [x] **Federation tests** (`federation_test.go`) — RegisterPeer, GetStats, heartbeat/node_sync messages: **50.6%**
+- [x] **Gateway+web tests** (`webui_test.go`) — routes, min(), eject/reset handlers, nil-MM panic recovery: **40.0%**
+- [x] **Health tests** (`health_test.go`) — Memory, Disk, CheckAll, JSON serialisation, constants: **54.3%**
+- [x] **JWT tests** (`jwt_test.go`) — generate/validate/expire/refresh, roles, ParseTokenInfo, MarshalJSON: **39.8%**
+- [x] **RBAC tests** (`rbac_test.go`) — CreateUser, Authenticate, HasPermission, RequirePermission middleware, MarshalJSON regression: **95.5%**
+- [x] **Fix nil-client panic** — `health/service.go CheckAll()` now guards `s.redisClient != nil`
+- [x] **135+ tests** across 15 test files — 10 packages, 0PASS / 0FAIL
+- [x] **GitHub Actions CI** — `.github/workflows/ci.yml` Go 1.21/1.22/1.23 matrix, `go vet` + `go build` + `go test -race` steps
+- [x] **Roadmap/README sync** — test count, CLI entries, CI section
+
