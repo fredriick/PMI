@@ -20,8 +20,6 @@ import (
 	"proxymesh/matchmaker"
 )
 
-
-
 type Gateway struct {
 	router                  *gin.Engine
 	matchmaker              *matchmaker.Matchmaker
