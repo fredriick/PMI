@@ -12,6 +12,7 @@ import (
 	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/matchmaker"
+	
 )
 
 type PeerServer struct {
@@ -166,4 +167,41 @@ func (s *PeerServer) GetSession(nodeID string) *PeerSession {
 		}
 	}
 	return nil
+}
+
+func (s *PeerServer) StreamTelemetry(req *TelemetryStreamRequest, stream PeerService_StreamTelemetryServer) error {
+	log.Printf("Starting telemetry stream for node_id=%s", req.NodeId)
+	
+	// Send initial acknowledgment
+	if err := stream.Send(&TelemetryStreamResponse{
+		ServerTimestamp: time.Now().Format(time.RFC3339),
+		StatusMessage:   "Telemetry stream started",
+		ConnectionQuality: 100,
+	}); err != nil {
+		return err
+	}
+	
+	// Stream telemetry data periodically
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-stream.Context().Done():
+			log.Printf("Telemetry stream stopped for node_id=%s: %v", req.NodeId, stream.Context().Err())
+			return nil
+		case <-ticker.C:
+			// Simulate collecting telemetry data
+			connectionQuality := 85 + (time.Now().Unix() % 15) // Vary between 85-100
+			
+			if err := stream.Send(&TelemetryStreamResponse{
+				ServerTimestamp: time.Now().Format(time.RFC3339),
+				StatusMessage:   fmt.Sprintf("Telemetry update for %s", req.NodeId),
+				ConnectionQuality: int32(connectionQuality),
+			}); err != nil {
+				log.Printf("Failed to send telemetry to %s: %v", req.NodeId, err)
+				return err
+			}
+		}
+	}
 }

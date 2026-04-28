@@ -5,6 +5,7 @@ package proxymesh;
 option go_package = "proxymesh/internal/grpc";
 
 service PeerService {
+    rpc StreamTelemetry(stream TelemetryStreamRequest) returns (stream TelemetryStreamResponse);
     rpc Connect(ConnectRequest) returns (ConnectResponse);
     rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc ReportBandwidth(BandwidthReport) returns (BandwidthResponse);
@@ -56,6 +57,23 @@ message BandwidthResponse {
 message DisconnectRequest {
     string node_id = 1;
     string reason = 2;
+}
+
+message TelemetryStreamRequest {
+    string node_id = 1;
+    int32 battery_level = 2;
+    float cpu_usage = 3;
+    int64 bandwidth_sent = 4;
+    int64 bandwidth_received = 5;
+    bool is_charging = 6;
+    string ip_address = 7;
+    int64 timestamp = 8;
+}
+
+message TelemetryStreamResponse {
+    string server_timestamp = 1;
+    string status_message = 2;
+    int32 connection_quality = 3;
 }
 
 message DisconnectResponse {
