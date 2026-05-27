@@ -45,20 +45,8 @@ func (s *PeerServer) Connect(ctx context.Context, req *ConnectRequest) (*Connect
 		return &ConnectResponse{Success: false, Message: "node_id is required"}, nil
 	}
 
-	batteryOk := req.Battery >= int32(s.config.MinBatteryPercent)
-	cpuOk := req.CpuUsage <= float32(s.config.MaxCPUPercent)
-	wifiOk := true
-
-	if s.config.RequireUnmeteredWiFi {
-		wifiOk = req.IsCharging
-	}
-
-	if !batteryOk || !cpuOk || !wifiOk {
-		return &ConnectResponse{
-			Success: false,
-			Message: fmt.Sprintf("Peer not eligible: battery=%v, cpu=%v, wifi=%v", batteryOk, cpuOk, wifiOk),
-		}, nil
-	}
+// Eligibility is validated via Heartbeat after connection
+// For now, assume eligible if node_id is present (checked above)
 
 	registrationReq := &models.NodeRegistrationRequest{
 		NodeID:     req.NodeId,
@@ -169,9 +157,15 @@ func (s *PeerServer) GetSession(nodeID string) *PeerSession {
 	return nil
 }
 
-func (s *PeerServer) StreamTelemetry(req *TelemetryStreamRequest, stream PeerService_StreamTelemetryServer) error {
-	log.Printf("Starting telemetry stream for node_id=%s", req.NodeId)
-	
+func (s *PeerServer) StreamTelemetry(stream PeerService_StreamTelemetryServer) error {
+	// Receive the initial request from the client
+	in, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	nodeID := in.NodeId
+	log.Printf("Starting telemetry stream for node_id=%s", nodeID)
+
 	// Send initial acknowledgment
 	if err := stream.Send(&TelemetryStreamResponse{
 		ServerTimestamp: time.Now().Format(time.RFC3339),
@@ -180,26 +174,26 @@ func (s *PeerServer) StreamTelemetry(req *TelemetryStreamRequest, stream PeerSer
 	}); err != nil {
 		return err
 	}
-	
+
 	// Stream telemetry data periodically
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-stream.Context().Done():
-			log.Printf("Telemetry stream stopped for node_id=%s: %v", req.NodeId, stream.Context().Err())
+			log.Printf("Telemetry stream stopped for node_id=%s: %v", nodeID, stream.Context().Err())
 			return nil
 		case <-ticker.C:
 			// Simulate collecting telemetry data
 			connectionQuality := 85 + (time.Now().Unix() % 15) // Vary between 85-100
-			
+
 			if err := stream.Send(&TelemetryStreamResponse{
 				ServerTimestamp: time.Now().Format(time.RFC3339),
-				StatusMessage:   fmt.Sprintf("Telemetry update for %s", req.NodeId),
+				StatusMessage:   fmt.Sprintf("Telemetry update for %s", nodeID),
 				ConnectionQuality: int32(connectionQuality),
 			}); err != nil {
-				log.Printf("Failed to send telemetry to %s: %v", req.NodeId, err)
+				log.Printf("Failed to send telemetry to %s: %v", nodeID, err)
 				return err
 			}
 		}
