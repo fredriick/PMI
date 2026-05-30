@@ -45,8 +45,8 @@ func (s *PeerServer) Connect(ctx context.Context, req *ConnectRequest) (*Connect
 		return &ConnectResponse{Success: false, Message: "node_id is required"}, nil
 	}
 
-// Eligibility is validated via Heartbeat after connection
-// For now, assume eligible if node_id is present (checked above)
+// Eligibility validation (battery, CPU, WiFi) is performed via Heartbeat after connection.
+// For now, assume eligible if node_id is present (validated above).
 
 	registrationReq := &models.NodeRegistrationRequest{
 		NodeID:     req.NodeId,
