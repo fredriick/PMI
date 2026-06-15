@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxymesh-config
+  namespace: proxymesh
+data:
+  config.yaml: |
+    gateway:
+      host: "0.0.0.0"
+      port: 8000
+      mtls_enabled: false
+      circuit_breaker_threshold: 5
+      rate_limit_requests: 100
+      rate_limit_window_seconds: 60
+      rate_limit_distributed: true
+      tracing_enabled: true
+      cooldown_seconds: 3600
+      request_timeout_seconds: 30
+      idle_timeout_seconds: 120
+      read_header_timeout_seconds: 10
+
+    matchmaker:
+      host: "localhost"
+      port: 6379
+      pool_size: 10
+      cooldown_ttl_minutes: 15
+
+    redis:
+      host: "proxymesh-redis"
+      port: 6379
+      password: ""
+      db: 0
+      cluster_enabled: false
+      cluster_addrs: []
+      pool_size: 10
+      max_retries: 3
+
+    compliance:
+      blocked_domains:
+        - "*.gov"
+        - "*.mil"
+        - "*.bankofamerica.com"
+        - "*.chase.com"
+        - "*.wellsfargo.com"
+        - "*.illegal-content.*"
+      kyc_required: true
+
+    peer:
+      min_battery_percent: 20
+      max_cpu_percent: 80
+      require_unmetered_wifi: true
+
+    subnet:
+      enabled: true
+      prefix: "2001:db8::"
+      prefix_len: 48
+
+    pricing:
+      tiers:
+        - name: Basic
+          min_gb_monthly: 0
+          max_gb_monthly: 10
+          rate_per_gb_sent: 0.30
+          rate_per_gb_recv: 0.15
+        - name: Premium
+          min_gb_monthly: 10
+          max_gb_monthly: 100
+          rate_per_gb_sent: 0.50
+          rate_per_gb_recv: 0.30
+        - name: Enterprise
+          min_gb_monthly: 100
+          max_gb_monthly: 10000
+          rate_per_gb_sent: 0.80
+          rate_per_gb_recv: 0.50
+
+    federation:
+      enabled: false
+      regions:
+        - us-east
+        - us-west
+        - eu-west
+        - ap-south
+      heartbeat_interval_seconds: 30
+      sync_interval_seconds: 60
+
+    jwt:
+      enabled: false
+      secret_key: ""
+      expiration: 24h
+
+    rbac:
+      enabled: false
+      default_role: viewer
+      min_password_len: 8
+      max_login_attempts: 5
+      lockout_duration_minutes: 15
+
+    prometheus:
+      enabled: false
+      push_gateway_url: "http://proxymesh-prometheus:9091"
+      push_interval_seconds: 30
+      job_name: "proxymesh_gateway"

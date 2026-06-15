@@ -21,6 +21,7 @@ ProxyMeshProject/
 ├── peer_api.go              # Peer dashboard API routes (auth, status, earnings)
 ├── config.yaml              # Configuration file
 ├── docker-compose.yml       # Local development environment
+├── k8s/                     # Kubernetes deployment manifests
 ├── gateway/                 # HTTP proxy gateway
 │   ├── service.go           # Request routing, auth, dashboard
 │   ├── compliance.go        # KYC & domain blocking (wildcard support)
@@ -153,6 +154,33 @@ This starts Redis and both services.
    ```bash
    go test ./... -v
    ```
+
+### Kubernetes Deployment
+
+ProxyMesh includes Kubernetes manifests for single-region deployments:
+
+```bash
+kubectl apply -k k8s/
+```
+
+The manifests deploy:
+
+- Redis with persistent storage
+- Gateway with health/readiness probes
+- LoadBalancer service on ports 80 and 9000
+- Optional NGINX ingress for `proxymesh.local`
+
+To build and push your own image:
+
+```bash
+docker build -t ghcr.io/fredriick/proxymesh:latest -f Dockerfile.gateway .
+kubectl set image deployment/proxymesh-gateway -n proxymesh gateway=ghcr.io/fredriick/proxymesh:latest
+kubectl rollout restart deployment/proxymesh-gateway -n proxymesh
+```
+
+### Setup Your First Node
+
+See [`docs/09_SETUP_FIRST_NODE.md`](docs/09_SETUP_FIRST_NODE.md) for a step-by-step guide covering Redis setup, node registration, Peer Dashboard authentication, and Raspberry Pi deployment notes.
 
 ### Quick Start (Peer PWA)
 
@@ -401,6 +429,7 @@ Residential nodes connect via gRPC on port 9000:
 | `Connect` | Register node with eligibility checks |
 | `Heartbeat` | Report battery, CPU, charging status |
 | `ReportBandwidth` | Submit bandwidth usage data |
+| `StreamTelemetry` | Bidirectional real-time telemetry stream |
 | `Disconnect` | Graceful node deregistration |
 
 ## Testing
@@ -432,6 +461,13 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **Artifacts** — Coverage reports uploaded per Go version
 - **Lint** — `golangci-lint` (non-blocking)
 
+## Documentation
+
+- [`docs/08_DATACENTER_VALUE.md`](docs/08_DATACENTER_VALUE.md) - Datacenter value proposition and deployment model guide
+- [`docs/09_SETUP_FIRST_NODE.md`](docs/09_SETUP_FIRST_NODE.md) - Step-by-step setup guide for registering and testing your first node
+- [`docs/10_KUBERNETES_DEPLOYMENT.md`](docs/10_KUBERNETES_DEPLOYMENT.md) - Kubernetes deployment guide
+- [`docs/11_SECRET_ROTATION.md`](docs/11_SECRET_ROTATION.md) - Production secret and certificate rotation policy
+
 ## Features
 
 - **HTTP CONNECT Proxy** - Full proxy support with target modifiers
@@ -447,6 +483,7 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **Structured Logging** - JSON logging with request IDs
 - **OpenTelemetry Tracing** - Distributed tracing support
 - **gRPC Peer Service** - Residential node communication on port 9000
+- **Kubernetes Deployment** - Ready-to-apply manifests for Redis, Gateway, LoadBalancer, and optional Ingress
 - **Bandwidth Tracking** - Per-peer bandwidth recording with Redis pipelines
 - **Payout Calculation** - Automatic compensation calculation per GB
 - **Session Persistence** - Redis-backed session-to-node mapping with TTL
