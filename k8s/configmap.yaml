@@ -8,7 +8,10 @@ data:
     gateway:
       host: "0.0.0.0"
       port: 8000
-      mtls_enabled: false
+      mtls_enabled: true
+      ca_cert_path: "/etc/proxymesh/tls/ca.crt"
+      server_cert_path: "/etc/proxymesh/tls/tls.crt"
+      server_key_path: "/etc/proxymesh/tls/tls.key"
       circuit_breaker_threshold: 5
       rate_limit_requests: 100
       rate_limit_window_seconds: 60

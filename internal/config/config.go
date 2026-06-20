@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -140,10 +142,49 @@ func Load(path string) (*Config, error) {
 		err = viper.Unmarshal(cfg)
 		if err != nil {
 			err = fmt.Errorf("failed to unmarshal config: %w", err)
+			return
 		}
+
+		applyEnvOverrides(cfg)
 	})
 
 	return cfg, err
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
+	}
+
+	if v := os.Getenv("MTLS_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			cfg.Gateway.MTLSEnabled = enabled
+		}
+	}
+	if v := os.Getenv("MTLS_CA_CERT_PATH"); v != "" {
+		cfg.Gateway.CACertPath = v
+	}
+	if v := os.Getenv("MTLS_SERVER_CERT_PATH"); v != "" {
+		cfg.Gateway.ServerCertPath = v
+	}
+	if v := os.Getenv("MTLS_SERVER_KEY_PATH"); v != "" {
+		cfg.Gateway.ServerKeyPath = v
+	}
+
+	if v := os.Getenv("JWT_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			cfg.JWT.Enabled = enabled
+		}
+	}
+	if v := os.Getenv("JWT_SECRET_KEY"); v != "" {
+		cfg.JWT.SecretKey = v
+	}
+
+	if v := os.Getenv("RBAC_ENABLED"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			cfg.RBAC.Enabled = enabled
+		}
+	}
 }
 
 func Get() *Config {

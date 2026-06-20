@@ -27,10 +27,21 @@ spec:
               containerPort: 8000
             - name: grpc
               containerPort: 9000
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: proxymesh-secrets
+                  key: redis-password
+            - name: MTLS_ENABLED
+              value: "true"
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
               subPath: config.yaml
+              readOnly: true
+            - name: tls
+              mountPath: /etc/proxymesh/tls
               readOnly: true
           readinessProbe:
             httpGet:
@@ -58,3 +69,6 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
+        - name: tls
+          secret:
+            secretName: proxymesh-tls

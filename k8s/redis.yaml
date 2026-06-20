@@ -37,25 +37,33 @@ spec:
           ports:
             - name: redis
               containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: proxymesh-secrets
+                  key: redis-password
           command:
-            - redis-server
-            - --appendonly
-            - "yes"
+            - /bin/sh
+            - -c
+            - redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
           volumeMounts:
             - name: redis-data
               mountPath: /data
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - /bin/sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - /bin/sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 15
             periodSeconds: 20
       volumes:
