@@ -134,8 +134,9 @@ func RequestLogger() gin.HandlerFunc {
 		method := c.Request.Method
 		clientIP := c.ClientIP()
 
-		requestID := c.GetHeader("X-Request-ID")
-		if requestID == "" {
+		requestIDValue, ok := c.Get("request_id")
+		requestID, _ := requestIDValue.(string)
+		if !ok || requestID == "" {
 			requestID = fmt.Sprintf("%d", time.Now().UnixNano())
 		}
 		c.Set("request_id", requestID)

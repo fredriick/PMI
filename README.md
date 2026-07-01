@@ -93,6 +93,8 @@ gateway:
   rate_limit_window_seconds: 60
   rate_limit_distributed: true
   tracing_enabled: true
+  request_id_prefix: "req"
+  request_id_format: "unix"
 
 matchmaker:
   host: "localhost"
@@ -220,6 +222,7 @@ http://[user]-[targets]:[pass]@gateway.io:8000
 
 ### Response Headers
 
+- `X-Request-ID` - Correlation ID generated from the configured prefix and format, or echoed from the incoming request.
 - `X-Proxy-Node-ID` - Exit node identifier
 - `X-Proxy-Latency` - Node response time (ms)
 - `X-Proxy-Local-Addr` - Bound local address
@@ -250,6 +253,8 @@ All admin endpoints require the `X-Admin-Key` header.
 | GET | `/api/admin/capacity` | Node capacity report |
 | GET | `/api/admin/scaling` | Scaling recommendations |
 | GET | `/api/admin/audit` | Query audit log entries |
+| GET | `/api/admin/request-id` | Get request ID generation settings |
+| POST | `/api/admin/request-id` | Update request ID prefix or format |
 
 ### API Key Management
 
@@ -481,6 +486,7 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **Audit Logging** - Structured audit trail of admin actions to file and Redis
 - **Metrics** - Prometheus metrics at `/metrics`
 - **Structured Logging** - JSON logging with request IDs
+- **Request ID Customization** - Configurable `X-Request-ID` prefix and format (`unix`, `timestamp`, `uuid`)
 - **OpenTelemetry Tracing** - Distributed tracing support
 - **gRPC Peer Service** - Residential node communication on port 9000
 - **Kubernetes Deployment** - Ready-to-apply manifests for Redis, Gateway, LoadBalancer, and optional Ingress

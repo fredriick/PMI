@@ -165,7 +165,7 @@
 - [x] **API Response Caching** - ResponseCache with Redis backend, X-Cache headers
 - [x] **Node Retry Handler** - Retry logic with fallback nodes
 - [x] **Rate Limit Headers** - X-RateLimit-Limit/Remaining/Reset headers
-- [x] **Request ID Generation** - X-Request-ID header with correlation tracking
+- [x] **Request ID Generation** - Customizable `X-Request-ID` prefix and format with correlation tracking
 - [x] **Admin API Metrics** - GET /api/admin/metrics with calls/errors/latencies
 - [x] **Node Timeouts** - Configurable per-node dial/read/write/idle timeouts
 - [x] **Session Persistence** - Session persistence with failover node support

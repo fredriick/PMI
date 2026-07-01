@@ -21,6 +21,8 @@ data:
       request_timeout_seconds: 30
       idle_timeout_seconds: 120
       read_header_timeout_seconds: 10
+      request_id_prefix: "req"
+      request_id_format: "unix"
 
     matchmaker:
       host: "localhost"

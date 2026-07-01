@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"go.opentelemetry.io/otel/attribute"
 	"proxymesh/gateway/web"
 	"proxymesh/internal/config"
@@ -33,6 +34,7 @@ type Gateway struct {
 	config                  *config.GatewayConfig
 	connPool                *ConnPool
 	wsHub                   *Hub
+	requestID               *RequestIDGenerator
 	circuitBreakerThreshold int
 	nodeFailures            map[string]int
 	nodeConnections         map[string]int64
@@ -41,6 +43,10 @@ type Gateway struct {
 
 func (g *Gateway) Router() *gin.Engine {
 	return g.router
+}
+
+func (g *Gateway) RequestID() *RequestIDGenerator {
+	return g.requestID
 }
 
 func (g *Gateway) SetAPIKeyService(svc *APIKeyService) {
@@ -57,12 +63,13 @@ func (g *Gateway) ReloadCompliance(cfg *config.ComplianceConfig) {
 	g.compliance = NewComplianceService(cfg)
 }
 
-func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer, rateLimiter RateLimiter) *Gateway {
+func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceService, tracer *Tracer, rateLimiter RateLimiter, redisClient *redis.Client) *Gateway {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
 	connPool := NewConnPool(10, 5*time.Second)
+	requestID := NewRequestIDGenerator(cfg.Gateway.RequestIDPrefix, cfg.Gateway.RequestIDFormat, redisClient)
 	gw := &Gateway{
 		router:                  router,
 		matchmaker:              mm,
@@ -76,6 +83,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		config:                  &cfg.Gateway,
 		connPool:                connPool,
 		wsHub:                   NewHub(),
+		requestID:               requestID,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
 		nodeConnections:         make(map[string]int64),
@@ -90,6 +98,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 func (g *Gateway) setupRoutes() {
 	InitLogger(LevelInfo, "")
 	SetupMetricsRoutes(g.router)
+	g.router.Use(g.requestID.Middleware())
 	g.router.Use(RequestLogger())
 	g.router.Use(g.rateLimiter.Middleware())
 

@@ -60,7 +60,7 @@ func main() {
 		log.Printf("Using local rate limiter (in-memory)")
 	}
 
-	gw := gateway.NewGateway(cfg, mm, compliance, tracer, rateLimiter)
+	gw := gateway.NewGateway(cfg, mm, compliance, tracer, rateLimiter, redisClient.Client())
 
 	apiKeyService := gateway.NewAPIKeyService(redisClient.Client())
 	gw.SetAPIKeyService(apiKeyService)
@@ -88,7 +88,7 @@ func main() {
 		log.Printf("Warning: failed to start federation: %v", err)
 	}
 
-	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger)
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger, gw.RequestID())
 	setupPeerRoutes(gw.Router(), mm, payoutSvc)
 
 	config.OnChange(func(newCfg *config.Config) {

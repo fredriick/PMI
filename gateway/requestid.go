@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,32 +13,148 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	DefaultRequestIDPrefix = "req"
+	DefaultRequestIDFormat = "unix"
+
+	RequestIDFormatUnix      = "unix"
+	RequestIDFormatTimestamp = "timestamp"
+	RequestIDFormatUUID      = "uuid"
+)
+
+type RequestIDConfig struct {
+	mu     sync.RWMutex
+	prefix string
+	format string
+}
+
 type RequestIDGenerator struct {
-	prefix   string
-	mu       sync.RWMutex
+	config   *RequestIDConfig
+	mu       sync.Mutex
 	counters map[string]uint64
 	redis    *redis.Client
 	ctx      context.Context
 }
 
-func NewRequestIDGenerator(prefix string, redisClient *redis.Client) *RequestIDGenerator {
+func NewRequestIDConfig(prefix, format string) *RequestIDConfig {
+	ric := &RequestIDConfig{
+		prefix: DefaultRequestIDPrefix,
+		format: DefaultRequestIDFormat,
+	}
+	ric.SetPrefix(prefix)
+	ric.SetFormat(format)
+	return ric
+}
+
+func NewRequestIDGenerator(prefix, format string, redisClient *redis.Client) *RequestIDGenerator {
 	return &RequestIDGenerator{
-		prefix:   prefix,
+		config:   NewRequestIDConfig(prefix, format),
 		counters: make(map[string]uint64),
 		redis:    redisClient,
 		ctx:      context.Background(),
 	}
 }
 
+func normalizeRequestIDPrefix(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return DefaultRequestIDPrefix
+	}
+	return prefix
+}
+
+func normalizeRequestIDFormat(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case RequestIDFormatUnix, RequestIDFormatTimestamp, RequestIDFormatUUID:
+		return strings.ToLower(strings.TrimSpace(format))
+	default:
+		return ""
+	}
+}
+
+func (ric *RequestIDConfig) SetPrefix(prefix string) {
+	ric.mu.Lock()
+	defer ric.mu.Unlock()
+	ric.prefix = normalizeRequestIDPrefix(prefix)
+}
+
+func (ric *RequestIDConfig) SetFormat(format string) bool {
+	normalized := normalizeRequestIDFormat(format)
+	if normalized == "" {
+		return false
+	}
+
+	ric.mu.Lock()
+	defer ric.mu.Unlock()
+	ric.format = normalized
+	return true
+}
+
+func (ric *RequestIDConfig) Prefix() string {
+	ric.mu.RLock()
+	defer ric.mu.RUnlock()
+	return ric.prefix
+}
+
+func (ric *RequestIDConfig) FormatName() string {
+	ric.mu.RLock()
+	defer ric.mu.RUnlock()
+	return ric.format
+}
+
+func (ric *RequestIDConfig) Snapshot() map[string]string {
+	ric.mu.RLock()
+	defer ric.mu.RUnlock()
+	return map[string]string{
+		"prefix": ric.prefix,
+		"format": ric.format,
+	}
+}
+
+func (ric *RequestIDConfig) Format(value string) string {
+	ric.mu.RLock()
+	format := ric.format
+	prefix := ric.prefix
+	ric.mu.RUnlock()
+
+	switch format {
+	case RequestIDFormatUUID:
+		return fmt.Sprintf("%s-%s", prefix, value)
+	case RequestIDFormatTimestamp:
+		return fmt.Sprintf("%s-%s", prefix, value)
+	default:
+		return fmt.Sprintf("%s-%s", prefix, value)
+	}
+}
+
+func (rig *RequestIDGenerator) SetPrefix(prefix string) {
+	rig.config.SetPrefix(prefix)
+}
+
+func (rig *RequestIDGenerator) SetFormat(format string) bool {
+	return rig.config.SetFormat(format)
+}
+
+func (rig *RequestIDGenerator) Config() map[string]string {
+	return rig.config.Snapshot()
+}
+
 func (rig *RequestIDGenerator) Generate() string {
 	rig.mu.Lock()
-	defer rig.mu.Unlock()
-
 	rig.counters["global"]++
 	counter := rig.counters["global"]
+	rig.mu.Unlock()
 
-	timestamp := time.Now().UnixNano()
-	requestID := fmt.Sprintf("%s-%d-%d", rig.prefix, timestamp, counter)
+	value := fmt.Sprintf("%d-%d", time.Now().UnixNano(), counter)
+	format := rig.config.FormatName()
+	if format == RequestIDFormatTimestamp {
+		value = fmt.Sprintf("%d-%d", time.Now().Unix(), counter)
+	}
+	if format == RequestIDFormatUUID {
+		value = uuid.New().String()
+	}
+
+	requestID := rig.config.Format(value)
 
 	if rig.redis != nil {
 		rig.redis.HIncrBy(rig.ctx, "request_id_counter", "global", 1)
@@ -46,7 +164,7 @@ func (rig *RequestIDGenerator) Generate() string {
 }
 
 func (rig *RequestIDGenerator) GenerateUUID() string {
-	return uuid.New().String()
+	return rig.config.Format(uuid.New().String())
 }
 
 func (rig *RequestIDGenerator) Middleware() gin.HandlerFunc {
@@ -69,6 +187,40 @@ func (rig *RequestIDGenerator) GetTraceID(c *gin.Context) string {
 		traceID = rig.GenerateUUID()
 	}
 	return traceID
+}
+
+func (rig *RequestIDGenerator) RegisterRoutes(r gin.IRoutes) {
+	r.POST("/request-id", rig.setConfigHandler)
+	r.GET("/request-id", rig.getConfigHandler)
+}
+
+func (rig *RequestIDGenerator) setConfigHandler(c *gin.Context) {
+	var req struct {
+		Prefix string `json:"prefix"`
+		Format string `json:"format"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Prefix != "" {
+		rig.SetPrefix(req.Prefix)
+	}
+	if req.Format != "" && !rig.SetFormat(req.Format) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request id format"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"prefix": rig.config.Prefix(),
+		"format": rig.config.FormatName(),
+	})
+}
+
+func (rig *RequestIDGenerator) getConfigHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, rig.Config())
 }
 
 type AdminMetrics struct {

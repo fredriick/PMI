@@ -12,7 +12,7 @@ import (
 	"proxymesh/matchmaker"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
 	if auditLog != nil {
@@ -38,6 +38,9 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/users", listUsersHandler)
 		admin.POST("/users", createUserHandler)
 		admin.DELETE("/users/:username", deleteUserHandler)
+		if requestID != nil {
+			requestID.RegisterRoutes(admin)
+		}
 	}
 
 	if apiKeySvc != nil {

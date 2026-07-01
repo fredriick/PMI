@@ -42,6 +42,8 @@ type GatewayConfig struct {
 	RequestTimeoutSeconds    int    `mapstructure:"request_timeout_seconds"`
 	IdleTimeoutSeconds       int    `mapstructure:"idle_timeout_seconds"`
 	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`
+	RequestIDPrefix            string `mapstructure:"request_id_prefix"`
+	RequestIDFormat            string `mapstructure:"request_id_format"`
 }
 
 type MatchmakerConfig struct {
@@ -184,6 +186,13 @@ func applyEnvOverrides(cfg *Config) {
 		if enabled, err := strconv.ParseBool(v); err == nil {
 			cfg.RBAC.Enabled = enabled
 		}
+	}
+
+	if v := os.Getenv("REQUEST_ID_PREFIX"); v != "" {
+		cfg.Gateway.RequestIDPrefix = v
+	}
+	if v := os.Getenv("REQUEST_ID_FORMAT"); v != "" {
+		cfg.Gateway.RequestIDFormat = v
 	}
 }
 
