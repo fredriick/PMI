@@ -59,7 +59,10 @@ ProxyMeshProject/
 │       ├── allocator.go
 │       └── allocator_test.go
 ├── web/                     # Static web assets
-│   ├── index.html           # Admin dashboard UI
+│   ├── index.html           # Landing page
+│   ├── docs.html            # Production documentation
+│   └── dashboard/
+│   │   └── index.html       # Admin dashboard UI
 │   └── peer/                # Peer operator PWA
 │       ├── index.html       # SPA shell
 │       ├── style.css        # Dark-themed styles

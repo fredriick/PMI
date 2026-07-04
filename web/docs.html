@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxyMesh Documentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;800&display=swap');
+
+  :root{
+    --bg:#050810;--bg-card:rgba(10,14,26,0.85);--border:rgba(59,130,246,0.15);
+    --text:#e8eaed;--text-dim:#6b7280;--accent:#3b82f6;--accent-bright:#60a5fa;
+    --accent-dim:rgba(59,130,246,0.12);--accent-glow:rgba(59,130,246,0.5);--cyan:#06b6d4;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.6;overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 70% 40% at 50% 0%,black 0%,transparent 100%);
+  }
+
+  .container{max-width:1200px;margin:0 auto;padding:0 28px;position:relative;z-index:2}
+
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    padding:22px 0;background:rgba(5,8,16,0.92);
+    border-bottom:1px solid var(--border);
+    backdrop-filter:blur(20px) saturate(1.4);
+    -webkit-backdrop-filter:blur(20px) saturate(1.4);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between}
+  .logo{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;font-size:17px;letter-spacing:-0.5px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .logo a{color:var(--text);text-decoration:none}
+  .logo-mark{
+    width:36px;height:36px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--cyan));
+    display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+  }
+  .logo-mark::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(45deg,transparent 40%,rgba(255,255,255,0.35) 50%,transparent 60%);
+    animation:shimmer 3s ease-in-out infinite;
+  }
+  .logo-mark img{width:20px;height:20px;position:relative;z-index:1}
+  .nav-links{display:flex;gap:40px}
+  .nav-links a{
+    font-size:13px;font-weight:500;color:var(--text-dim);
+    letter-spacing:0.4px;transition:color 0.2s;position:relative;
+  }
+  .nav-links a:hover{color:var(--accent-bright)}
+  .nav-links a::after{
+    content:'';position:absolute;bottom:-6px;left:0;right:0;height:1px;
+    background:var(--accent);transform:scaleX(0);transition:transform 0.3s;transform-origin:right;
+  }
+  .nav-links a:hover::after{transform:scaleX(1);transform-origin:left}
+
+  .btn{
+    font-family:inherit;font-size:13px;font-weight:600;
+    padding:10px 22px;border-radius:8px;cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    display:inline-flex;align-items:center;gap:8px;letter-spacing:0.2px;
+  }
+  .btn-primary{
+    background:var(--accent);color:#fff;border:none;position:relative;overflow:hidden;
+  }
+  .btn-primary:hover{
+    transform:translateY(-2px);
+    box-shadow:0 0 30px var(--accent-glow),0 8px 24px rgba(59,130,246,0.3);
+  }
+  .btn-ghost{
+    background:transparent;border:1px solid var(--border);color:var(--text);
+  }
+  .btn-ghost:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-bright)}
+
+  /* Docs layout */
+  .docs-header{
+    padding:140px 0 80px;text-align:center;position:relative;
+  }
+  .docs-header h1{
+    font-size:clamp(36px,5vw,56px);font-weight:800;letter-spacing:-2px;margin-bottom:16px;
+  }
+  .docs-header p{color:var(--text-dim);font-size:17px;max-width:600px;margin:0 auto 40px;line-height:1.7}
+
+  .docs-search{
+    max-width:600px;margin:0 auto;position:relative;
+  }
+  .docs-search input{
+    width:100%;padding:14px 20px;background:var(--bg-card);
+    border:1px solid var(--border);border-radius:10px;
+    color:var(--text);font-size:15px;outline:none;
+    transition:border-color 0.2s,box-shadow 0.2s;
+  }
+  .docs-search input:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-dim);
+  }
+
+  .docs-body{
+    display:grid;grid-template-columns:280px 1fr;gap:60px;
+    padding:40px 0 120px;position:relative;z-index:2;
+  }
+  .docs-sidebar{
+    position:sticky;top:100px;height:fit-content;
+  }
+  .docs-sidebar nav{position:static;background:transparent;border:none;padding:0;backdrop-filter:none}
+  .sidebar-section{margin-bottom:32px}
+  .sidebar-title{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--accent);letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:12px;font-weight:600;
+  }
+  .sidebar-links{display:flex;flex-direction:column;gap:6px}
+  .sidebar-links a{
+    font-size:13px;color:var(--text-dim);text-decoration:none;
+    padding:6px 0;transition:color 0.2s;display:block;
+  }
+  .sidebar-links a:hover{color:var(--accent-bright)}
+  .sidebar-links a.active{color:var(--accent-bright);font-weight:500}
+
+  .docs-content{min-width:0}
+  .doc-section{margin-bottom:80px;scroll-margin-top:100px}
+  .doc-section h2{
+    font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-1px;
+    margin-bottom:20px;padding-bottom:12px;
+    border-bottom:1px solid var(--border);
+  }
+  .doc-section h3{
+    font-size:20px;font-weight:700;margin:32px 0 12px;letter-spacing:-0.3px;
+  }
+  .doc-section p{
+    color:var(--text-dim);font-size:15px;line-height:1.8;margin-bottom:16px;
+  }
+  .doc-section ul,.doc-section ol{
+    color:var(--text-dim);font-size:15px;line-height:1.8;
+    margin:0 0 16px 24px;padding:0;
+  }
+  .doc-section li{margin-bottom:8px}
+  .doc-section strong{color:var(--text);font-weight:600}
+
+  code,pre{
+    font-family:'JetBrains Mono',monospace;font-size:13px;
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:8px;
+  }
+  code{
+    padding:2px 8px;color:var(--accent-bright);
+  }
+  pre{
+    padding:16px 20px;overflow-x:auto;margin:16px 0;
+    line-height:1.6;
+  }
+  pre code{
+    background:transparent;border:none;padding:0;
+    color:var(--text);
+  }
+  .code-block{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:10px;padding:20px 24px;margin:16px 0;
+    position:relative;overflow:hidden;
+  }
+  .code-block::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:100%;
+    background:linear-gradient(180deg,transparent,rgba(59,130,246,0.03));
+    pointer-events:none;
+  }
+  .code-header{
+    display:flex;gap:6px;margin-bottom:14px;
+  }
+  .code-dot{width:10px;height:10px;border-radius:50%}
+  .code-dot.red{background:#ef4444}
+  .code-dot.yellow{background:#f59e0b}
+  .code-dot.green{background:#10b981}
+  .code-lang{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text-dim);margin-left:12px;
+  }
+
+  .callout{
+    background:var(--accent-dim);border:1px solid rgba(59,130,246,0.2);
+    border-radius:10px;padding:16px 20px;margin:20px 0;
+    font-size:14px;line-height:1.7;
+  }
+  .callout strong{color:var(--accent-bright)}
+
+  .feature-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:20px;margin:24px 0;
+  }
+  .feature-card{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:12px;padding:24px;transition:border-color 0.3s;
+  }
+  .feature-card:hover{border-color:rgba(59,130,246,0.3)}
+  .feature-card h4{
+    font-size:16px;font-weight:700;margin-bottom:8px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .feature-card p{font-size:13px;color:var(--text-dim);line-height:1.6;margin:0}
+
+  footer{
+    border-top:1px solid var(--border);padding:48px 0;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);
+  }
+
+  @media(max-width:900px){
+    .docs-body{grid-template-columns:1fr;gap:32px}
+    .docs-sidebar{position:static;display:none}
+    .nav-links{display:none}
+  }
+
+  @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container nav-inner">
+    <div class="logo">
+      <a href="index.html">
+        <img src="logo.svg" alt="ProxyMesh" style="height:80px;width:auto;position:relative;z-index:1">
+      </a>
+    </div>
+    <div class="nav-links">
+      <a href="#getting-started">Getting Started</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#api">API</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#security">Security</a>
+      <a href="#monitoring">Monitoring</a>
+    </div>
+    <a class="btn btn-primary" href="index.html">← Back to Home</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="docs-header">
+    <h1>Production Documentation</h1>
+    <p>Everything you need to deploy, operate, and scale ProxyMesh in production.</p>
+    <div class="docs-search">
+      <input type="text" id="searchInput" placeholder="Search documentation..." autocomplete="off">
+    </div>
+  </div>
+
+  <div class="docs-body">
+    <aside class="docs-sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <div class="sidebar-links">
+          <a href="#getting-started">Introduction</a>
+          <a href="#quick-start">Quick Start</a>
+          <a href="#first-node">Setup First Node</a>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Architecture</div>
+        <div class="sidebar-links">
+          <a href="#architecture">Overview</a>
+          <a href="#components">Components</a>
+          <a href="#node-types">Node Types</a>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">API Reference</div>
+        <div class="sidebar-links">
+          <a href="#api">API Overview</a>
+          <a href="#api-connection">Connection Format</a>
+          <a href="#api-admin">Admin API</a>
+          <a href="#api-peer">Peer API</a>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Operations</div>
+        <div class="sidebar-links">
+          <a href="#deployment">Kubernetes Deployment</a>
+          <a href="#security">Security</a>
+          <a href="#monitoring">Monitoring</a>
+          <a href="#troubleshooting">Troubleshooting</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+
+      <section id="getting-started" class="doc-section">
+        <h2>Getting Started</h2>
+        <p>ProxyMesh is a <strong>hybrid mesh proxy network</strong> that combines datacenter reliability with residential exit nodes. This guide covers local development and production deployment.</p>
+
+        <h3>Prerequisites</h3>
+        <ul>
+          <li><strong>Go 1.25+</strong> — for building the gateway binary</li>
+          <li><strong>Redis 6+</strong> — node state, cooldowns, rate limits, and bandwidth records</li>
+          <li><strong>Docker & Kubernetes</strong> — for production deployment</li>
+        </ul>
+
+        <h3 id="quick-start">Quick Start</h3>
+        <p>The fastest way to run ProxyMesh locally:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>git clone https://github.com/fredriick/PMI.git
+cd PMI
+docker-compose up -d
+go build -o gateway .
+./gateway</code></pre>
+        </div>
+        <p>The gateway listens on <code>http://localhost:8000</code>.</p>
+
+        <h3 id="first-node">Setup Your First Node</h3>
+        <p>After starting Redis and the gateway, register a node via the Admin API:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>curl -X POST http://localhost:8000/api/admin/nodes \
+  -H "X-Admin-Key: test-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "node_id": "node-01",
+    "node_type": "datacenter",
+    "country": "US",
+    "city": "Virginia",
+    "isp": "AWS",
+    "ip": "1.2.3.4",
+    "os": "linux"
+  }'</code></pre>
+        </div>
+        <p>For the full onboarding walkthrough, see <a href="docs/09_SETUP_FIRST_NODE.md" style="color:var(--accent-bright)">docs/09_SETUP_FIRST_NODE.md</a>.</p>
+      </section>
+
+      <section id="architecture" class="doc-section">
+        <h2>Architecture</h2>
+        <p>ProxyMesh uses a <strong>three-tier architecture</strong> to balance performance, reliability, and stealth.</p>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4><span>🌐</span> Gateway</h4>
+            <p>The public-facing proxy server. Handles HTTP CONNECT, WebSocket upgrades, rate limiting, auth, and routing. Runs on port 8000.</p>
+          </div>
+          <div class="feature-card">
+            <h4><span>🧠</span> Matchmaker</h4>
+            <p>Redis-backed node selection engine. Ranks nodes by reputation, load, latency, and geographic criteria. Enforces cooldowns.</p>
+          </div>
+          <div class="feature-card">
+            <h4><span>🖥️</span> Exit Nodes</h4>
+            <p>Datacenter nodes for high-volume traffic and residential nodes for high-trust targets. Both register with the matchmaker.</p>
+          </div>
+        </div>
+
+        <h3 id="components">Core Components</h3>
+        <ul>
+          <li><strong>HTTP Proxy Engine</strong> — CONNECT tunneling with session persistence and sticky IPs</li>
+          <li><strong>Rate Limiter</strong> — Distributed sliding-window limits via Redis, with per-key overrides</li>
+          <li><strong>Circuit Breaker</strong> — Per-node failure tracking with automatic recovery</li>
+          <li><strong>Connection Pool</strong> — Reusable TCP connections to exit nodes</li>
+          <li><strong>API Key Service</strong> — SHA-256 hashed keys with TTL and rate limits</li>
+          <li><strong>Compliance Service</strong> — KYC validation and blocked domain enforcement</li>
+          <li><strong>Audit Logger</strong> — Structured JSON logs to file and Redis</li>
+        </ul>
+
+        <h3 id="node-types">Node Types</h3>
+        <p>ProxyMesh supports two node tiers:</p>
+        <ul>
+          <li><strong>Datacenter</strong> — High-volume, low-priority targets. IPv6 /64 subnets. Optimal for scraping and bulk routing.</li>
+          <li><strong>Residential</strong> — P2P exit nodes on home Wi-Fi. High-trust targets only. Requires battery/CPU eligibility checks.</li>
+        </ul>
+      </section>
+
+      <section id="api" class="doc-section">
+        <h2>API Reference</h2>
+        <p>All API endpoints are prefixed with <code>/v1</code> or <code>/api/admin</code>. Authentication is required for admin and peer endpoints.</p>
+
+        <h3 id="api-connection">Connection Format</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">text</span>
+          </div>
+          <pre><code>http://[user]-[targets]:[pass]@gateway.io:8000</code></pre>
+        </div>
+
+        <h3>Target Modifiers</h3>
+        <ul>
+          <li><code>-country-[code]</code> — e.g., <code>-country-us</code></li>
+          <li><code>-city-[name]</code> — e.g., <code>-city-london</code></li>
+          <li><code>-session-[id]</code> — sticky IP for subsequent requests</li>
+        </ul>
+
+        <h3 id="api-admin">Admin API</h3>
+        <p>All admin endpoints require the <code>X-Admin-Key</code> header.</p>
+        <ul>
+          <li><code>GET /api/admin/nodes</code> — List registered nodes</li>
+          <li><code>POST /api/admin/nodes</code> — Register a new node</li>
+          <li><code>DELETE /api/admin/nodes/:id</code> — Deregister a node</li>
+          <li><code>GET /api/admin/sessions</code> — List active sessions</li>
+          <li><code>DELETE /api/admin/sessions/:id</code> — Delete a session</li>
+          <li><code>GET /api/admin/capacity</code> — Node capacity report</li>
+          <li><code>GET /api/admin/scaling</code> — Scaling recommendations</li>
+          <li><code>GET /api/admin/audit</code> — Query audit log entries</li>
+          <li><code>GET /api/admin/keys</code> — List API keys</li>
+          <li><code>POST /api/admin/keys</code> — Create API key</li>
+          <li><code>GET /api/admin/request-id</code> — Get request ID settings</li>
+          <li><code>POST /api/admin/request-id</code> — Update request ID prefix/format</li>
+        </ul>
+
+        <h3 id="api-peer">Peer API</h3>
+        <p>Residential nodes authenticate with a node ID and receive a token.</p>
+        <ul>
+          <li><code>POST /api/peer/auth</code> — Authenticate and get token</li>
+          <li><code>GET /api/peer/status</code> — Node status, battery, CPU, load</li>
+          <li><code>GET /api/peer/bandwidth</code> — Bandwidth sent/received</li>
+          <li><code>GET /api/peer/earnings</code> — Payout calculation</li>
+          <li><code>POST /api/peer/consent</code> — Toggle consent on/off</li>
+          <li><code>POST /api/peer/disconnect</code> — Graceful disconnect</li>
+        </ul>
+      </section>
+
+      <section id="deployment" class="doc-section">
+        <h2>Deployment</h2>
+        <p>ProxyMesh is designed for Kubernetes production deployments. The repository includes ready-to-apply manifests.</p>
+
+        <h3>Kubernetes</h3>
+        <p>Deploy the entire stack with Kustomize:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>kubectl apply -k k8s/</code></pre>
+        </div>
+        <p>This creates the <code>proxymesh</code> namespace and deploys Redis, the gateway, and supporting services.</p>
+
+        <h3>Build and Push</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>docker build -t ghcr.io/fredriick/proxymesh:latest -f Dockerfile.gateway .
+docker push ghcr.io/fredriick/proxymesh:latest
+kubectl set image deployment/proxymesh-gateway -n proxymesh gateway=ghcr.io/fredriick/proxymesh:latest
+kubectl rollout restart deployment/proxymesh-gateway -n proxymesh</code></pre>
+        </div>
+
+        <div class="callout">
+          <strong>Production Note:</strong> The gateway binary contains both Gateway and Matchmaker logic. Redis is the shared state store. The gateway reads <code>config.yaml</code> from <code>/app/config.yaml</code>, mounted from a ConfigMap.
+        </div>
+
+        <h3>Verify</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>kubectl get pods -n proxymesh
+kubectl get svc -n proxymesh
+kubectl logs -n proxymesh deployment/proxymesh-gateway
+
+curl http://localhost/health
+curl http://localhost/v1/health
+curl http://localhost/v1/metrics</code></pre>
+        </div>
+
+        <h3>Scale and Rollback</h3>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>kubectl scale deployment/proxymesh-gateway -n proxymesh --replicas=3
+kubectl rollout undo deployment/proxymesh-gateway -n proxymesh</code></pre>
+        </div>
+      </section>
+
+      <section id="security" class="doc-section">
+        <h2>Security</h2>
+        <p>ProxyMesh implements multiple layers of security for production deployments.</p>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4><span>🔒</span> mTLS</h4>
+            <p>Mutual TLS between clients and gateway. Certificates mounted via Kubernetes secrets.</p>
+          </div>
+          <div class="feature-card">
+            <h4><span>🔑</span> API Keys</h4>
+            <p>SHA-256 hashed keys stored in Redis. TTL support and per-key rate limits.</p>
+          </div>
+          <div class="feature-card">
+            <h4><span>🛡️</span> DDoS Protection</h4>
+            <p>Automatic IP blocking based on failed request thresholds. Distributed rate limiting via Redis.</p>
+          </div>
+          <div class="feature-card">
+            <h4><span>📋</span> Audit Logging</h4>
+            <p>Structured JSON logs to file and Redis. Query admin actions via <code>/api/admin/audit</code>.</p>
+          </div>
+        </div>
+
+        <h3>Configuration</h3>
+        <p>Security-related settings in <code>config.yaml</code>:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">yaml</span>
+          </div>
+          <pre><code>gateway:
+  mtls_enabled: true
+  ca_cert_path: "/etc/proxymesh/tls/ca.crt"
+  server_cert_path: "/etc/proxymesh/tls/tls.crt"
+  server_key_path: "/etc/proxymesh/tls/tls.key"
+
+jwt:
+  enabled: true
+  secret_key: "${JWT_SECRET_KEY}"
+  expiration: 24h
+
+rbac:
+  enabled: true
+  default_role: viewer
+  min_password_len: 8
+  max_login_attempts: 5
+  lockout_duration_minutes: 15</code></pre>
+        </div>
+
+        <h3>Secret Rotation</h3>
+        <p>For secret and certificate rotation policies, see <a href="docs/11_SECRET_ROTATION.md" style="color:var(--accent-bright)">docs/11_SECRET_ROTATION.md</a>.</p>
+      </section>
+
+      <section id="monitoring" class="doc-section">
+        <h2>Monitoring</h2>
+        <p>ProxyMesh includes built-in observability for production operations.</p>
+
+        <h3>Health Checks</h3>
+        <ul>
+          <li><code>GET /health</code> — Gateway liveness/readiness</li>
+          <li><code>GET /v1/health</code> — Detailed health with Redis status</li>
+          <li><code>GET /v1/metrics</code> — Prometheus metrics</li>
+        </ul>
+
+        <h3>Metrics</h3>
+        <p>Prometheus metrics are exposed at <code>/v1/metrics</code>. Key metrics include:</p>
+        <ul>
+          <li><code>proxymesh_requests_total</code> — Total requests</li>
+          <li><code>proxymesh_requests_success</code> — Successful requests</li>
+          <li><code>proxymesh_requests_failed</code> — Failed requests</li>
+          <li><code>proxymesh_active_sessions</code> — Current active sessions</li>
+          <li><code>proxymesh_avg_latency_ms</code> — Average response latency</li>
+          <li><code>proxymesh_rate_limited</code> — Rate-limited requests</li>
+          <li><code>proxymesh_uptime_seconds</code> — Gateway uptime</li>
+        </ul>
+
+        <h3>Logging</h3>
+        <p>Structured JSON logging is enabled by default. Logs include request IDs for correlation tracing. Configure log level in <code>config.yaml</code>.</p>
+
+        <h3>Dashboard</h3>
+        <p>The admin dashboard at <code>/dashboard</code> provides real-time visibility into nodes, sessions, cooldowns, subnets, capacity, and user management.</p>
+      </section>
+
+      <section id="troubleshooting" class="doc-section">
+        <h2>Troubleshooting</h2>
+
+        <h3>Redis Connection Failures</h3>
+        <p>If the gateway cannot connect to Redis:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>redis-cli ping
+# Expected: PONG
+
+docker-compose ps
+docker-compose logs redis</code></pre>
+        </div>
+
+        <h3>Node Not Found</h3>
+        <p>If a node fails to authenticate:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>curl -X POST http://localhost:8000/api/admin/nodes \
+  -H "X-Admin-Key: test-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"node_id":"node-01","node_type":"residential"}'</code></pre>
+        </div>
+
+        <h3>Gateway Fails to Start</h3>
+        <p>Check that <code>config.yaml</code> is valid and Redis is reachable. For mTLS issues in local development, set <code>mtls_enabled: false</code>.</p>
+
+        <h3>Kubernetes Pods CrashLoopBackOff</h3>
+        <p>Check pod logs and verify the ConfigMap and secrets are correctly mounted:</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span class="code-lang">bash</span>
+          </div>
+          <pre><code>kubectl describe pod -n proxymesh
+kubectl get configmap proxymesh-config -n proxymesh -o yaml
+kubectl get secret proxymesh-secrets -n proxymesh -o yaml</code></pre>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    ProxyMesh · Go, Redis, WebSockets · MIT License
+  </div>
+</footer>
+
+<script>
+  const searchInput=document.getElementById('searchInput');
+  const sections=document.querySelectorAll('.doc-section');
+  const sidebarLinks=document.querySelectorAll('.sidebar-links a');
+
+  searchInput.addEventListener('input',e=>{
+    const term=e.target.value.toLowerCase();
+    sections.forEach(sec=>{
+      const text=sec.textContent.toLowerCase();
+      sec.style.display=text.includes(term)?'block':'none';
+    });
+  });
+
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const id=entry.target.id;
+        sidebarLinks.forEach(link=>{
+          link.classList.toggle('active',link.getAttribute('href')==='#'+id);
+        });
+      }
+    });
+  },{threshold:0.2});
+
+  sections.forEach(sec=>observer.observe(sec));
+</script>
+
+</body>
+</html>

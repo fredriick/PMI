@@ -3,525 +3,881 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ProxyMesh Dashboard</title>
+<title>ProxyMesh — Hybrid Mesh Proxy Network</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e1e4e8;line-height:1.6}
-.container{max-width:1200px;margin:0 auto;padding:20px}
-header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 0}
-header .container{display:flex;align-items:center;justify-content:space-between}
-h1{font-size:1.4em;color:#58a6ff}
-h1 span{color:#8b949e;font-weight:400;font-size:0.7em}
-.nav{display:flex;gap:8px}
-.nav button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.85em}
-.nav button:hover,.nav button.active{background:#388bfd;border-color:#388bfd;color:#fff}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:20px 0}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
-.card h3{color:#8b949e;font-size:0.8em;text-transform:uppercase;letter-spacing:0.5em;margin-bottom:8px}
-.card .value{font-size:2em;font-weight:700;color:#58a6ff}
-.card .sub{font-size:0.85em;color:#8b949e;margin-top:4px}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d;font-size:0.9em}
-th{color:#8b949e;font-weight:600;font-size:0.75em;text-transform:uppercase}
-tr:hover{background:#161b22}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600}
-.badge-green{background:#1a3a2a;color:#3fb950}
-.badge-red{background:#3a1a1a;color:#f85149}
-.badge-yellow{background:#3a3a1a;color:#d29922}
-.btn{padding:6px 12px;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:0.8em;background:#21262d;color:#c9d1d9}
-.btn:hover{background:#30363d}
-.btn-danger{border-color:#f85149;color:#f85149}
-.btn-danger:hover{background:#f85149;color:#fff}
-.btn-primary{border-color:#388bfd;color:#388bfd}
-.btn-primary:hover{background:#388bfd;color:#fff}
-.section{display:none}
-.section.active{display:block}
-.form-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.form-row input,.form-row select{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:6px;font-size:0.85em}
-.form-row input{flex:1;min-width:120px}
-.toast{position:fixed;bottom:20px;right:20px;background:#161b22;border:1px solid #30363d;padding:12px 20px;border-radius:8px;font-size:0.85em;z-index:100;animation:slideIn 0.3s}
-.toast-success{border-color:#3fb950}
-.toast-error{border-color:#f85149}
-@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-.dot-green{background:#3fb950}
-.dot-red{background:#f85149}
-.auto-refresh{font-size:0.8em;color:#8b949e;display:flex;align-items:center;gap:6px}
-.auto-refresh input{accent-color:#388bfd}
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;800&display=swap');
+
+  :root{
+    --bg:#050810;
+    --bg-card:rgba(10,14,26,0.85);
+    --border:rgba(59,130,246,0.15);
+    --text:#e8eaed;
+    --text-dim:#6b7280;
+    --accent:#3b82f6;
+    --accent-bright:#60a5fa;
+    --accent-dim:rgba(59,130,246,0.12);
+    --accent-glow:rgba(59,130,246,0.5);
+    --cyan:#06b6d4;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:auto}
+  body{
+    font-family:'Inter',-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.6;overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* Grid */
+  body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 70% 40% at 50% 0%,black 0%,transparent 100%);
+  }
+
+  .container{max-width:1200px;margin:0 auto;padding:0 28px;position:relative;z-index:2}
+
+  /* NAV */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    padding:22px 0;
+    background:transparent;
+    transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  nav.scrolled{
+    background:rgba(5,8,16,0.92);
+    border-bottom:1px solid var(--border);
+    backdrop-filter:blur(20px) saturate(1.4);
+    -webkit-backdrop-filter:blur(20px) saturate(1.4);
+    padding:14px 0;transform:translateY(0);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between}
+  .logo{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;font-size:17px;letter-spacing:-0.5px;
+    display:flex;align-items:center;
+  }
+  .nav-links{display:flex;gap:40px}
+  .nav-links a{
+    font-size:13px;font-weight:500;color:var(--text-dim);
+    letter-spacing:0.4px;transition:color 0.2s;position:relative;
+  }
+  .nav-links a:hover{color:var(--accent-bright)}
+  .nav-links a::after{
+    content:'';position:absolute;bottom:-6px;left:0;right:0;height:1px;
+    background:var(--accent);transform:scaleX(0);transition:transform 0.3s;transform-origin:right;
+  }
+  .nav-links a:hover::after{transform:scaleX(1);transform-origin:left}
+
+  .btn{
+    font-family:inherit;font-size:13px;font-weight:600;
+    padding:10px 22px;border-radius:8px;cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+    display:inline-flex;align-items:center;gap:8px;letter-spacing:0.2px;
+  }
+  .btn-primary{
+    background:var(--accent);color:#fff;border:none;position:relative;overflow:hidden;
+  }
+  .btn-primary::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(135deg,transparent,rgba(255,255,255,0.2),transparent);
+    transform:translateX(-100%);transition:transform 0.5s;
+  }
+  .btn-primary:hover::before{transform:translateX(100%)}
+  .btn-primary:hover{
+    transform:translateY(-2px);
+    box-shadow:0 0 30px var(--accent-glow),0 8px 24px rgba(59,130,246,0.3);
+  }
+  .btn-ghost{
+    background:transparent;border:1px solid var(--border);color:var(--text);
+  }
+  .btn-ghost:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-bright)}
+
+  /* HERO */
+  .hero{
+    position:relative;min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    padding:140px 24px 100px;overflow:hidden;
+    background:radial-gradient(ellipse 70% 50% at 50% 30%,rgba(59,130,246,0.08),transparent);
+  }
+  .hero-canvas{position:absolute;inset:0;z-index:1;opacity:0.85;pointer-events:none}
+  .ring{position:absolute;border-radius:50%;border:1px solid var(--border);z-index:1;pointer-events:none}
+  .ring-1{width:600px;height:600px;top:50%;left:50%;transform:translate(-50%,-50%);border-color:rgba(59,130,246,0.1)}
+  .ring-2{width:800px;height:800px;top:50%;left:50%;transform:translate(-50%,-50%);border-color:rgba(6,182,212,0.08);animation:spin 30s linear infinite reverse}
+  .ring-3{width:400px;height:400px;top:50%;left:50%;transform:translate(-50%,-50%);border-color:rgba(59,130,246,0.15);animation:spin 15s linear infinite}
+  .hero-content{position:relative;z-index:3;max-width:1000px;text-align:center}
+  .hero-legend{position:absolute;bottom:24px;left:24px;z-index:3;pointer-events:none;display:flex;flex-direction:column;gap:8px}
+  .legend-item{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim)}
+  .legend-dot{width:8px;height:8px;border-radius:50%}
+  .legend-dot.dc{background:var(--accent)}
+  .legend-dot.res{background:var(--cyan)}
+  .legend-dot.gw{background:var(--accent-bright)}
+  .legend-dot.pkt{background:#fff}
+
+  @keyframes spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+  @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+  @keyframes pulse{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+  .no-gsap .gsap-reveal,.no-gsap .gsap-feature,.no-gsap .gsap-step,.no-gsap .gsap-cta,.no-gsap .stat-num{
+    opacity:1 !important;transform:none !important;
+  }
+
+  .tag{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:8px 16px 8px 10px;border-radius:999px;
+    background:var(--accent-dim);border:1px solid rgba(59,130,246,0.25);
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent-bright);
+    margin-bottom:36px;letter-spacing:0.5px;
+  }
+  .tag-dot{
+    width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 12px var(--accent-glow);animation:pulse 2s ease-in-out infinite;
+  }
+  .hero h1{
+    font-size:clamp(52px,7vw,96px);
+    line-height:1.05;font-weight:800;letter-spacing:-3px;
+    margin-bottom:12px;color:var(--text);
+  }
+  .hero h1 .accent{
+    background:linear-gradient(135deg,var(--accent-bright),var(--cyan));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    display:inline-block;
+  }
+  #typed{
+    color:var(--accent-bright);
+    background:none;-webkit-background-clip:unset;background-clip:unset;
+    display:inline;
+  }
+  .hero-accent{
+    font-size:clamp(52px,7vw,96px);
+    line-height:1.05;font-weight:800;letter-spacing:-3px;
+    margin-bottom:24px;color:var(--accent-bright);
+    min-height:1.2em;
+  }
+  .hero-sub{
+    font-size:clamp(16px,2.2vw,19px);color:var(--text-dim);
+    max-width:620px;margin:0 auto 44px;line-height:1.7;font-weight:300;
+  }
+  .hero-actions{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+
+  .terminal{
+    margin-top:80px;text-align:left;
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:12px;padding:20px 24px;max-width:520px;margin-left:auto;margin-right:auto;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);
+    position:relative;overflow:hidden;
+  }
+  .terminal-prefix{color:var(--accent-bright)}
+  .terminal-cmd{color:var(--text)}
+  .terminal-cursor{
+    display:inline-block;width:7px;height:15px;background:var(--accent-bright);
+    animation:blink 1s step-end infinite;vertical-align:middle;margin-left:2px;
+  }
+
+  .typed-cursor{
+    display:inline-block;width:3px;height:0.9em;background:var(--accent-bright);
+    margin-left:3px;vertical-align:middle;
+    animation:blink 0.9s step-end infinite;
+    box-shadow:0 0 10px var(--accent-glow);
+  }
+
+  /* SECTIONS */
+  section{position:relative;padding:140px 0}
+  .section-label{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    color:var(--accent);letter-spacing:3px;text-transform:uppercase;
+    margin-bottom:20px;display:block;font-weight:600;
+  }
+  .section-head{max-width:680px;margin-bottom:80px}
+  .section-head h2{
+    font-size:clamp(36px,5.5vw,56px);
+    font-weight:800;letter-spacing:-2px;line-height:1.05;
+    margin-bottom:20px;
+  }
+  .section-head h2 .accent{
+    background:linear-gradient(135deg,var(--accent-bright),var(--cyan));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .section-head p{color:var(--text-dim);font-size:17px;line-height:1.7;max-width:540px}
+
+  /* FEATURES */
+  .features{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+  .feature{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:14px;padding:36px;position:relative;overflow:hidden;
+    opacity:0;transform:translateY(40px);
+    will-change:transform,opacity;
+  }
+  .feature:hover{
+    border-color:rgba(59,130,246,0.35);
+    box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 40px var(--accent-dim);
+  }
+  .feature::after{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    opacity:0;transition:opacity 0.4s;
+  }
+  .feature:hover::after{opacity:0.8}
+
+  .feature.span-4{grid-column:span 4}
+  .feature.span-6{grid-column:span 6}
+  .feature.span-8{grid-column:span 8}
+  .feature.span-12{grid-column:span 12}
+
+  .feature-icon{
+    width:48px;height:48px;border-radius:10px;
+    background:var(--accent-dim);border:1px solid rgba(59,130,246,0.2);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:22px;position:relative;
+  }
+  .feature-icon::before{
+    content:'';position:absolute;inset:-1px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--cyan));
+    opacity:0;transition:opacity 0.3s;z-index:-1;
+  }
+  .feature:hover .feature-icon::before{opacity:0.15}
+  .feature-icon svg{width:22px;height:22px;stroke:var(--accent-bright);fill:none;stroke-width:1.5}
+
+  .feature h3{font-size:18px;font-weight:700;margin-bottom:10px;letter-spacing:-0.3px}
+  .feature p{color:var(--text-dim);font-size:14px;line-height:1.7}
+
+  .feature-meta{
+    margin-top:22px;padding-top:18px;border-top:1px solid var(--border);
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);
+    display:flex;gap:18px;flex-wrap:wrap;letter-spacing:0.3px;
+  }
+  .feature-meta span{display:flex;align-items:center;gap:8px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+
+  /* STATS */
+  .stats-band{
+    border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,rgba(59,130,246,0.03),rgba(6,182,212,0.02));
+    padding:72px 0;position:relative;overflow:hidden;
+  }
+  .stats-band::before{
+    content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:600px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  }
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px;text-align:center}
+  .stat-num{
+    font-size:clamp(36px,5vw,52px);font-weight:800;
+    letter-spacing:-2px;color:var(--accent-bright);
+    font-family:'JetBrains Mono',monospace;
+    text-shadow:0 0 60px var(--accent-glow);
+    opacity:0;transform:translateY(24px);
+    will-change:transform,opacity;
+  }
+  .stat-label{font-size:13px;color:var(--text-dim);margin-top:8px;font-weight:500;letter-spacing:0.5px}
+
+  /* HOW */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .step{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:14px;padding:40px 32px;position:relative;overflow:hidden;
+    opacity:0;transform:translateY(40px);
+    will-change:transform,opacity;
+  }
+  .step:hover{border-color:rgba(59,130,246,0.3);box-shadow:0 16px 48px rgba(0,0,0,0.3)}
+  .step::before{
+    content:'';position:absolute;top:0;left:0;width:3px;height:0;
+    background:linear-gradient(180deg,var(--accent),var(--cyan));
+    transition:height 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .step:hover::before{height:100%}
+  .step-num{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    color:var(--accent);letter-spacing:2px;font-weight:600;
+    margin-bottom:22px;display:flex;align-items:center;gap:12px;
+  }
+  .step-num::before{content:'';width:24px;height:1px;background:var(--accent)}
+  .step h3{font-size:22px;font-weight:700;margin-bottom:12px;letter-spacing:-0.5px}
+  .step p{color:var(--text-dim);font-size:14px;line-height:1.7}
+
+  .step-features{
+    margin-top:20px;padding-top:18px;border-top:1px solid var(--border);
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);
+    display:flex;flex-wrap:wrap;gap:10px;letter-spacing:0.3px;
+  }
+  .step-features span{
+    padding:4px 10px;border-radius:6px;background:rgba(59,130,246,0.08);
+    border:1px solid rgba(59,130,246,0.15);color:var(--accent-bright);
+  }
+
+  /* CTA */
+  .cta-box{
+    background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(6,182,212,0.06));
+    border:1px solid rgba(59,130,246,0.15);
+    border-radius:24px;padding:100px 40px;text-align:center;position:relative;overflow:hidden;
+    opacity:0;transform:translateY(40px);
+    will-change:transform,opacity;
+  }
+  .cta-box::before{
+    content:'';position:absolute;top:-30%;right:-10%;width:500px;height:500px;
+    background:radial-gradient(circle,var(--accent-dim),transparent 60%);
+    pointer-events:none;
+  }
+  .cta-box::after{
+    content:'';position:absolute;bottom:-30%;left:-10%;width:400px;height:400px;
+    background:radial-gradient(circle,rgba(6,182,212,0.12),transparent 60%);
+    pointer-events:none;
+  }
+  .cta-box h2{
+    font-size:clamp(32px,4.5vw,48px);font-weight:800;
+    letter-spacing:-1.5px;margin-bottom:20px;position:relative;
+  }
+  .cta-box p{color:var(--text-dim);font-size:17px;max-width:520px;margin:0 auto 36px;position:relative;line-height:1.7}
+
+  footer{
+    border-top:1px solid var(--border);padding:56px 0;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);
+    letter-spacing:0.5px;
+  }
+
+  @media(max-width:900px){
+    .nav-links{display:none}
+    .features{grid-template-columns:1fr}
+    .feature.span-4,.feature.span-6,.feature.span-8,.feature.span-12{grid-column:span 1}
+    .stats-grid{grid-template-columns:repeat(2,1fr);gap:40px}
+    .steps{grid-template-columns:1fr}
+  }
+
+  /* Background themed animations */
+  .bg-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .bg-node{
+    position:absolute;border-radius:50%;opacity:0.12;
+    background:radial-gradient(circle,var(--accent),transparent 70%);
+    animation:floatNode 14s ease-in-out infinite;
+  }
+  .bg-node:nth-child(2){animation-delay:-4s;animation-duration:18s}
+  .bg-node:nth-child(3){animation-delay:-9s;animation-duration:16s}
+  .bg-node:nth-child(4){animation-delay:-3s;animation-duration:20s}
+  .bg-node.res{background:radial-gradient(circle,var(--cyan),transparent 70%)}
+  .bg-node.gw{background:radial-gradient(circle,var(--accent-bright),transparent 70%)}
+
+  @keyframes floatNode{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(12px,-18px) scale(1.08)}
+    66%{transform:translate(-16px,14px) scale(0.94)}
+  }
+
+  .bg-line{
+    position:absolute;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    opacity:0.12;animation:flowLine 6s ease-in-out infinite;
+  }
+  .bg-line:nth-child(2){animation-delay:-2s;opacity:0.08}
+  .bg-line:nth-child(3){animation-delay:-4s;opacity:0.1}
+
+  @keyframes flowLine{
+    0%,100%{transform:translateX(-8%) scaleX(1);opacity:0.12}
+    50%{transform:translateX(8%) scaleX(1.2);opacity:0.2}
+  }
+
+  .bg-packet{
+    position:absolute;width:6px;height:6px;border-radius:50%;
+    background:var(--accent-bright);box-shadow:0 0 10px var(--accent-glow);
+    opacity:0;animation:flowPacket 4s linear infinite;
+  }
+  .bg-packet:nth-child(2){animation-delay:-1.3s;width:4px;height:4px}
+  .bg-packet:nth-child(3){animation-delay:-2.7s;width:5px;height:5px}
+
+  @keyframes flowPacket{
+    0%{opacity:0;transform:translateX(-20px)}
+    20%{opacity:0.9}
+    80%{opacity:0.9}
+    100%{opacity:0;transform:translateX(40px)}
+  }
+
+  .bg-ring{
+    position:absolute;border-radius:50%;border:1px solid var(--border);
+    animation:spin 25s linear infinite;
+  }
+  .bg-ring-1{width:320px;height:320px;top:10%;left:-80px;border-color:rgba(59,130,246,0.08)}
+  .bg-ring-2{width:220px;height:220px;bottom:5%;right:-50px;border-color:rgba(6,182,212,0.08);animation-duration:35s;animation-direction:reverse}
 </style>
 </head>
 <body>
-<header>
-<div class="container">
-<h1>ProxyMesh <span>Admin Dashboard</span></h1>
-<div style="display:flex;align-items:center;gap:16px">
-<label class="auto-refresh"><input type="checkbox" id="autoRefresh" checked> Auto-refresh (10s)</label>
-<div class="nav">
-<button class="active" onclick="showSection('overview')">Overview</button>
-<button onclick="showSection('nodes')">Nodes</button>
-<button onclick="showSection('cooldowns')">Cooldowns</button>
-<button onclick="showSection('subnets')">Subnets</button>
-<button onclick="showSection('sessions')">Sessions</button>
-<button onclick="showSection('capacity')">Capacity</button>
-<button onclick="showSection('users')">Users</button>
-</div>
-</div>
-</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<nav id="nav">
+  <div class="container nav-inner">
+    <div class="logo">
+      <img src="logo.svg" alt="ProxyMesh" style="height:80px;width:auto;position:relative;z-index:1">
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#stats">Performance</a>
+      <a href="#how">Architecture</a>
+      <a href="docs.html">Docs</a>
+      <a href="#cta">Get started</a>
+    </div>
+    <a class="btn btn-primary" href="#cta">Start building →</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <canvas class="hero-canvas" id="network"></canvas>
+  <div class="ring ring-1"></div>
+  <div class="ring ring-2"></div>
+  <div class="ring ring-3"></div>
+
+  <div class="hero-content">
+    <div class="tag">
+      <span class="tag-dot"></span>
+      HYBRID MESH PROXY NETWORK
+    </div>
+     <h1>Route at the</h1>
+     <div class="hero-accent"><span id="typed"></span><span class="typed-cursor" aria-hidden="true"></span></div>
+    <p class="hero-sub">Datacenter reliability meets residential exit nodes. Enterprise-grade geo-routing, real-time telemetry, and zero-downtime scaling.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#cta">Deploy now</a>
+      <a class="btn btn-ghost" href="https://github.com/fredriick/PMI">View source</a>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-line">
+        <span class="terminal-prefix">$</span>
+        <span class="terminal-cmd">go build -o gateway . && ./gateway</span>
+        <span class="terminal-cursor"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-legend">
+    <div class="legend-item"><div class="legend-dot dc"></div>Datacenter</div>
+    <div class="legend-item"><div class="legend-dot res"></div>Residential</div>
+    <div class="legend-item"><div class="legend-dot gw"></div>Proxy Gateway</div>
+    <div class="legend-item"><div class="legend-dot pkt"></div>Traffic</div>
+  </div>
 </header>
 
-<div class="container">
-<!-- Overview -->
-<div id="overview" class="section active">
-<div class="grid">
-<div class="card"><h3>Total Requests</h3><div class="value" id="m-requests">--</div></div>
-<div class="card"><h3>Success Rate</h3><div class="value" id="m-success-rate">--</div></div>
-<div class="card"><h3>Active Sessions</h3><div class="value" id="m-sessions">--</div></div>
-<div class="card"><h3>Avg Latency</h3><div class="value" id="m-latency">--</div><div class="sub">milliseconds</div></div>
-<div class="card"><h3>Nodes Selected</h3><div class="value" id="m-nodes">--</div></div>
-<div class="card"><h3>Rate Limited</h3><div class="value" id="m-rate-limited">--</div></div>
-<div class="card"><h3>Failed Requests</h3><div class="value" id="m-failed">--</div></div>
-<div class="card"><h3>Uptime</h3><div class="value" id="m-uptime">--</div></div>
-</div>
-<h3 style="margin:20px 0 12px;color:#8b949e">Raw Metrics</h3>
-<pre id="metrics-raw" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;font-size:0.8em;overflow-x:auto;max-height:300px"></pre>
-</div>
+<section id="features">
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-node dc" style="top:12%;left:8%;width:220px;height:220px"></div>
+    <div class="bg-node res" style="top:60%;left:78%;width:180px;height:180px;animation-delay:-5s"></div>
+    <div class="bg-node gw" style="top:20%;left:55%;width:140px;height:140px;animation-delay:-8s"></div>
+    <div class="bg-line" style="top:35%;left:10%;width:160px;transform:rotate(18deg)"></div>
+    <div class="bg-line" style="top:72%;left:62%;width:120px;transform:rotate(-12deg)"></div>
+    <div class="bg-line" style="top:18%;left:30%;width:100px;transform:rotate(-6deg)"></div>
+  </div>
+  <div class="container">
+    <div class="section-head gsap-reveal">
+      <span class="section-label">01 — Capabilities</span>
+      <h2>Infrastructure that <span class="accent">adapts</span></h2>
+      <p>Built for teams that need geographic precision, operational visibility, and zero-downtime scaling.</p>
+    </div>
 
-<!-- Nodes -->
-<div id="nodes" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">Registered Nodes</h2>
-<button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
-</div>
+    <div class="features">
+      <div class="feature span-4 gsap-feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+        </div>
+        <h3>Geographic Routing</h3>
+        <p>Country and city-level node selection via Redis-backed matchmaker. Rank by reputation, load, and latency.</p>
+        <div class="feature-meta">
+          <span><span class="dot"></span>Redis-backed</span>
+          <span><span class="dot"></span>&lt;50ms</span>
+        </div>
+      </div>
 
-<!-- Map Visualization -->
-<div class="card" style="margin-bottom:16px">
-<h3>Geographic Distribution</h3>
-<div id="map-container" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 0">
-<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">Loading node locations...</div>
-</div>
-</div>
+      <div class="feature span-4 gsap-feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>Zero-trust Security</h3>
+        <p>mTLS between clients and gateway, SHA-256 API key hashing, KYC enforcement, and audit logging.</p>
+        <div class="feature-meta">
+          <span><span class="dot"></span>mTLS</span>
+          <span><span class="dot"></span>Audit trail</span>
+        </div>
+      </div>
 
-<div id="register-form" style="display:none" class="card" style="margin-bottom:16px">
-<h3>Register New Node</h3>
-<div class="form-row" style="margin-top:12px">
-<input id="reg-node-id" placeholder="Node ID">
-<input id="reg-ip" placeholder="IP Address">
-<input id="reg-country" placeholder="Country (e.g. US)">
-<input id="reg-city" placeholder="City">
-</div>
-<div class="form-row">
-<input id="reg-isp" placeholder="ISP">
-<input id="reg-os" placeholder="OS">
-<select id="reg-type"><option value="datacenter">Datacenter</option><option value="residential">Residential</option></select>
-<button class="btn btn-primary" onclick="registerNode()">Register</button>
-<button class="btn" onclick="document.getElementById('register-form').style.display='none'">Cancel</button>
-</div>
-</div>
-<table>
-<thead><tr><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
-<tbody id="nodes-table"></tbody>
-</table>
-</div>
+      <div class="feature span-4 gsap-feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        </div>
+        <h3>Real-time Telemetry</h3>
+        <p>Prometheus metrics, OpenTelemetry tracing, and live admin dashboard updated every 10 seconds.</p>
+        <div class="feature-meta">
+          <span><span class="dot"></span>Prometheus</span>
+          <span><span class="dot"></span>OTel</span>
+        </div>
+      </div>
 
-<!-- Cooldowns -->
-<div id="cooldowns" class="section">
-<h2 style="font-size:1.2em;margin-bottom:16px">Domain Cooldowns</h2>
-<div id="cooldowns-list"></div>
-</div>
+      <div class="feature span-6 gsap-feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>Dual-mode Proxy Engine</h3>
+        <p>HTTP CONNECT tunneling with session persistence and WebSocket upgrade support. Bi-directional streaming with 32KB buffers.</p>
+        <div class="feature-meta">
+          <span><span class="dot"></span>CONNECT</span>
+          <span><span class="dot"></span>WebSocket</span>
+          <span><span class="dot"></span>Sticky IPs</span>
+        </div>
+      </div>
 
-<!-- Subnets -->
-<div id="subnets" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">Subnet Pools</h2>
-<button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
-</div>
-<div id="pool-form" style="display:none" class="card" style="margin-bottom:16px">
-<h3>Create Subnet Pool</h3>
-<div class="form-row" style="margin-top:12px">
-<input id="pool-prefix" placeholder="IPv6 Prefix (e.g. 2001:db8::)">
-<input id="pool-len" placeholder="Prefix Length (48-64)" type="number" min="48" max="64" value="48">
-<button class="btn btn-primary" onclick="createPool()">Create</button>
-<button class="btn" onclick="document.getElementById('pool-form').style.display='none'">Cancel</button>
-</div>
-</div>
-<div id="pools-list"></div>
-</div>
+      <div class="feature span-6 gsap-feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+        </div>
+        <h3>Rate Limiting & Circuit Breakers</h3>
+        <p>Distributed sliding-window rate limits via Redis. Per-node circuit breakers with automatic recovery. Retry with exponential backoff and jitter.</p>
+        <div class="feature-meta">
+          <span><span class="dot"></span>Redis</span>
+          <span><span class="dot"></span>Per-node</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-<!-- Sessions -->
-<div id="sessions" class="section">
-<h2 style="font-size:1.2em;margin-bottom:16px">Active Sessions</h2>
-<table>
-<thead><tr><th>Session ID</th><th>Node ID</th><th>TTL</th><th>Actions</th></tr></thead>
-<tbody id="sessions-table"></tbody>
-</table>
-</div>
+<section id="stats">
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-node dc" style="top:20%;left:12%;width:160px;height:160px;animation-delay:-2s"></div>
+    <div class="bg-node res" style="top:55%;left:75%;width:140px;height:140px;animation-delay:-7s"></div>
+    <div class="bg-packet" style="top:30%;left:20%"></div>
+    <div class="bg-packet" style="top:60%;left:70%"></div>
+    <div class="bg-packet" style="top:45%;left:50%"></div>
+  </div>
+  <div class="stats-band">
+    <div class="container">
+      <div class="stats-grid">
+        <div><div class="stat-num gsap-stat" data-target="50" data-suffix="ms">&lt;50ms</div><div class="stat-label">Avg latency</div></div>
+        <div><div class="stat-num gsap-stat" data-target="99.9" data-suffix="%" data-decimal="1">99.9%</div><div class="stat-label">Uptime SLA</div></div>
+        <div><div class="stat-num gsap-stat" data-target="62" data-suffix="+">62+</div><div class="stat-label">Unit tests</div></div>
+        <div><div class="stat-num gsap-stat" data-target="15" data-suffix="+">15+</div><div class="stat-label">Test files</div></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-<!-- Capacity -->
-<div id="capacity" class="section">
-<h2 style="font-size:1.2em;margin-bottom:16px">Node Capacity Report</h2>
-<div class="grid" style="margin-bottom:16px">
-<div class="card"><h3>Total Nodes</h3><div class="value" id="cap-total">--</div></div>
-<div class="card"><h3>Healthy</h3><div class="value" id="cap-healthy" style="color:#3fb950">--</div></div>
-<div class="card"><h3>Warning</h3><div class="value" id="cap-warning" style="color:#d29922">--</div></div>
-<div class="card"><h3>Critical</h3><div class="value" id="cap-critical" style="color:#f85149">--</div></div>
-</div>
-<table>
-<thead><tr><th>Node ID</th><th>Status</th><th>GB/Day</th><th>GB/Week</th><th>Utilization</th><th>Load</th></tr></thead>
-<tbody id="capacity-table"></tbody>
-</table>
-</div>
+<section id="how">
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-line" style="top:35%;left:18%;width:220px;transform:rotate(8deg)"></div>
+    <div class="bg-line" style="top:55%;left:52%;width:180px;transform:rotate(-10deg)"></div>
+    <div class="bg-node dc" style="top:18%;left:8%;width:120px;height:120px;animation-delay:-3s"></div>
+    <div class="bg-node res" style="top:70%;left:82%;width:100px;height:100px;animation-delay:-6s"></div>
+  </div>
+  <div class="container">
+    <div class="section-head gsap-reveal">
+      <span class="section-label">02 — Architecture</span>
+      <h2>Three moves to <span class="accent">production</span></h2>
+      <p>Start locally with Docker Compose. Scale horizontally with Kubernetes.</p>
+    </div>
+    <div class="steps">
+      <div class="step gsap-step">
+        <div class="step-num">STEP 01</div>
+        <h3>Register nodes</h3>
+        <p>Add datacenter and residential nodes via admin API or CLI. Geographic location auto-detected on registration.</p>
+        <div class="step-features">
+          <span>Redis</span><span>GeoIP</span><span>CLI</span>
+        </div>
+      </div>
+      <div class="step gsap-step">
+        <div class="step-num">STEP 02</div>
+        <h3>Route traffic</h3>
+        <p>Connect through gateway using standard HTTP CONNECT with modifiers for country, city, or sticky sessions.</p>
+        <div class="step-features">
+          <span>CONNECT</span><span>CONNX</span><span>Sticky</span>
+        </div>
+      </div>
+      <div class="step gsap-step">
+        <div class="step-num">STEP 03</div>
+        <h3>Monitor & scale</h3>
+        <p>Track bandwidth, latency, and capacity in real time. Predictive scaling recommendations keep you ahead of demand.</p>
+        <div class="step-features">
+          <span>Prometheus</span><span>OTel</span><span>K8s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-<!-- Users -->
-<div id="users" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">User Management</h2>
-<button class="btn btn-primary" onclick="showUserForm()">+ Add User</button>
-</div>
-<div id="user-form" style="display:none" class="card" style="margin-bottom:16px">
-<h3>Create User</h3>
-<div class="form-row" style="margin-top:12px">
-<input id="user-username" placeholder="Username">
-<input id="user-password" type="password" placeholder="Password">
-</div>
-<div class="form-row">
-<input id="user-email" placeholder="Email">
-<select id="user-role">
-<option value="viewer">Viewer</option>
-<option value="operator">Operator</option>
-<option value="admin">Admin</option>
-<option value="superadmin">Super Admin</option>
-</select>
-<button class="btn btn-primary" onclick="createUser()">Create</button>
-<button class="btn" onclick="document.getElementById('user-form').style.display='none'">Cancel</button>
-</div>
-</div>
-<table>
-<thead><tr><th>Username</th><th>Email</th><th>Roles</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
-<tbody id="users-table"></tbody>
-</table>
-</div>
+<section id="cta">
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-node gw" style="top:20%;left:70%;width:200px;height:200px;animation-delay:-4s"></div>
+    <div class="bg-node dc" style="top:65%;left:15%;width:160px;height:160px;animation-delay:-9s"></div>
+    <div class="bg-ring bg-ring-1"></div>
+    <div class="bg-ring bg-ring-2"></div>
+  </div>
+  <div class="container">
+    <div class="cta-box gsap-cta">
+      <h2>Start building today</h2>
+      <p>Local development is free and open-source. Production deployments run on Kubernetes with full observability.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;position:relative">
+        <a class="btn btn-primary" href="docs.html">Read documentation</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-</div>
+<footer>
+  <div class="container">
+    ProxyMesh · Go, Redis, WebSockets · MIT License
+  </div>
+</footer>
 
 <script>
-const API='/api/admin';
-const SUBNET_API='/api/subnets';
-const ADMIN_KEY='test-admin-key';
-let refreshTimer;
+  /* Nav scroll */
+  const nav=document.getElementById('nav');
+  window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>20)});
 
-function headers(){return{'X-Admin-Key':ADMIN_KEY,'Content-Type':'application/json'}}
+  /* GSAP ScrollTrigger */
+  gsap.registerPlugin(ScrollTrigger);
 
-function showSection(name){
-document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-document.getElementById(name).classList.add('active');
-document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-event.target.classList.add('active');
-if(name==='nodes')loadNodes();
-if(name==='cooldowns')loadCooldowns();
-if(name==='subnets')loadPools();
-if(name==='sessions')loadSessions();
-if(name==='capacity')loadCapacity();
-if(name==='users')loadUsers();
-}
+  /* Hero stagger */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.registerPlugin(ScrollTrigger);
+    const heroTl=gsap.timeline({defaults:{ease:'power3.out'}});
+    heroTl.to('.tag',{opacity:1,y:0,duration:0.8},0.1)
+         .to('.hero h1',{opacity:1,y:0,duration:0.8},0.2)
+         .to('.hero-sub',{opacity:1,y:0,duration:0.8},0.3)
+         .to('.hero-actions',{opacity:1,y:0,duration:0.8},0.4)
+         .to('.terminal',{opacity:1,y:0,duration:0.8},0.5);
+  } else {
+    document.querySelectorAll('.tag,.hero h1,.hero-sub,.hero-actions,.terminal').forEach(el=>{el.style.opacity='1';el.style.transform='none'});
+    document.body.classList.add('no-gsap');
+  }
 
-function toast(msg,type){
-const t=document.createElement('div');
-t.className='toast toast-'+type;
-t.textContent=msg;
-document.body.appendChild(t);
-setTimeout(()=>t.remove(),3000);
-}
+  /* Section headers */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.utils.toArray('.gsap-reveal').forEach(el=>{
+      gsap.fromTo(el,{opacity:0,y:40},{opacity:1,y:0,duration:1,ease:'power3.out',
+        scrollTrigger:{trigger:el,start:'top 82%',toggleActions:'play none none none'}});
+    });
+  } else {
+    document.body.classList.add('no-gsap');
+  }
 
-async function loadMetrics(){
-try{
-const r=await fetch('/metrics');
-const text=await r.text();
-document.getElementById('metrics-raw').textContent=text;
-const m={};
-text.split('\n').forEach(line=>{
-const match=line.match(/^proxymesh_(\w+)\s+(.+)$/);
-if(match)m[match[1]]=match[2];
-});
-document.getElementById('m-requests').textContent=m.requests_total||'0';
-const total=parseInt(m.requests_total)||0;
-const success=parseInt(m.requests_success)||0;
-const rate=total>0?((success/total)*100).toFixed(1)+'%':'--';
-document.getElementById('m-success-rate').textContent=rate;
-document.getElementById('m-sessions').textContent=m.active_sessions||'0';
-document.getElementById('m-latency').textContent=m.avg_latency_ms||'0';
-document.getElementById('m-nodes').textContent=m.nodes_selected||'0';
-document.getElementById('m-rate-limited').textContent=m.rate_limited||'0';
-document.getElementById('m-failed').textContent=m.requests_failed||'0';
-const uptime=parseFloat(m.uptime_seconds)||0;
-const hrs=Math.floor(uptime/3600);
-const mins=Math.floor((uptime%3600)/60);
-document.getElementById('m-uptime').textContent=hrs+'h '+mins+'m';
-}catch(e){console.error('Failed to load metrics:',e)}
-}
+  /* Feature cards */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.utils.toArray('.gsap-feature').forEach((el,i)=>{
+      gsap.fromTo(el,{opacity:0,y:60},{opacity:1,y:0,duration:0.9,ease:'power3.out',delay:i*0.08,
+        scrollTrigger:{trigger:el,start:'top 88%',toggleActions:'play none none none'}});
+    });
+  }
 
-async function loadNodes(){
-try{
-const r=await fetch(API+'/nodes',{headers:headers()});
-const data=await r.json();
-const tbody=document.getElementById('nodes-table');
-if(!data.nodes||data.nodes.length===0){
-tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">No nodes registered</td></tr>';
-updateNodeMap([]);
-return;
-}
-tbody.innerHTML=data.nodes.map(n=>{
-const node=n.node||{};
-const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
-const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
-return `<tr>
-<td><span class="status-dot dot-green"></span></td>
-<td><strong>${n.id}</strong></td>
-<td>${typeBadge}</td>
-<td>${node.country||'--'}</td>
-<td>${node.city||'--'}</td>
-<td>${node.isp||'--'}</td>
-<td>${lastSeen}</td>
-<td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
-</tr>`;
-}).join('');
-updateNodeMap(data.nodes);
-}catch(e){console.error('Failed to load nodes:',e)}
-}
+  /* Steps */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.utils.toArray('.gsap-step').forEach((el,i)=>{
+      gsap.fromTo(el,{opacity:0,y:60},{opacity:1,y:0,duration:0.9,ease:'power3.out',delay:i*0.12,
+        scrollTrigger:{trigger:el,start:'top 85%',toggleActions:'play none none none'}});
+    });
+  }
 
-function updateNodeMap(nodes){
-const container=document.getElementById('map-container');
-if(!container)return;
-if(nodes.length===0){
-container.innerHTML='<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">No nodes to display</div>';
-return;
-}
-const countryCounts={};
-nodes.forEach(n=>{
-const c=n.node?.country||'Unknown';
-countryCounts[c]=(countryCounts[c]||0)+1;
-});
-const flags={US:'🇺🇸',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',CA:'🇨🇦',AU:'🇦🇺',JP:'🇯🇵',IN:'🇮🇳',BR:'🇧🇷',MX:'🇲🇽'};
-let html='<div style="width:100%;font-size:0.85em;color:#8b949e;margin-bottom:8px">Node count by country:</div>';
-html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
-Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).forEach(([country,count])=>{
-const flag=flags[country]||'🌐';
-html+=`<div style="background:#21262d;padding:4px 10px;border-radius:6px;font-size:0.85em">${flag} ${country}: <strong>${count}</strong></div>`;
-});
-html+='</div>';
-container.innerHTML=html;
-}
+  /* Stats */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.utils.toArray('.gsap-stat').forEach((el,i)=>{
+      const target=parseFloat(el.dataset.target);
+      const suffix=el.dataset.suffix||'';
+      const decimals=parseInt(el.dataset.decimal)||0;
 
-async function deregisterNode(id){
-if(!confirm('Deregister node '+id+'?'))return;
-try{
-const r=await fetch(API+'/nodes/'+id,{method:'DELETE',headers:headers()});
-const data=await r.json();
-if(data.status==='success'){toast('Node deregistered','success');loadNodes();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+      gsap.fromTo(el,{opacity:0,y:30},{opacity:1,y:0,duration:0.9,ease:'power3.out',delay:i*0.1,
+        scrollTrigger:{trigger:el,start:'top 88%',toggleActions:'play none none none'}});
 
-function showRegisterForm(){document.getElementById('register-form').style.display='block'}
+      ScrollTrigger.create({
+        trigger:el,start:'top 82%',
+        onEnter:()=>{
+          const obj={val:0};
+          gsap.to(obj,{val:target,duration:2.2,ease:'power2.out',
+            onUpdate:()=>{
+              const v=obj.val;
+              el.textContent=(decimals>0?v.toFixed(decimals):Math.floor(v))+suffix;
+            }
+          });
+        },
+        once:true
+      });
+    });
+  } else {
+    document.body.classList.add('no-gsap');
+  }
 
-async function registerNode(){
-const body={
-node_id:document.getElementById('reg-node-id').value,
-ip:document.getElementById('reg-ip').value,
-country:document.getElementById('reg-country').value,
-city:document.getElementById('reg-city').value,
-isp:document.getElementById('reg-isp').value,
-os:document.getElementById('reg-os').value,
-node_type:document.getElementById('reg-type').value
-};
-try{
-const r=await fetch(API+'/nodes',{method:'POST',headers:headers(),body:JSON.stringify(body)});
-const data=await r.json();
-if(data.status==='success'){toast('Node registered','success');document.getElementById('register-form').style.display='none';loadNodes();}
-else toast(data.error||data.message||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+  /* CTA */
+  if(typeof gsap!=='undefined' && typeof ScrollTrigger!=='undefined'){
+    gsap.fromTo('.gsap-cta',{opacity:0,y:50},{opacity:1,y:0,duration:1,ease:'power3.out',
+      scrollTrigger:{trigger:'.gsap-cta',start:'top 88%',toggleActions:'play none none none'}});
+  } else {
+    document.body.classList.add('no-gsap');
+  }
 
-async function loadCooldowns(){
-try{
-const r=await fetch(API+'/cooldowns',{headers:headers()});
-const data=await r.json();
-const div=document.getElementById('cooldowns-list');
-if(!data.cooldowns||Object.keys(data.cooldowns).length===0){
-div.innerHTML='<div class="card"><p style="color:#8b949e">No active cooldowns</p></div>';
-return;
-}
-div.innerHTML=Object.entries(data.cooldowns).map(([target,nodes])=>`
-<div class="card" style="margin-bottom:12px">
-<h3 style="color:#58a6ff;font-size:1em;text-transform:none;letter-spacing:0">${target}</h3>
-<p style="color:#8b949e;font-size:0.85em;margin-top:4px">Nodes: ${nodes.join(', ')}</p>
-</div>`).join('');
-}catch(e){console.error('Failed to load cooldowns:',e)}
-}
+  /* Network canvas */
+  const canvas=document.getElementById('network');
+  const ctx=canvas.getContext('2d');
+  let W,H,mouse={x:null,y:null};
+  const resize=()=>{W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight};
+  window.addEventListener('resize',resize);resize();
 
-async function loadPools(){
-try{
-const r=await fetch(SUBNET_API+'/pools',{headers:headers()});
-const data=await r.json();
-const div=document.getElementById('pools-list');
-if(!data.pools||data.pools.length===0){
-div.innerHTML='<div class="card"><p style="color:#8b949e">No subnet pools configured</p></div>';
-return;
-}
-div.innerHTML=data.pools.map(p=>{
-const allocs=p.allocations||{};
-const rows=Object.entries(allocs).map(([nid,subnet])=>`<tr><td>${nid}</td><td>${subnet}</td></tr>`).join('');
-return `<div class="card" style="margin-bottom:12px">
-<h3>${p.prefix}/${p.prefix_len}</h3>
-<p style="color:#8b949e;font-size:0.85em">Allocated: ${p.allocated}</p>
-${rows?`<table><thead><tr><th>Node ID</th><th>Subnet</th></tr></thead><tbody>${rows}</tbody></table>`:''}
-</div>`;
-}).join('');
-}catch(e){console.error('Failed to load pools:',e)}
-}
+  const NODE_TYPES={
+    datacenter:{color:'#3b82f6',glow:'rgba(59,130,246,',size:3.2,speed:0.4},
+    residential:{color:'#06b6d4',glow:'rgba(6,182,212,',size:2.2,speed:0.25},
+    gateway:{color:'#60a5fa',glow:'rgba(96,165,250,',size:5.5,speed:0}
+  };
 
-function showPoolForm(){document.getElementById('pool-form').style.display='block'}
+  class Node{
+    constructor(type){
+      this.type=type;
+      const cfg=NODE_TYPES[type]||NODE_TYPES.residential;
+      this.color=cfg.color;this.glow=cfg.glow;this.size=cfg.size;this.maxSpeed=cfg.speed;
+      this.reset();
+    }
+    reset(){
+      this.x=Math.random()*W;this.y=Math.random()*H;
+      const angle=Math.random()*Math.PI*2;
+      const speed=this.maxSpeed*(0.6+Math.random()*0.4);
+      this.vx=Math.cos(angle)*speed;
+      this.vy=Math.sin(angle)*speed;
+      this.phase=Math.random()*Math.PI*2;
+      this.pulseSpeed=0.02+Math.random()*0.02;
+    }
+    step(){
+      this.x+=this.vx;this.y+=this.vy;this.phase+=this.pulseSpeed;
+      if(this.x<-40)this.x=W+40;if(this.x>W+40)this.x=-40;
+      if(this.y<-40)this.y=H+40;if(this.y>H+40)this.y=-40;
+    }
+    draw(ctx){
+      const pulse=1+Math.sin(this.phase)*0.25;
+      const r=this.size*pulse;
 
-async function createPool(){
-const body={
-prefix:document.getElementById('pool-prefix').value,
-prefix_len:parseInt(document.getElementById('pool-len').value)
-};
-try{
-const r=await fetch(SUBNET_API+'/pools',{method:'POST',headers:headers(),body:JSON.stringify(body)});
-const data=await r.json();
-if(data.status==='success'){toast('Pool created','success');document.getElementById('pool-form').style.display='none';loadPools();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+      if(this.type==='gateway'){
+        ctx.save();ctx.translate(this.x,this.y);ctx.rotate(this.phase*0.3);
+        ctx.strokeStyle=`${this.glow}0.6)`;ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.arc(0,0,r*1.6,0,Math.PI*2);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(-r,0);ctx.lineTo(r,0);ctx.moveTo(0,-r);ctx.lineTo(0,r);
+        ctx.strokeStyle=`${this.glow}0.9)`;ctx.lineWidth=1.5;ctx.stroke();
+        ctx.restore();
+      } else if(this.type==='datacenter'){
+        ctx.beginPath();ctx.arc(this.x,this.y,r*2.2,0,Math.PI*2);
+        ctx.fillStyle=`${this.glow}0.08)`;ctx.fill();
+        ctx.beginPath();ctx.arc(this.x,this.y,r,0,Math.PI*2);
+        ctx.fillStyle=`${this.glow}0.9)`;ctx.fill();
+        ctx.strokeStyle=`${this.glow}0.4)`;ctx.lineWidth=0.6;
+        ctx.beginPath();ctx.arc(this.x,this.y,r+2,0,Math.PI*2);ctx.stroke();
+      } else {
+        ctx.beginPath();ctx.arc(this.x,this.y,r*2,0,Math.PI*2);
+        ctx.fillStyle=`${this.glow}0.06)`;ctx.fill();
+        ctx.beginPath();ctx.arc(this.x,this.y,r,0,Math.PI*2);
+        ctx.fillStyle=`${this.glow}0.75)`;ctx.fill();
+      }
+    }
+  }
 
-async function loadSessions(){
-try{
-const r=await fetch(API+'/sessions',{headers:headers()});
-const data=await r.json();
-const tbody=document.getElementById('sessions-table');
-if(!data.sessions||data.sessions.length===0){
-tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:20px">No active sessions</td></tr>';
-return;
-}
-tbody.innerHTML=data.sessions.map(s=>`<tr>
-<td><strong>${s.session_id}</strong></td>
-<td>${s.node_id}</td>
-<td>${s.ttl}</td>
-<td><button class="btn btn-danger" onclick="deleteSession('${s.session_id}')">Delete</button></td>
-</tr>`).join('');
-}catch(e){console.error('Failed to load sessions:',e)}
-}
+  class Packet{
+    constructor(from,to){this.from=from;this.to=to;this.t=0;this.speed=0.015+Math.random()*0.01;}
+    step(){this.t+=this.speed;return this.t<1;}
+    draw(ctx){
+      const x=this.from.x+(this.to.x-this.from.x)*this.t;
+      const y=this.from.y+(this.to.y-this.from.y)*this.t;
+      ctx.beginPath();ctx.arc(x,y,1.4,0,Math.PI*2);
+      ctx.fillStyle='rgba(96,165,250,0.9)';ctx.fill();
+      ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fillStyle='rgba(96,165,250,0.15)';ctx.fill();
+    }
+  }
 
-async function deleteSession(id){
-if(!confirm('Delete session '+id+'?'))return;
-try{
-const r=await fetch(API+'/sessions/'+id,{method:'DELETE',headers:headers()});
-const data=await r.json();
-if(data.status==='success'){toast('Session deleted','success');loadSessions();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+  const nodes=[];
+  const packets=[];
+  const dcCount=6,resCount=12;
+  for(let i=0;i<dcCount;i++) nodes.push(new Node('datacenter'));
+  for(let i=0;i<resCount;i++) nodes.push(new Node('residential'));
+  const gateway=new Node('gateway');
+  nodes.push(gateway);
 
-async function loadCapacity(){
-try{
-const r=await fetch(API+'/capacity',{headers:headers()});
-const data=await r.json();
-document.getElementById('cap-total').textContent=data.total_nodes||0;
-document.getElementById('cap-healthy').textContent=data.healthy_nodes||0;
-document.getElementById('cap-warning').textContent=data.warning_nodes||0;
-document.getElementById('cap-critical').textContent=data.critical_nodes||0;
-const tbody=document.getElementById('capacity-table');
-if(!data.nodes||data.nodes.length===0){
-tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px">No nodes</td></tr>';
-return;
-}
-tbody.innerHTML=data.nodes.map(n=>{
-const statusBadge=n.status==='healthy'?'<span class="badge badge-green">Healthy</span>':
-n.status==='warning'?'<span class="badge badge-yellow">Warning</span>':
-'<span class="badge badge-red">Critical</span>';
-const util=n.utilization_percent.toFixed(1)+'%';
-return `<tr>
-<td><strong>${n.node_id}</strong></td>
-<td>${statusBadge}</td>
-<td>${n.bandwidth_gb_day.toFixed(2)}</td>
-<td>${n.bandwidth_gb_week.toFixed(2)}</td>
-<td>${util}</td>
-<td>${n.current_load}</td>
-</tr>`;
-}).join('');
-}catch(e){console.error('Failed to load capacity:',e)}
-}
+  window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+  window.addEventListener('mouseleave',()=>{mouse.x=null;mouse.y=null});
 
-function showUserForm(){document.getElementById('user-form').style.display='block'}
+  let frameCount=0;
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    const len=nodes.length;
+    for(let i=0;i<len;i++){
+      const a=nodes[i];
+      for(let j=i+1;j<len;j++){
+        const b=nodes[j];
+        const dx=a.x-b.x,dy=a.y-b.y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<160){
+          const alpha=0.12*(1-d/160);
+          ctx.strokeStyle=`rgba(59,130,246,${alpha})`;
+          ctx.lineWidth=0.5;
+          ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        }
+      }
+    }
 
-async function createUser(){
-const username=document.getElementById('user-username').value;
-const password=document.getElementById('user-password').value;
-const email=document.getElementById('user-email').value;
-const role=document.getElementById('user-role').value;
-if(!username||!password){toast('Username and password required','error');return;}
-try{
-const r=await fetch(API+'/users',{method:'POST',headers:headers(),body:JSON.stringify({username,password,email,role})});
-const data=await r.json();
-if(data.id){toast('User created','success');document.getElementById('user-form').style.display='none';loadUsers();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+    if(mouse.x!==null && frameCount%2===0){
+      for(let i=0;i<len;i++){
+        const dx=nodes[i].x-mouse.x,dy=nodes[i].y-mouse.y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<220){
+          ctx.strokeStyle=`rgba(96,165,250,${0.35*(1-d/220)})`;
+          ctx.lineWidth=0.7;
+          ctx.beginPath();ctx.moveTo(nodes[i].x,nodes[i].y);ctx.lineTo(mouse.x,mouse.y);ctx.stroke();
+        }
+      }
+    }
 
-async function loadUsers(){
-try{
-const r=await fetch(API+'/users',{headers:headers()});
-const data=await r.json();
-const tbody=document.getElementById('users-table');
-if(!data.users||data.users.length===0){
-tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px">No users</td></tr>';
-return;
-}
-tbody.innerHTML=data.users.map(u=>{
-const roles=u.roles?u.roles.join(', '):'--';
-const status=u.active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-red">Inactive</span>';
-const lastLogin=u.last_login?new Date(u.last_login).toLocaleString():'Never';
-return `<tr>
-<td><strong>${u.username}</strong></td>
-<td>${u.email||'--'}</td>
-<td>${roles}</td>
-<td>${status}</td>
-<td>${lastLogin}</td>
-<td><button class="btn btn-danger" onclick="deleteUser('${u.username}')">Delete</button></td>
-</tr>`;
-}).join('');
-}catch(e){console.error('Failed to load users:',e)}
-}
+    for(let i=packets.length-1;i>=0;i--){
+      if(!packets[i].step()){packets.splice(i,1);continue;}
+      packets[i].draw(ctx);
+    }
 
-async function deleteUser(username){
-if(!confirm('Delete user '+username+'?'))return;
-try{
-const r=await fetch(API+'/users/'+username,{method:'DELETE',headers:headers()});
-const data=await r.json();
-if(data.status==='success'){toast('User deleted','success');loadUsers();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
-}
+    nodes.forEach(n=>{n.step();n.draw(ctx);});
+    frameCount++;
+    requestAnimationFrame(frame);
+  }
+  frame();
 
-function startAutoRefresh(){
-if(refreshTimer)clearInterval(refreshTimer);
-if(document.getElementById('autoRefresh').checked){
-refreshTimer=setInterval(()=>{
-loadMetrics();
-const activeSection=document.querySelector('.section.active');
-if(activeSection.id==='nodes')loadNodes();
-if(activeSection.id==='cooldowns')loadCooldowns();
-if(activeSection.id==='subnets')loadPools();
-if(activeSection.id==='sessions')loadSessions();
-if(activeSection.id==='capacity')loadCapacity();
-if(activeSection.id==='users')loadUsers();
-},10000);
-}
-}
+  /* Smooth scroll */
+  document.querySelectorAll('a[href^="#"]').forEach(a=>{
+    a.addEventListener('click',e=>{
+      e.preventDefault();
+      const t=document.querySelector(a.getAttribute('href'));
+      if(t) gsap.to(window,{duration:1,scrollTo:t,offsetY:80});
+    });
+  });
 
-document.getElementById('autoRefresh').addEventListener('change',startAutoRefresh);
-loadMetrics();
-startAutoRefresh();
+  /* Hero typewriter */
+  const phrases=['speed of mesh','edge of network','scale of cloud','resilience of mesh'];
+  const typedEl=document.getElementById('typed');
+  let phraseIdx=0,charIdx=0,isDeleting=false;
+  const typeSpeed=150,deleteSpeed=80,pauseEnd=3500,pauseStart=800;
+
+  function typeLoop(){
+    const current=phrases[phraseIdx];
+    if(isDeleting){
+      typedEl.textContent=current.substring(0,charIdx-1);
+      charIdx--;
+    } else {
+      typedEl.textContent=current.substring(0,charIdx+1);
+      charIdx++;
+    }
+
+    let next=typeSpeed;
+    if(!isDeleting && charIdx===current.length){
+      next=pauseEnd;isDeleting=true;
+    } else if(isDeleting && charIdx===0){
+      isDeleting=false;phraseIdx=(phraseIdx+1)%phrases.length;
+      next=pauseStart;
+    }
+    setTimeout(typeLoop,isDeleting?deleteSpeed:next);
+  }
+
+  typeLoop();
 </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
 </body>
 </html>
