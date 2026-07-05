@@ -203,6 +203,23 @@
     $('bar-received').style.width = ((gbReceived / maxGB) * 100) + '%';
     $('e-sent-gb').textContent = gbSent.toFixed(2) + ' GB';
     $('e-received-gb').textContent = gbReceived.toFixed(2) + ' GB';
+
+    const historyCard = $('history-card');
+    const historyList = $('history-list');
+    const history = res.history || [];
+
+    if (history.length > 0) {
+      historyCard.style.display = '';
+      historyList.innerHTML = '';
+      history.forEach(h => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = '<span>' + (h.period || '--') + '</span><span>$' + (h.amount || 0).toFixed(2) + ' · ' + (h.tier || '--') + '</span>';
+        historyList.appendChild(item);
+      });
+    } else {
+      historyCard.style.display = 'none';
+    }
   }
 
   async function api(method, path, body, noAuth) {

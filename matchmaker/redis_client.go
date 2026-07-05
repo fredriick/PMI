@@ -461,3 +461,34 @@ func (r *RedisClient) GetBandwidthSnapshots(nodeID string, count int64) ([]Bandw
 	}
 	return snapshots, nil
 }
+
+func (r *RedisClient) RecordPayout(nodeID string, payout interface{}) error {
+	key := fmt.Sprintf("payout:%s", nodeID)
+	data, err := json.Marshal(payout)
+	if err != nil {
+		return err
+	}
+
+	pipe := r.client.Pipeline()
+	pipe.RPush(r.ctx, key, string(data))
+	pipe.LTrim(r.ctx, key, -48, -1)
+	_, err = pipe.Exec(r.ctx)
+	return err
+}
+
+func (r *RedisClient) GetPayoutHistory(nodeID string, count int64) ([]map[string]interface{}, error) {
+	key := fmt.Sprintf("payout:%s", nodeID)
+	data, err := r.client.LRange(r.ctx, key, -count, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var payouts []map[string]interface{}
+	for _, d := range data {
+		var p map[string]interface{}
+		if err := json.Unmarshal([]byte(d), &p); err == nil {
+			payouts = append(payouts, p)
+		}
+	}
+	return payouts, nil
+}
