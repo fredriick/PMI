@@ -26,7 +26,7 @@
 
   // Service worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/peer/sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
   // Login

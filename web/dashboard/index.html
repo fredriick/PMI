@@ -4,54 +4,275 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ProxyMesh Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+:root{
+  --bg:#050810;
+  --bg-card:rgba(10,14,26,0.92);
+  --border:rgba(59,130,246,0.15);
+  --text:#e8eaed;
+  --text-dim:#6b7280;
+  --accent:#3b82f6;
+  --accent-bright:#60a5fa;
+  --accent-dim:rgba(59,130,246,0.12);
+  --accent-glow:rgba(59,130,246,0.5);
+  --cyan:#06b6d4;
+  --green:#10b981;
+  --red:#ef4444;
+  --orange:#f59e0b;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e1e4e8;line-height:1.6}
-.container{max-width:1200px;margin:0 auto;padding:20px}
-header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 0}
-header .container{display:flex;align-items:center;justify-content:space-between}
-h1{font-size:1.4em;color:#58a6ff}
-h1 span{color:#8b949e;font-weight:400;font-size:0.7em}
-.nav{display:flex;gap:8px}
-.nav button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.85em}
-.nav button:hover,.nav button.active{background:#388bfd;border-color:#388bfd;color:#fff}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:20px 0}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
-.card h3{color:#8b949e;font-size:0.8em;text-transform:uppercase;letter-spacing:0.5em;margin-bottom:8px}
-.card .value{font-size:2em;font-weight:700;color:#58a6ff}
-.card .sub{font-size:0.85em;color:#8b949e;margin-top:4px}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d;font-size:0.9em}
-th{color:#8b949e;font-weight:600;font-size:0.75em;text-transform:uppercase}
-tr:hover{background:#161b22}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600}
-.badge-green{background:#1a3a2a;color:#3fb950}
-.badge-red{background:#3a1a1a;color:#f85149}
-.badge-yellow{background:#3a3a1a;color:#d29922}
-.btn{padding:6px 12px;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:0.8em;background:#21262d;color:#c9d1d9}
-.btn:hover{background:#30363d}
-.btn-danger{border-color:#f85149;color:#f85149}
-.btn-danger:hover{background:#f85149;color:#fff}
-.btn-primary{border-color:#388bfd;color:#388bfd}
-.btn-primary:hover{background:#388bfd;color:#fff}
+html{scroll-behavior:auto}
+body{
+  font-family:'Inter',-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);
+  line-height:1.6;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  position:relative;
+  padding-top:100px;
+}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* Subtle grid + radial gradient background */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,130,246,0.04) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(ellipse 70% 40% at 50% 0%,black 0%,transparent 100%);
+}
+
+.container{max-width:1200px;margin:0 auto;padding:0 28px;position:relative;z-index:2}
+
+/* Header / Nav */
+header{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  padding:22px 0;
+  background:transparent;
+  transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+header.scrolled{
+  background:rgba(5,8,16,0.92);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px) saturate(1.4);
+  -webkit-backdrop-filter:blur(20px) saturate(1.4);
+  padding:14px 0;
+}
+header .container{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+h1{font-size:1.4em;color:var(--accent-bright);font-weight:700;letter-spacing:-0.3px}
+h1 span{color:var(--text-dim);font-weight:400;font-size:0.65em;letter-spacing:0.3px;text-transform:uppercase}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav button{
+  background:rgba(10,14,26,0.8);
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  padding:6px 14px;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:0.85em;
+  font-family:inherit;
+  transition:all 0.25s;
+}
+.nav button:hover{
+  border-color:var(--accent);
+  color:var(--text);
+  background:var(--accent-dim);
+}
+.nav button.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+  box-shadow:0 0 20px var(--accent-glow);
+}
+
+/* Cards */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+  margin:20px 0;
+}
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+  transition:border-color 0.3s,box-shadow 0.3s;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:0;transition:opacity 0.3s;
+}
+.card:hover{
+  border-color:rgba(59,130,246,0.35);
+  box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 40px var(--accent-dim);
+}
+.card:hover::before{opacity:0.6}
+.card h3{
+  color:var(--text-dim);
+  font-size:0.75em;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  margin-bottom:10px;
+  font-weight:500;
+}
+.card .value{
+  font-size:2.2em;
+  font-weight:700;
+  color:var(--accent-bright);
+  font-family:'JetBrains Mono',monospace;
+  text-shadow:0 0 30px var(--accent-glow);
+}
+.card .sub{
+  font-size:0.85em;
+  color:var(--text-dim);
+  margin-top:4px;
+}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin-top:16px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid rgba(59,130,246,0.08);font-size:0.88em}
+th{
+  color:var(--text-dim);
+  font-weight:500;
+  font-size:0.72em;
+  text-transform:uppercase;
+  letter-spacing:0.6px;
+  background:rgba(10,14,26,0.5);
+}
+tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
+
+/* Badges */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:3px 10px;border-radius:20px;
+  font-size:0.72em;font-weight:600;
+  letter-spacing:0.2px;
+}
+.badge-green{background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.2)}
+.badge-red{background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.badge-yellow{background:rgba(245,158,11,0.12);color:var(--orange);border:1px solid rgba(245,158,11,0.2)}
+
+/* Buttons */
+.btn{
+  padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.85em;
+  font-weight:500;font-family:inherit;
+  transition:all 0.25s;display:inline-flex;align-items:center;gap:6px;
+}
+.btn-ghost{
+  background:transparent;border:1px solid var(--border);color:var(--text);
+}
+.btn-ghost:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-bright)}
+.btn-primary{
+  background:var(--accent);border:none;color:#fff;position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent,rgba(255,255,255,0.2),transparent);
+  transform:translateX(-100%);transition:transform 0.5s;
+}
+.btn-primary:hover::before{transform:translateX(100%)}
+.btn-primary:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 30px var(--accent-glow),0 8px 24px rgba(59,130,246,0.3);
+}
+.btn-danger{
+  background:transparent;border:1px solid rgba(239,68,68,0.3);color:var(--red);
+}
+.btn-danger:hover{background:rgba(239,68,68,0.1);border-color:var(--red)}
+
+/* Sections */
 .section{display:none}
 .section.active{display:block}
+
+/* Forms */
 .form-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.form-row input,.form-row select{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:6px;font-size:0.85em}
+.form-row input,.form-row select{
+  background:rgba(10,14,26,0.8);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:8px;
+  font-size:0.85em;
+  font-family:inherit;
+  transition:border-color 0.2s,box-shadow 0.2s;
+  outline:none;
+}
+.form-row input:focus,.form-row select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
 .form-row input{flex:1;min-width:120px}
-.toast{position:fixed;bottom:20px;right:20px;background:#161b22;border:1px solid #30363d;padding:12px 20px;border-radius:8px;font-size:0.85em;z-index:100;animation:slideIn 0.3s}
-.toast-success{border-color:#3fb950}
-.toast-error{border-color:#f85149}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:20px;right:20px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  padding:14px 22px;border-radius:12px;font-size:0.85em;z-index:100;
+  animation:slideIn 0.3s;
+  backdrop-filter:blur(20px);
+}
+.toast-success{border-color:rgba(16,185,129,0.4);color:var(--green)}
+.toast-error{border-color:rgba(239,68,68,0.4);color:var(--red)}
 @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-.dot-green{background:#3fb950}
-.dot-red{background:#f85149}
-.auto-refresh{font-size:0.8em;color:#8b949e;display:flex;align-items:center;gap:6px}
-.auto-refresh input{accent-color:#388bfd}
+
+/* Status dot */
+.status-dot{
+  display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
+  box-shadow:0 0 8px currentColor;
+}
+.dot-green{background:var(--green);color:var(--green)}
+.dot-red{background:var(--red);color:var(--red)}
+.dot-yellow{background:var(--orange);color:var(--orange)}
+
+/* Auto refresh */
+.auto-refresh{
+  font-size:0.8em;color:var(--text-dim);
+  display:flex;align-items:center;gap:6px;
+  font-weight:500;
+}
+.auto-refresh input{accent-color:var(--accent)}
+
+/* Map visualization */
+#map-container{
+  display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;
+}
+
+/* Section headers */
+.section-title{
+  font-size:1.15em;font-weight:600;margin-bottom:16px;
+  color:var(--text);letter-spacing:-0.2px;
+}
+
+@media(max-width:900px){
+  .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+}
+
+/* Code / pre blocks */
+pre,code{
+  font-family:'JetBrains Mono',monospace;
+}
+pre{
+  background:rgba(10,14,26,0.7);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  font-size:0.78em;
+  overflow-x:auto;
+  max-height:300px;
+  color:var(--text-dim);
+}
 </style>
 </head>
 <body>
-<header>
+<header id="header">
 <div class="container">
 <h1>ProxyMesh <span>Admin Dashboard</span></h1>
 <div style="display:flex;align-items:center;gap:16px">
@@ -73,32 +294,30 @@ tr:hover{background:#161b22}
 <!-- Overview -->
 <div id="overview" class="section active">
 <div class="grid">
-<div class="card"><h3>Total Requests</h3><div class="value" id="m-requests">--</div></div>
-<div class="card"><h3>Success Rate</h3><div class="value" id="m-success-rate">--</div></div>
-<div class="card"><h3>Active Sessions</h3><div class="value" id="m-sessions">--</div></div>
-<div class="card"><h3>Avg Latency</h3><div class="value" id="m-latency">--</div><div class="sub">milliseconds</div></div>
-<div class="card"><h3>Nodes Selected</h3><div class="value" id="m-nodes">--</div></div>
-<div class="card"><h3>Rate Limited</h3><div class="value" id="m-rate-limited">--</div></div>
-<div class="card"><h3>Failed Requests</h3><div class="value" id="m-failed">--</div></div>
-<div class="card"><h3>Uptime</h3><div class="value" id="m-uptime">--</div></div>
+<div class="card"><h3>Total Requests</h3><div class="value mono" id="m-requests">--</div></div>
+<div class="card"><h3>Success Rate</h3><div class="value mono" id="m-success-rate">--</div></div>
+<div class="card"><h3>Active Sessions</h3><div class="value mono" id="m-sessions">--</div></div>
+<div class="card"><h3>Avg Latency</h3><div class="value mono" id="m-latency">--</div><div class="sub">milliseconds</div></div>
+<div class="card"><h3>Nodes Selected</h3><div class="value mono" id="m-nodes">--</div></div>
+<div class="card"><h3>Rate Limited</h3><div class="value mono" id="m-rate-limited">--</div></div>
+<div class="card"><h3>Failed Requests</h3><div class="value mono" id="m-failed">--</div></div>
+<div class="card"><h3>Uptime</h3><div class="value mono" id="m-uptime">--</div></div>
 </div>
-<h3 style="margin:20px 0 12px;color:#8b949e">Raw Metrics</h3>
-<pre id="metrics-raw" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;font-size:0.8em;overflow-x:auto;max-height:300px"></pre>
+<h3 style="margin:20px 0 12px;color:var(--text-dim);font-size:0.75em;text-transform:uppercase;letter-spacing:1px">Raw Metrics</h3>
+<pre id="metrics-raw" style="..."></pre>
 </div>
 
 <!-- Nodes -->
 <div id="nodes" class="section">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">Registered Nodes</h2>
+<h2 class="section-title">Registered Nodes</h2>
 <button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
 </div>
 
 <!-- Map Visualization -->
 <div class="card" style="margin-bottom:16px">
 <h3>Geographic Distribution</h3>
-<div id="map-container" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 0">
-<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">Loading node locations...</div>
-</div>
+<div id="map-container"></div>
 </div>
 
 <div id="register-form" style="display:none" class="card" style="margin-bottom:16px">
@@ -114,7 +333,7 @@ tr:hover{background:#161b22}
 <input id="reg-os" placeholder="OS">
 <select id="reg-type"><option value="datacenter">Datacenter</option><option value="residential">Residential</option></select>
 <button class="btn btn-primary" onclick="registerNode()">Register</button>
-<button class="btn" onclick="document.getElementById('register-form').style.display='none'">Cancel</button>
+<button class="btn btn-ghost" onclick="document.getElementById('register-form').style.display='none'">Cancel</button>
 </div>
 </div>
 <table>
@@ -132,7 +351,7 @@ tr:hover{background:#161b22}
 <!-- Subnets -->
 <div id="subnets" class="section">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">Subnet Pools</h2>
+<h2 class="section-title">Subnet Pools</h2>
 <button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
 </div>
 <div id="pool-form" style="display:none" class="card" style="margin-bottom:16px">
@@ -141,7 +360,7 @@ tr:hover{background:#161b22}
 <input id="pool-prefix" placeholder="IPv6 Prefix (e.g. 2001:db8::)">
 <input id="pool-len" placeholder="Prefix Length (48-64)" type="number" min="48" max="64" value="48">
 <button class="btn btn-primary" onclick="createPool()">Create</button>
-<button class="btn" onclick="document.getElementById('pool-form').style.display='none'">Cancel</button>
+<button class="btn btn-ghost" onclick="document.getElementById('pool-form').style.display='none'">Cancel</button>
 </div>
 </div>
 <div id="pools-list"></div>
@@ -149,7 +368,7 @@ tr:hover{background:#161b22}
 
 <!-- Sessions -->
 <div id="sessions" class="section">
-<h2 style="font-size:1.2em;margin-bottom:16px">Active Sessions</h2>
+<h2 class="section-title" style="margin-bottom:16px">Active Sessions</h2>
 <table>
 <thead><tr><th>Session ID</th><th>Node ID</th><th>TTL</th><th>Actions</th></tr></thead>
 <tbody id="sessions-table"></tbody>
@@ -158,12 +377,12 @@ tr:hover{background:#161b22}
 
 <!-- Capacity -->
 <div id="capacity" class="section">
-<h2 style="font-size:1.2em;margin-bottom:16px">Node Capacity Report</h2>
+<h2 class="section-title" style="margin-bottom:16px">Node Capacity Report</h2>
 <div class="grid" style="margin-bottom:16px">
-<div class="card"><h3>Total Nodes</h3><div class="value" id="cap-total">--</div></div>
-<div class="card"><h3>Healthy</h3><div class="value" id="cap-healthy" style="color:#3fb950">--</div></div>
-<div class="card"><h3>Warning</h3><div class="value" id="cap-warning" style="color:#d29922">--</div></div>
-<div class="card"><h3>Critical</h3><div class="value" id="cap-critical" style="color:#f85149">--</div></div>
+<div class="card"><h3>Total Nodes</h3><div class="value mono" id="cap-total">--</div></div>
+<div class="card"><h3>Healthy</h3><div class="value mono" style="color:var(--green)" id="cap-healthy">--</div></div>
+<div class="card"><h3>Warning</h3><div class="value mono" style="color:var(--orange)" id="cap-warning">--</div></div>
+<div class="card"><h3>Critical</h3><div class="value mono" style="color:var(--red)" id="cap-critical">--</div></div>
 </div>
 <table>
 <thead><tr><th>Node ID</th><th>Status</th><th>GB/Day</th><th>GB/Week</th><th>Utilization</th><th>Load</th></tr></thead>
@@ -174,7 +393,7 @@ tr:hover{background:#161b22}
 <!-- Users -->
 <div id="users" class="section">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-<h2 style="font-size:1.2em">User Management</h2>
+<h2 class="section-title">User Management</h2>
 <button class="btn btn-primary" onclick="showUserForm()">+ Add User</button>
 </div>
 <div id="user-form" style="display:none" class="card" style="margin-bottom:16px">
@@ -192,7 +411,7 @@ tr:hover{background:#161b22}
 <option value="superadmin">Super Admin</option>
 </select>
 <button class="btn btn-primary" onclick="createUser()">Create</button>
-<button class="btn" onclick="document.getElementById('user-form').style.display='none'">Cancel</button>
+<button class="btn btn-ghost" onclick="document.getElementById('user-form').style.display='none'">Cancel</button>
 </div>
 </div>
 <table>
@@ -265,7 +484,7 @@ const r=await fetch(API+'/nodes',{headers:headers()});
 const data=await r.json();
 const tbody=document.getElementById('nodes-table');
 if(!data.nodes||data.nodes.length===0){
-tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">No nodes registered</td></tr>';
+tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes registered</td></tr>';
 updateNodeMap([]);
 return;
 }
@@ -292,7 +511,7 @@ function updateNodeMap(nodes){
 const container=document.getElementById('map-container');
 if(!container)return;
 if(nodes.length===0){
-container.innerHTML='<div id="map-placeholder" style="color:#8b949e;font-size:0.85em">No nodes to display</div>';
+container.innerHTML='<div id="map-placeholder" style="color:var(--text-dim);font-size:0.85em">No nodes to display</div>';
 return;
 }
 const countryCounts={};
@@ -300,12 +519,11 @@ nodes.forEach(n=>{
 const c=n.node?.country||'Unknown';
 countryCounts[c]=(countryCounts[c]||0)+1;
 });
-const flags={US:'🇺🇸',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',CA:'🇨🇦',AU:'🇦🇺',JP:'🇯🇵',IN:'🇮🇳',BR:'🇧🇷',MX:'🇲🇽'};
-let html='<div style="width:100%;font-size:0.85em;color:#8b949e;margin-bottom:8px">Node count by country:</div>';
+const colorBright='var(--accent-bright)';
+let html='<div style="width:100%;font-size:0.85em;color:var(--text-dim);margin-bottom:8px">Node count by country:</div>';
 html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
 Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).forEach(([country,count])=>{
-const flag=flags[country]||'🌐';
-html+=`<div style="background:#21262d;padding:4px 10px;border-radius:6px;font-size:0.85em">${flag} ${country}: <strong>${count}</strong></div>`;
+  html+=`<div style="background:var(--bg-card);padding:4px 10px;border-radius:6px;font-size:0.85em;border:1px solid var(--border)">${country}: <strong>${count}</strong></div>`;
 });
 html+='</div>';
 container.innerHTML=html;
@@ -347,13 +565,12 @@ const r=await fetch(API+'/cooldowns',{headers:headers()});
 const data=await r.json();
 const div=document.getElementById('cooldowns-list');
 if(!data.cooldowns||Object.keys(data.cooldowns).length===0){
-div.innerHTML='<div class="card"><p style="color:#8b949e">No active cooldowns</p></div>';
+div.innerHTML='<div class="card"><p style="color:var(--text-dim)">No active cooldowns</p></div>';
 return;
 }
 div.innerHTML=Object.entries(data.cooldowns).map(([target,nodes])=>`
-<div class="card" style="margin-bottom:12px">
-<h3 style="color:#58a6ff;font-size:1em;text-transform:none;letter-spacing:0">${target}</h3>
-<p style="color:#8b949e;font-size:0.85em;margin-top:4px">Nodes: ${nodes.join(', ')}</p>
+<div class="card"><h3 style="color:var(--accent-bright);font-size:1em;text-transform:none;letter-spacing:0">${target}</h3>
+<p style="color:var(--text-dim);font-size:0.85em;margin-top:4px">Nodes: ${nodes.join(', ')}</p>
 </div>`).join('');
 }catch(e){console.error('Failed to load cooldowns:',e)}
 }
@@ -364,7 +581,7 @@ const r=await fetch(SUBNET_API+'/pools',{headers:headers()});
 const data=await r.json();
 const div=document.getElementById('pools-list');
 if(!data.pools||data.pools.length===0){
-div.innerHTML='<div class="card"><p style="color:#8b949e">No subnet pools configured</p></div>';
+div.innerHTML='<div class="card"><p style="color:var(--text-dim)">No subnet pools configured</p></div>';
 return;
 }
 div.innerHTML=data.pools.map(p=>{
@@ -372,7 +589,7 @@ const allocs=p.allocations||{};
 const rows=Object.entries(allocs).map(([nid,subnet])=>`<tr><td>${nid}</td><td>${subnet}</td></tr>`).join('');
 return `<div class="card" style="margin-bottom:12px">
 <h3>${p.prefix}/${p.prefix_len}</h3>
-<p style="color:#8b949e;font-size:0.85em">Allocated: ${p.allocated}</p>
+<p style="color:var(--text-dim);font-size:0.85em">Allocated: ${p.allocated}</p>
 ${rows?`<table><thead><tr><th>Node ID</th><th>Subnet</th></tr></thead><tbody>${rows}</tbody></table>`:''}
 </div>`;
 }).join('');
@@ -400,7 +617,7 @@ const r=await fetch(API+'/sessions',{headers:headers()});
 const data=await r.json();
 const tbody=document.getElementById('sessions-table');
 if(!data.sessions||data.sessions.length===0){
-tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#8b949e;padding:20px">No active sessions</td></tr>';
+  tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No active sessions</td></tr>';
 return;
 }
 tbody.innerHTML=data.sessions.map(s=>`<tr>
@@ -432,7 +649,7 @@ document.getElementById('cap-warning').textContent=data.warning_nodes||0;
 document.getElementById('cap-critical').textContent=data.critical_nodes||0;
 const tbody=document.getElementById('capacity-table');
 if(!data.nodes||data.nodes.length===0){
-tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px">No nodes</td></tr>';
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes</td></tr>';
 return;
 }
 tbody.innerHTML=data.nodes.map(n=>{
@@ -474,7 +691,7 @@ const r=await fetch(API+'/users',{headers:headers()});
 const data=await r.json();
 const tbody=document.getElementById('users-table');
 if(!data.users||data.users.length===0){
-tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:20px">No users</td></tr>';
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No users</td></tr>';
 return;
 }
 tbody.innerHTML=data.users.map(u=>{
