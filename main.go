@@ -88,7 +88,7 @@ func main() {
 		log.Printf("Warning: failed to start federation: %v", err)
 	}
 
-	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger, gw.RequestID())
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger, gw.RequestID(), payoutSvc)
 	setupPeerRoutes(gw.Router(), mm, payoutSvc)
 
 	config.OnChange(func(newCfg *config.Config) {
@@ -148,3 +148,4 @@ func main() {
 
 	log.Println("Server exited")
 }
+

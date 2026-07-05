@@ -19,6 +19,15 @@ type PeerConfig struct {
 	MaxCPU          float64
 }
 
+type NodeStatus struct {
+	NodeID     string  `json:"node_id"`
+	Online     bool    `json:"online"`
+	Battery    int     `json:"battery"`
+	IsCharging bool    `json:"is_charging"`
+	CPUUsage   float64 `json:"cpu_usage"`
+	IP         string  `json:"ip"`
+}
+
 type PeerSDK struct {
 	config      *PeerConfig
 	node        *models.Node
@@ -28,15 +37,15 @@ type PeerSDK struct {
 	mu          sync.RWMutex
 	statusCh    chan NodeStatus
 	reconnCh    chan struct{}
+	client      *PeerClient
+	lastBW      BandwidthSnapshot
+	bwCh        chan BandwidthSnapshot
 }
 
-type NodeStatus struct {
-	NodeID     string  `json:"node_id"`
-	Online     bool    `json:"online"`
-	Battery    int     `json:"battery"`
-	IsCharging bool    `json:"is_charging"`
-	CPUUsage   float64 `json:"cpu_usage"`
-	IP         string  `json:"ip"`
+type BandwidthSnapshot struct {
+	BytesSent       int64
+	BytesReceived   int64
+	DurationSeconds int64
 }
 
 func NewPeerSDK(config *PeerConfig) *PeerSDK {
@@ -47,6 +56,7 @@ func NewPeerSDK(config *PeerConfig) *PeerSDK {
 		cancel:   cancel,
 		statusCh: make(chan NodeStatus, 10),
 		reconnCh: make(chan struct{}, 1),
+		bwCh:     make(chan BandwidthSnapshot, 10),
 	}
 }
 
@@ -59,25 +69,95 @@ func (p *PeerSDK) Start() error {
 		ID:         p.config.NodeID,
 		NodeType:   models.NodeTypeResidential,
 		Country:    "US",
-		City:       "New York",
-		ISP:        "Residential ISP",
+		City:       "Unknown",
+		ISP:        "Residential",
 		IP:         p.getLocalIP(),
 		OS:         "linux",
 		LastSeen:   time.Now(),
 		Reputation: 100.0,
 	}
 
+	if p.config.GatewayEndpoint != "" {
+		client, err := NewPeerClient(p.config)
+		if err != nil {
+			return fmt.Errorf("failed to create peer client: %w", err)
+		}
+		p.client = client
+
+		if err := client.Connect(); err != nil {
+			client.Stop()
+			p.client = nil
+			return fmt.Errorf("failed to connect to gateway: %w", err)
+		}
+
+		go p.startTelemetryLoop()
+	}
+
+	p.mu.Lock()
 	p.isConnected = true
+	p.mu.Unlock()
+
 	p.startHealthMonitor()
 	p.startReconnector()
 
 	return nil
 }
 
-func (p *PeerSDK) Disconnect() {
+func (p *PeerSDK) startTelemetryLoop() {
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-p.ctx.Done():
+				return
+			case bw := <-p.bwCh:
+				if p.client != nil {
+					if err := p.client.ReportBandwidth(bw.BytesSent, bw.BytesReceived, bw.DurationSeconds); err != nil {
+						log.Printf("Bandwidth report error: %v", err)
+					}
+				}
+			case <-ticker.C:
+				if p.client != nil {
+					battery := p.getBatteryLevel()
+					cpu := p.getCPUUsage()
+					charging := p.isCharging()
+
+					if err := p.client.Heartbeat(battery, cpu, charging, 0, 0, 0); err != nil {
+						log.Printf("Heartbeat error: %v", err)
+						p.TriggerReconnect()
+					}
+				}
+			}
+		}
+	}()
+}
+
+func (p *PeerSDK) ReportBandwidth(bytesSent, bytesReceived, durationSeconds int64) {
+	select {
+	case p.bwCh <- BandwidthSnapshot{
+		BytesSent:       bytesSent,
+		BytesReceived:   bytesReceived,
+		DurationSeconds: durationSeconds,
+	}:
+	default:
+	}
+}
+
+func (p *PeerSDK) Stop() {
+	if p.client != nil {
+		p.client.Disconnect("user_disconnect")
+		p.client.Stop()
+	}
+	p.cancel()
 	p.mu.Lock()
 	p.isConnected = false
 	p.mu.Unlock()
+}
+
+func (p *PeerSDK) Disconnect() {
+	p.Stop()
 }
 
 func (p *PeerSDK) TriggerReconnect() {
@@ -109,10 +189,26 @@ func (p *PeerSDK) startReconnector() {
 				time.Sleep(backoff)
 
 				if p.checkEligibility() {
+					client, err := NewPeerClient(p.config)
+					if err != nil {
+						log.Printf("Reconnect failed to create client: %v", err)
+						p.TriggerReconnect()
+						continue
+					}
+
+					if err := client.Connect(); err != nil {
+						client.Stop()
+						log.Printf("Reconnect failed: %v", err)
+						p.TriggerReconnect()
+						continue
+					}
+
 					p.mu.Lock()
+					p.client = client
 					p.isConnected = true
 					p.node.LastSeen = time.Now()
 					p.mu.Unlock()
+
 					log.Println("Reconnected successfully")
 					backoff = time.Second
 				} else {
@@ -120,7 +216,7 @@ func (p *PeerSDK) startReconnector() {
 					if backoff > maxBackoff {
 						backoff = maxBackoff
 					}
-					log.Printf("Reconnection failed, next backoff: %s", backoff)
+					log.Printf("Reconnection failed (not eligible), next backoff: %s", backoff)
 					p.TriggerReconnect()
 				}
 			}
@@ -167,13 +263,18 @@ func (p *PeerSDK) startHealthMonitor() {
 }
 
 func (p *PeerSDK) reportStatus() {
+	p.mu.RLock()
+	connected := p.isConnected
+	node := p.node
+	p.mu.RUnlock()
+
 	status := NodeStatus{
-		NodeID:     p.node.ID,
-		Online:     p.isConnected,
+		NodeID:     node.ID,
+		Online:     connected,
 		Battery:    p.getBatteryLevel(),
 		IsCharging: p.isCharging(),
 		CPUUsage:   p.getCPUUsage(),
-		IP:         p.node.IP,
+		IP:         node.IP,
 	}
 
 	select {
@@ -182,14 +283,16 @@ func (p *PeerSDK) reportStatus() {
 	}
 }
 
-func (p *PeerSDK) Stop() {
-	p.cancel()
-	p.isConnected = false
-}
-
 func (p *PeerSDK) GetStatus() NodeStatus {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.node == nil {
+		return NodeStatus{Online: false}
+	}
+
 	return NodeStatus{
-		NodeID:     p.node.ID,
+		NodeID:     p.config.NodeID,
 		Online:     p.isConnected,
 		Battery:    p.getBatteryLevel(),
 		IsCharging: p.isCharging(),
@@ -200,6 +303,12 @@ func (p *PeerSDK) GetStatus() NodeStatus {
 
 func (p *PeerSDK) StatusChan() <-chan NodeStatus {
 	return p.statusCh
+}
+
+func (p *PeerSDK) IsConnected() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.isConnected
 }
 
 type ConsentManager struct {

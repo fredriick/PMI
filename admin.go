@@ -9,10 +9,12 @@ import (
 	"proxymesh/gateway"
 	"proxymesh/internal/models"
 	"proxymesh/internal/subnet"
+	"proxymesh/internal/config"
 	"proxymesh/matchmaker"
+	"proxymesh/payout"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator, payoutSvc *payout.PayoutService) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
 	if auditLog != nil {
@@ -602,4 +604,99 @@ func deleteUserHandler(c *gin.Context) {
 		"status":  "success",
 		"message": "User " + username + " deleted",
 	})
+}
+
+func calculatePayoutsHandler(ps *payout.PayoutService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		period := time.Now().Format("2006-01")
+		payouts, err := ps.CalculateAllPayouts(time.Now())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"period":  period,
+			"count":   len(payouts),
+			"payouts": payouts,
+		})
+	}
+}
+
+func payoutHistoryHandler(ps *payout.PayoutService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.Query("node_id")
+		limit := 10
+		if l := c.Query("limit"); l != "" {
+			fmt.Sscanf(l, "%d", &limit)
+		}
+
+		if nodeID != "" {
+			p, _ := ps.CalculatePayout(nodeID, time.Now())
+			if p != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"status": "success",
+					"node_id": nodeID,
+					"latest": p,
+				})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"message": "No payout history available",
+		})
+	}
+}
+
+func updatePayoutRatesHandler(ps *payout.PayoutService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			RatePerGBSent     float64 `json:"rate_per_gb_sent" binding:"required"`
+			RatePerGBReceived float64 `json:"rate_per_gb_received" binding:"required"`
+			MinPayoutAmount   float64 `json:"min_payout_amount" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		ps.SetRates(payout.PayoutRates{
+			RatePerGBSent:     req.RatePerGBSent,
+			RatePerGBReceived: req.RatePerGBReceived,
+			MinPayoutAmount:   req.MinPayoutAmount,
+		})
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"rates":  ps.GetRates(),
+		})
+	}
+}
+
+func listTiersHandler(ps *payout.PayoutService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"tiers":  ps.GetTiers(),
+		})
+	}
+}
+
+func updateTiersHandler(ps *payout.PayoutService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var tiers []config.PricingTier
+		if err := c.ShouldBindJSON(&tiers); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		ps.SetTiers(tiers)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"tiers":  ps.GetTiers(),
+		})
+	}
 }

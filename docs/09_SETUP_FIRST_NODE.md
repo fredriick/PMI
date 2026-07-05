@@ -54,6 +54,7 @@ The gateway listens on:
 - Admin dashboard: `http://localhost:8000/dashboard`
 - Peer dashboard: `http://localhost:8000/peer/`
 - Health endpoint: `http://localhost:8000/health`
+- gRPC peer service: `localhost:9000`
 
 ## 3. Register a Residential Node
 
