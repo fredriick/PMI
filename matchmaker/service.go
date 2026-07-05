@@ -2,6 +2,7 @@ package matchmaker
 
 import (
 	"context"
+	"math"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -12,6 +13,7 @@ import (
 )
 
 type Matchmaker struct {
+	healthScore *PeerHealthScore
 	redis           *RedisClient
 	circuitBreakers map[string]*models.CircuitBreaker
 	mu              sync.RWMutex
@@ -34,6 +36,7 @@ func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int, ge
 		threshold:       threshold,
 		cooldownTTL:     ttl,
 		geoipFunc:       geoipLookup,
+		healthScore:     NewPeerHealthScore(redis.Client()),
 		stopHealthCheck: make(chan bool),
 		stopCooldown:    make(chan bool),
 	}
@@ -184,9 +187,17 @@ func (m *Matchmaker) selectByLoad(nodes []string) (string, error) {
 	}
 
 	var candidates []nodeWithScore
+	now := time.Now()
 	for _, nodeID := range nodes {
 		load, _ := m.redis.GetNodeLoad(nodeID)
 		reputation, _ := m.redis.GetNodeReputation(nodeID, "")
+
+		node, err := m.redis.GetNode(nodeID)
+		if err == nil && !node.LastSeen.IsZero() {
+			hoursSinceSeen := now.Sub(node.LastSeen).Hours()
+			decay := math.Exp(-hoursSinceSeen / 24.0)
+			reputation *= decay
+		}
 
 		weight := reputation / (float64(load) + 1.0)
 		candidates = append(candidates, nodeWithScore{id: nodeID, weight: weight})
@@ -392,4 +403,17 @@ func (m *Matchmaker) ResetCircuitBreaker(nodeID string) {
 
 func (m *Matchmaker) GetLatencyTracker() *LatencyTracker {
 	return nil
+}
+
+
+func (m *Matchmaker) UpdateHealthScore(nodeID string, latencyMs int64, bandwidthMbps float64, reliability float64) {
+	m.healthScore.UpdateScore(nodeID, latencyMs, bandwidthMbps, reliability)
+}
+
+func (m *Matchmaker) GetHealthScore(nodeID string) *PeerHealth {
+	return m.healthScore.GetScore(nodeID)
+}
+
+func (m *Matchmaker) GetTopHealthPeers(count int) []*PeerHealth {
+	return m.healthScore.GetTopPeers(count)
 }

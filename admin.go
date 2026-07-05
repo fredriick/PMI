@@ -32,6 +32,8 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/capacity", capacityReportHandler(mm))
 		admin.GET("/scaling", scalingRecommendationsHandler(mm))
 		admin.GET("/circuitbreakers", circuitBreakersHandler(mm))
+	admin.GET("/health", healthScoreHandler(mm))
+	admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
 		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
@@ -697,6 +699,33 @@ func updateTiersHandler(ps *payout.PayoutService) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 			"tiers":  ps.GetTiers(),
+		})
+	}
+}
+
+func healthScoreHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		peers := mm.GetTopHealthPeers(20)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"count":  len(peers),
+			"peers":  peers,
+		})
+	}
+}
+
+func nodeHealthScoreHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.Param("nodeID")
+		score := mm.GetHealthScore(nodeID)
+		if score == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No health score available"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"node_id": nodeID,
+			"score": score,
 		})
 	}
 }
