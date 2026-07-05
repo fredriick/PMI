@@ -199,7 +199,13 @@ func (m *Matchmaker) selectByLoad(nodes []string) (string, error) {
 			reputation *= decay
 		}
 
-		weight := reputation / (float64(load) + 1.0)
+		health := m.healthScore.GetScore(nodeID)
+		healthFactor := 1.0
+		if health != nil {
+			healthFactor = health.OverallScore / 100.0
+		}
+
+		weight := (reputation * healthFactor) / (float64(load) + 1.0)
 		candidates = append(candidates, nodeWithScore{id: nodeID, weight: weight})
 	}
 

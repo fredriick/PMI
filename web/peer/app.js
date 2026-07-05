@@ -110,9 +110,23 @@
     showToast('Disconnected', 'success');
   }
 
+  async function loadHealth() {
+    try {
+      const res = await api("GET", "/health");
+      const score = res.score;
+      if (score && score.overall_score != null) {
+        $("m-health").textContent = score.overall_score.toFixed(0);
+      } else {
+        $("m-health").textContent = "--";
+      }
+    } catch (err) {
+      $("m-health").textContent = "--";
+    }
+  }
+
   async function refresh() {
     try {
-      await Promise.all([loadStatus(), loadBandwidth(), loadEarnings()]);
+      await Promise.all([loadStatus(), loadBandwidth(), loadEarnings(), loadHealth()]);
     } catch (err) {
       if (err.message.includes('401') || err.message.includes('Unauthorized')) {
         disconnect();

@@ -46,6 +46,28 @@ func (s *PeerSessionStore) Revoke(token string) {
 	s.mu.Unlock()
 }
 
+
+func peerHealthHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.GetString("nodeID")
+		score := mm.GetHealthScore(nodeID)
+		if score == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"status": "success",
+				"node_id": nodeID,
+				"score":   nil,
+				"message": "No health score available yet",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"node_id": nodeID,
+			"score":   score,
+		})
+	}
+}
+
 func setupPeerRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, ps *payout.PayoutService) {
 	sessions := NewPeerSessionStore()
 
@@ -55,6 +77,7 @@ func setupPeerRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, ps *payout.Payout
 		peer.GET("/status", peerStatusHandler(mm))
 		peer.GET("/bandwidth", peerBandwidthHandler(mm))
 		peer.GET("/earnings", peerEarningsHandler(mm, ps))
+		peer.GET("/health", peerHealthHandler(mm))
 		peer.POST("/consent", peerConsentHandler(mm))
 		peer.POST("/disconnect", peerDisconnectHandler(mm, sessions))
 	}
