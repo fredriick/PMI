@@ -1,10 +1,11 @@
 # ProxyMesh
 
-![ProxyMesh Banner](web/banner.jpg)
+![Omniroute](web/banner.png)
 
 A hybrid mesh proxy network combining datacenter and residential exit nodes.
 
 ## Architecture
+![ProxyMesh Architecture](web/Omniroute_architecture.svg)
 
 - **Gateway** - Routes user requests to the best exit node based on targeting criteria
 - **Matchmaker** - Selects optimal nodes using Redis-backed reputation scoring
@@ -429,6 +430,8 @@ The gateway enforces:
 - **Traffic Filtering** - Illegal content prohibited
 
 ## gRPC Peer Service
+
+![gRPC Peer Lifecycle](web/grpc_peer_lifecycle.svg)
 
 Residential nodes connect via gRPC on port 9000:
 
