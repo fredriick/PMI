@@ -2,6 +2,7 @@ package matchmaker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -24,6 +25,12 @@ type PeerHealth struct {
 	ReliabilityScore float64   `json:"reliability_score"`
 	OverallScore     float64   `json:"overall_score"`
 	LastChecked      time.Time `json:"last_checked"`
+}
+
+// HealthScorePoint is a single composite-score sample used to render decay trends.
+type HealthScorePoint struct {
+	OverallScore float64   `json:"overall_score"`
+	Timestamp    time.Time `json:"timestamp"`
 }
 
 func NewPeerHealthScore(redisClient *redis.Client) *PeerHealthScore {
@@ -62,7 +69,43 @@ func (phs *PeerHealthScore) UpdateScore(nodeID string, latencyMs int64, bandwidt
 			"reliability_score": reliabilityScore,
 			"overall_score":     overall,
 		})
+		phs.RecordHistory(nodeID, overall)
 	}
+}
+
+const healthScoreHistoryMax = 100
+
+func (phs *PeerHealthScore) RecordHistory(nodeID string, overall float64) {
+	if phs.redis == nil {
+		return
+	}
+	point := HealthScorePoint{OverallScore: overall, Timestamp: time.Now()}
+	data, err := json.Marshal(point)
+	if err != nil {
+		return
+	}
+	key := fmt.Sprintf("healthscore:history:%s", nodeID)
+	phs.redis.RPush(phs.ctx, key, string(data))
+	phs.redis.LTrim(phs.ctx, key, int64(-healthScoreHistoryMax), -1)
+}
+
+func (phs *PeerHealthScore) GetHistory(nodeID string) []HealthScorePoint {
+	if phs.redis == nil {
+		return nil
+	}
+	key := fmt.Sprintf("healthscore:history:%s", nodeID)
+	data, err := phs.redis.LRange(phs.ctx, key, int64(-healthScoreHistoryMax), -1).Result()
+	if err != nil {
+		return nil
+	}
+	out := make([]HealthScorePoint, 0, len(data))
+	for _, d := range data {
+		var p HealthScorePoint
+		if json.Unmarshal([]byte(d), &p) == nil {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func (phs *PeerHealthScore) calculateLatencyScore(latencyMs int64) float64 {

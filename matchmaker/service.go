@@ -423,3 +423,7 @@ func (m *Matchmaker) GetHealthScore(nodeID string) *PeerHealth {
 func (m *Matchmaker) GetTopHealthPeers(count int) []*PeerHealth {
 	return m.healthScore.GetTopPeers(count)
 }
+
+func (m *Matchmaker) GetHealthScoreHistory(nodeID string) []HealthScorePoint {
+	return m.healthScore.GetHistory(nodeID)
+}

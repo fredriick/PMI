@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -85,11 +87,98 @@ func setupPeerRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, ps *payout.Payout
 	// Auth endpoint outside the middleware group
 	r.POST("/api/peer/auth", peerAuthHandler(mm, sessions))
 
+	// Streaming telemetry (SSE) for the peer dashboard. Token is supplied via
+	// query param because EventSource cannot set request headers.
+	r.GET("/api/peer/stream", peerStreamHandler(mm, ps, sessions))
+
 	// Serve peer PWA
 	r.GET("/peer", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/peer/")
 	})
 	r.Static("/peer", "web/peer")
+}
+
+func peerStreamHandler(mm *matchmaker.Matchmaker, ps *payout.PayoutService, sessions *PeerSessionStore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Query("token")
+		if token == "" {
+			token = c.GetHeader("X-Peer-Token")
+		}
+		nodeID, ok := sessions.Validate(token)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			return
+		}
+
+		c.Writer.Header().Set("Content-Type", "text/event-stream")
+		c.Writer.Header().Set("Cache-Control", "no-cache")
+		c.Writer.Header().Set("Connection", "keep-alive")
+		c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+		flusher, ok := c.Writer.(http.Flusher)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming unsupported"})
+			return
+		}
+
+		send := func() {
+			payload := buildPeerTelemetry(mm, ps, nodeID)
+			data, err := json.Marshal(payload)
+			if err != nil {
+				return
+			}
+			fmt.Fprintf(c.Writer, "event: telemetry\ndata: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		send()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-c.Request.Context().Done():
+				return
+			case <-ticker.C:
+				send()
+			}
+		}
+	}
+}
+
+func buildPeerTelemetry(mm *matchmaker.Matchmaker, ps *payout.PayoutService, nodeID string) map[string]interface{} {
+	telemetry := map[string]interface{}{"node_id": nodeID}
+
+	if node, err := mm.GetNodeStatus(nodeID); err == nil {
+		load, _ := mm.GetRedis().GetNodeLoad(nodeID)
+		telemetry["node"] = node
+		telemetry["load"] = load
+	}
+
+	if bw, err := mm.GetRedis().GetBandwidth(nodeID, time.Now()); err == nil {
+		history, _ := mm.GetRedis().GetBandwidthHistory(nodeID)
+		telemetry["current"] = bw
+		telemetry["history"] = history
+	}
+
+	if ps != nil {
+		if payoutData, err := ps.CalculatePayout(nodeID, time.Now()); err == nil {
+			rates := ps.GetRates()
+			tiers := ps.GetTiers()
+			history, _ := ps.GetPayoutHistory(nodeID, 10)
+			telemetry["payout"] = payoutData
+			telemetry["rates"] = rates
+			telemetry["tiers"] = tiers
+			telemetry["payout_history"] = history
+		}
+	}
+
+	if score := mm.GetHealthScore(nodeID); score != nil {
+		telemetry["score"] = score
+	}
+
+	return telemetry
 }
 
 func peerAuthMiddleware(sessions *PeerSessionStore) gin.HandlerFunc {

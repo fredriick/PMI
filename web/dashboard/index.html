@@ -278,13 +278,15 @@ pre{
 <div style="display:flex;align-items:center;gap:16px">
 <label class="auto-refresh"><input type="checkbox" id="autoRefresh" checked> Auto-refresh (10s)</label>
 <div class="nav">
-<button class="active" onclick="showSection('overview')">Overview</button>
-<button onclick="showSection('nodes')">Nodes</button>
-<button onclick="showSection('cooldowns')">Cooldowns</button>
-<button onclick="showSection('subnets')">Subnets</button>
-<button onclick="showSection('sessions')">Sessions</button>
-<button onclick="showSection('capacity')">Capacity</button>
-<button onclick="showSection('users')">Users</button>
+  <button class="active" onclick="showSection('overview')">Overview</button>
+  <button onclick="showSection('nodes')">Nodes</button>
+  <button onclick="showSection('health')">Health</button>
+  <button onclick="showSection('cooldowns')">Cooldowns</button>
+  <button onclick="showSection('subnets')">Subnets</button>
+  <button onclick="showSection('sessions')">Sessions</button>
+  <button onclick="showSection('capacity')">Capacity</button>
+  <button onclick="showSection('users')">Users</button>
+  <button onclick="showSection('activity')">Activity</button>
 </div>
 </div>
 </div>
@@ -340,6 +342,30 @@ pre{
 <thead><tr><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
 <tbody id="nodes-table"></tbody>
 </table>
+</div>
+
+<!-- Health -->
+<div id="health" class="section">
+<h2 class="section-title" style="margin-bottom:16px">Peer Health Scores</h2>
+<div class="grid" style="margin-bottom:16px">
+<div class="card"><h3>Total Peers</h3><div class="value mono" id="h-total">--</div></div>
+<div class="card"><h3>Healthy</h3><div class="value mono" style="color:var(--green)" id="h-healthy">--</div></div>
+<div class="card"><h3>Warning</h3><div class="value mono" style="color:var(--orange)" id="h-warning">--</div></div>
+<div class="card"><h3>Critical</h3><div class="value mono" style="color:var(--red)" id="h-critical">--</div></div>
+</div>
+<table>
+<thead><tr><th>Node ID</th><th>Overall Score</th><th>Connection Score</th><th>Latency Score</th><th>Bandwidth Score</th><th>Reliability Score</th><th>Last Checked</th></tr></thead>
+<tbody id="health-table"></tbody>
+</table>
+</div>
+
+<!-- Health Detail Modal -->
+<div id="health-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(5,8,16,0.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)closeHealthModal()">
+<div class="card" style="max-width:520px;width:100%;position:relative">
+<button class="btn btn-ghost" style="position:absolute;top:16px;right:16px" onclick="closeHealthModal()">Close</button>
+<h3 style="color:var(--accent-bright);margin-bottom:16px">Node Health Detail</h3>
+<div id="health-modal-body"><p style="color:var(--text-dim)">Loading...</p></div>
+</div>
 </div>
 
 <!-- Cooldowns -->
@@ -420,6 +446,15 @@ pre{
 </table>
 </div>
 
+<!-- Activity -->
+<div id="activity" class="section">
+<h2 class="section-title" style="margin-bottom:16px">Admin Activity</h2>
+<table>
+<thead><tr><th>Timestamp</th><th>Action</th><th>Resource</th><th>Method</th><th>Path</th><th>Status</th><th>IP</th></tr></thead>
+<tbody id="activity-table"></tbody>
+</table>
+</div>
+
 </div>
 
 <script>
@@ -436,11 +471,13 @@ document.getElementById(name).classList.add('active');
 document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
 event.target.classList.add('active');
 if(name==='nodes')loadNodes();
+if(name==='health')loadHealth();
 if(name==='cooldowns')loadCooldowns();
 if(name==='subnets')loadPools();
 if(name==='sessions')loadSessions();
 if(name==='capacity')loadCapacity();
 if(name==='users')loadUsers();
+if(name==='activity')loadActivity();
 }
 
 function toast(msg,type){
@@ -669,6 +706,117 @@ return `<tr>
 }catch(e){console.error('Failed to load capacity:',e)}
 }
 
+async function loadHealth(){
+try{
+const r=await fetch(API+'/health',{headers:headers()});
+const data=await r.json();
+const peers=data.peers||[];
+document.getElementById('h-total').textContent=peers.length;
+let healthy=0,warning=0,critical=0;
+const tbody=document.getElementById('health-table');
+if(peers.length===0){
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No health scores yet</td></tr>';
+}else{
+tbody.innerHTML=peers.map(p=>{
+const overall=p.overall_score!=null?p.overall_score.toFixed(0):'--';
+const conn=p.connection_score!=null?p.connection_score.toFixed(0):'--';
+const lat=p.latency_score!=null?p.latency_score.toFixed(0):'--';
+const bw=p.bandwidth_score!=null?p.bandwidth_score.toFixed(0):'--';
+const rel=p.reliability_score!=null?p.reliability_score.toFixed(0):'--';
+const checked=p.last_checked?new Date(p.last_checked).toLocaleString():'--';
+if(overall!=='--'){
+const o=parseFloat(overall);
+if(o>=80)healthy++;
+else if(o>=50)warning++;
+else critical++;
+}
+return `<tr>
+<td><strong style="cursor:pointer;color:var(--accent-bright)" onclick="loadNodeHealth('${p.node_id}')">${p.node_id}</strong></td>
+<td>${overall}</td>
+<td>${conn}</td>
+<td>${lat}</td>
+<td>${bw}</td>
+<td>${rel}</td>
+<td>${checked}</td>
+</tr>`;
+}).join('');
+}
+document.getElementById('h-healthy').textContent=healthy;
+document.getElementById('h-warning').textContent=warning;
+document.getElementById('h-critical').textContent=critical;
+}catch(e){console.error('Failed to load health:',e)}
+}
+
+async function loadNodeHealth(nodeID){
+try{
+const r=await fetch(API+'/health/'+encodeURIComponent(nodeID),{headers:headers()});
+const data=await r.json();
+const body=document.getElementById('health-modal-body');
+if(data.status!=='success'||!data.score){
+body.innerHTML='<p style="color:var(--text-dim)">No health score available for this node.</p>';
+document.getElementById('health-modal').style.display='flex';
+return;
+}
+const s=data.score;
+const row=(label,val)=>`<div class="info-row"><span class="info-label">${label}</span><span class="info-value">${val!=null?val.toFixed(1):'--'}</span></div>`;
+let html=`
+<div class="info-grid">
+${row('Node ID', s.node_id)}
+${row('Overall Score', s.overall_score)}
+${row('Connection Score', s.connection_score)}
+${row('Latency Score', s.latency_score)}
+${row('Bandwidth Score', s.bandwidth_score)}
+${row('Reliability Score', s.reliability_score)}
+${row('Last Checked', s.last_checked?new Date(s.last_checked).toLocaleString():'--')}
+</div>`;
+try{
+const hr=await fetch(API+'/health/'+encodeURIComponent(nodeID)+'/history',{headers:headers()});
+const hdata=await hr.json();
+const hist=hdata.history||[];
+if(hist.length>1){
+const scores=hist.map(p=>p.overall_score);
+const min=Math.min(...scores),max=Math.max(...scores),first=scores[0],last=scores[scores.length-1];
+const decay=(first-last).toFixed(1);
+const decayColor=decay>0?'var(--red)':(decay<0?'var(--green)':'var(--text-dim)');
+html+=`
+<div style="margin-top:20px">
+<h3 style="color:var(--text-dim);font-size:0.75em;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Score Trend (${hist.length} samples)</h3>
+${renderSparkline(scores)}
+<div class="info-grid" style="margin-top:12px">
+${row('First', first)}
+${row('Latest', last)}
+${row('Min', min)}
+${row('Max', max)}
+${row('Decay', decay)}
+</div>
+</div>`;
+}
+}catch(e){console.error('Failed to load health history:',e)}
+body.innerHTML=html;
+document.getElementById('health-modal').style.display='flex';
+}catch(e){console.error('Failed to load node health:',e)}
+}
+
+function closeHealthModal(){
+document.getElementById('health-modal').style.display='none';
+}
+
+function renderSparkline(scores){
+if(!scores||!scores.length)return '';
+const w=440,h=80,pad=6;
+const min=Math.min(...scores),max=Math.max(...scores);
+const range=(max-min)||1;
+const stepX=(w-pad*2)/(scores.length-1||1);
+const pts=scores.map((v,i)=>{
+const x=pad+i*stepX;
+const y=h-pad-((v-min)/range)*(h-pad*2);
+return x.toFixed(1)+','+y.toFixed(1);
+}).join(' ');
+return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="background:rgba(10,14,26,0.6);border:1px solid var(--border);border-radius:8px">
+<polyline fill="none" stroke="var(--accent-bright)" stroke-width="2" points="${pts}"/>
+</svg>`;
+}
+
 function showUserForm(){document.getElementById('user-form').style.display='block'}
 
 async function createUser(){
@@ -720,6 +868,32 @@ else toast(data.error||'Failed','error');
 }catch(e){toast('Request failed','error')}
 }
 
+async function loadActivity(){
+try{
+const r=await fetch(API+'/audit?limit=50',{headers:headers()});
+const data=await r.json();
+const entries=data.entries||[];
+const tbody=document.getElementById('activity-table');
+if(entries.length===0){
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No activity recorded</td></tr>';
+return;
+}
+tbody.innerHTML=entries.map(e=>{
+const ts=e.timestamp?new Date(e.timestamp).toLocaleString():'--';
+const status=e.success?'<span class="badge badge-green">OK</span>':'<span class="badge badge-red">FAIL</span>';
+return `<tr>
+<td>${ts}</td>
+<td>${e.action||'--'}</td>
+<td>${e.resource||'--'}</td>
+<td>${e.method||'--'}</td>
+<td>${e.path||'--'}</td>
+<td>${status}</td>
+<td>${e.user_ip||'--'}</td>
+</tr>`;
+}).join('');
+}catch(e){console.error('Failed to load activity:',e)}
+}
+
 function startAutoRefresh(){
 if(refreshTimer)clearInterval(refreshTimer);
 if(document.getElementById('autoRefresh').checked){
@@ -727,11 +901,13 @@ refreshTimer=setInterval(()=>{
 loadMetrics();
 const activeSection=document.querySelector('.section.active');
 if(activeSection.id==='nodes')loadNodes();
+if(activeSection.id==='health')loadHealth();
 if(activeSection.id==='cooldowns')loadCooldowns();
 if(activeSection.id==='subnets')loadPools();
 if(activeSection.id==='sessions')loadSessions();
 if(activeSection.id==='capacity')loadCapacity();
 if(activeSection.id==='users')loadUsers();
+if(activeSection.id==='activity')loadActivity();
 },10000);
 }
 }

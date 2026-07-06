@@ -5,6 +5,7 @@
   let token = localStorage.getItem('peer_token');
   let nodeId = localStorage.getItem('peer_node_id');
   let refreshTimer = null;
+  let streamEvtSource = null;
 
   // DOM
   const $ = id => document.getElementById(id);
@@ -95,13 +96,18 @@
     headerNodeId.textContent = nodeId;
     $('s-node-id').textContent = nodeId;
     refresh();
-    refreshTimer = setInterval(refresh, 15000);
+    connectStream();
   }
 
   async function disconnect() {
     try {
       await api('POST', '/disconnect', {});
     } catch (_) {}
+    stopPolling();
+    if (streamEvtSource) {
+      streamEvtSource.close();
+      streamEvtSource = null;
+    }
     token = null;
     nodeId = null;
     localStorage.removeItem('peer_token');
@@ -110,17 +116,68 @@
     showToast('Disconnected', 'success');
   }
 
-  async function loadHealth() {
+  function startPolling() {
+    if (refreshTimer) return;
+    refreshTimer = setInterval(refresh, 15000);
+  }
+
+  function stopPolling() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
+  function connectStream() {
+    if (!token || typeof EventSource === 'undefined') {
+      startPolling();
+      return;
+    }
     try {
-      const res = await api("GET", "/health");
-      const score = res.score;
-      if (score && score.overall_score != null) {
-        $("m-health").textContent = score.overall_score.toFixed(0);
+      const es = new EventSource(API + '/stream?token=' + encodeURIComponent(token));
+      streamEvtSource = es;
+
+      es.addEventListener('telemetry', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          stopPolling();
+          applyTelemetry(data);
+        } catch (_) {}
+      });
+
+      es.addEventListener('error', () => {
+        es.close();
+        streamEvtSource = null;
+        startPolling();
+      });
+    } catch (_) {
+      startPolling();
+    }
+  }
+
+  function applyTelemetry(data) {
+    loadStatus(data);
+    loadBandwidth(data);
+    loadEarnings(data);
+    loadHealth(data);
+  }
+
+  async function loadHealth(data) {
+    let score = null;
+    try {
+      if (!data) {
+        const res = await api('GET', '/health');
+        score = res.score;
       } else {
-        $("m-health").textContent = "--";
+        score = data.score;
       }
     } catch (err) {
-      $("m-health").textContent = "--";
+      score = null;
+    }
+    if (score && score.overall_score != null) {
+      $('m-health').textContent = score.overall_score.toFixed(0);
+    } else {
+      $('m-health').textContent = '--';
     }
   }
 
@@ -134,10 +191,10 @@
     }
   }
 
-  async function loadStatus() {
-    const res = await api('GET', '/status');
-    const node = res.node;
-    const load = res.load || 0;
+  async function loadStatus(data) {
+    if (!data) data = await api('GET', '/status');
+    const node = data.node;
+    const load = data.load || 0;
 
     statusDot.className = 'status-dot online';
     $('m-status').textContent = 'Online';
@@ -158,10 +215,10 @@
     $('consent-toggle').checked = true;
   }
 
-  async function loadBandwidth() {
-    const res = await api('GET', '/bandwidth');
-    const bw = res.current || {};
-    const history = res.history || {};
+  async function loadBandwidth(data) {
+    if (!data) data = await api('GET', '/bandwidth');
+    const bw = data.current || {};
+    const history = data.history || {};
 
     $('bw-sent').textContent = formatBytes(bw.bytes_sent || 0);
     $('bw-received').textContent = formatBytes(bw.bytes_received || 0);
@@ -186,11 +243,11 @@
     }
   }
 
-  async function loadEarnings() {
-    const res = await api('GET', '/earnings');
-    const p = res.payout || {};
-    const rates = res.rates || {};
-    const tiers = res.tiers || [];
+  async function loadEarnings(data) {
+    if (!data) data = await api('GET', '/earnings');
+    const p = data.payout || {};
+    const rates = data.rates || {};
+    const tiers = data.tiers || [];
 
     $('e-amount').textContent = '$' + (p.amount || 0).toFixed(2);
     $('e-period').textContent = p.period || 'Current Month';
@@ -220,7 +277,7 @@
 
     const historyCard = $('history-card');
     const historyList = $('history-list');
-    const history = res.history || [];
+    const history = data.payout_history || data.history || [];
 
     if (history.length > 0) {
       historyCard.style.display = '';
