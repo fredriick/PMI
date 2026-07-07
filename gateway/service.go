@@ -36,6 +36,7 @@ type Gateway struct {
 	wsHub                   *Hub
 	requestID               *RequestIDGenerator
 	circuitBreakerThreshold int
+	nodeWebhook             *NodeWebhook
 	nodeFailures            map[string]int
 	nodeConnections         map[string]int64
 	mu                      sync.RWMutex
@@ -55,6 +56,14 @@ func (g *Gateway) SetAPIKeyService(svc *APIKeyService) {
 
 func (g *Gateway) SetPrometheusPusher(p *PrometheusPusher) {
 	g.prometheusPusher = p
+}
+
+func (g *Gateway) SetNodeWebhook(nw *NodeWebhook) {
+	g.nodeWebhook = nw
+}
+
+func (g *Gateway) NodeWebhook() *NodeWebhook {
+	return g.nodeWebhook
 }
 
 func (g *Gateway) ReloadCompliance(cfg *config.ComplianceConfig) {

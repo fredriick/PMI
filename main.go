@@ -88,7 +88,10 @@ func main() {
 		log.Printf("Warning: failed to start federation: %v", err)
 	}
 
-	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger, gw.RequestID(), payoutSvc)
+	nodeWebhook := gateway.NewNodeWebhook(3)
+	gw.SetNodeWebhook(nodeWebhook)
+
+	setupAdminRoutes(gw.Router(), mm, subnetAllocator, apiKeyService, auditLogger, gw.RequestID(), payoutSvc, nodeWebhook)
 	setupPeerRoutes(gw.Router(), mm, payoutSvc)
 
 	config.OnChange(func(newCfg *config.Config) {

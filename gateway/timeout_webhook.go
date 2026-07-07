@@ -133,6 +133,31 @@ func (nw *NodeWebhook) RegisterWebhook(nodeID string, config WebhookConfig) {
 	nw.webhooks[nodeID] = append(nw.webhooks[nodeID], config)
 }
 
+func (nw *NodeWebhook) GetWebhooks(nodeID string) []WebhookConfig {
+	nw.mu.RLock()
+	defer nw.mu.RUnlock()
+
+	return nw.webhooks[nodeID]
+}
+
+func (nw *NodeWebhook) GetAllWebhooks() map[string][]WebhookConfig {
+	nw.mu.RLock()
+	defer nw.mu.RUnlock()
+
+	out := make(map[string][]WebhookConfig, len(nw.webhooks))
+	for nodeID, whs := range nw.webhooks {
+		out[nodeID] = whs
+	}
+	return out
+}
+
+func (nw *NodeWebhook) ClearWebhooks(nodeID string) {
+	nw.mu.Lock()
+	defer nw.mu.Unlock()
+
+	delete(nw.webhooks, nodeID)
+}
+
 func (nw *NodeWebhook) TriggerEvent(nodeID, event, state string) {
 	nw.mu.RLock()
 	webhooks := nw.webhooks[nodeID]

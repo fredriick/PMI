@@ -14,16 +14,16 @@ import (
 	"proxymesh/payout"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator, payoutSvc *payout.PayoutService) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator, payoutSvc *payout.PayoutService, nw *gateway.NodeWebhook) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
 	if auditLog != nil {
 		admin.Use(auditLog.AuditMiddleware())
 	}
 	{
-		admin.POST("/nodes", registerNodeHandler(mm))
-		admin.POST("/nodes/:id/heartbeat", heartbeatHandler(mm))
-		admin.DELETE("/nodes/:id", deregisterNodeHandler(mm))
+		admin.POST("/nodes", registerNodeHandler(mm, nw))
+		admin.POST("/nodes/:id/heartbeat", heartbeatHandler(mm, nw))
+		admin.DELETE("/nodes/:id", deregisterNodeHandler(mm, nw))
 		admin.GET("/nodes/:id", getNodeHandler(mm))
 		admin.GET("/nodes", listNodesHandler(mm))
 		admin.GET("/cooldowns", listCooldownsHandler(mm))
@@ -44,6 +44,12 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.DELETE("/users/:username", deleteUserHandler)
 		if requestID != nil {
 			requestID.RegisterRoutes(admin)
+		}
+		if nw != nil {
+			admin.POST("/webhooks", registerWebhookHandler(nw))
+			admin.GET("/webhooks", listWebhooksHandler(nw))
+			admin.GET("/webhooks/:nodeID", getWebhooksHandler(nw))
+			admin.DELETE("/webhooks/:nodeID", deleteWebhooksHandler(nw))
 		}
 	}
 
@@ -84,7 +90,7 @@ func adminAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func registerNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+func registerNodeHandler(mm *matchmaker.Matchmaker, nw *gateway.NodeWebhook) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req models.NodeRegistrationRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -102,6 +108,10 @@ func registerNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 			return
 		}
 
+		if nw != nil {
+			nw.TriggerEvent(req.NodeID, "node.registered", "registered")
+		}
+
 		c.JSON(http.StatusCreated, models.NodeRegistrationResponse{
 			Status:  "success",
 			NodeID:  req.NodeID,
@@ -110,7 +120,7 @@ func registerNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 	}
 }
 
-func heartbeatHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+func heartbeatHandler(mm *matchmaker.Matchmaker, nw *gateway.NodeWebhook) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		nodeID := c.Param("id")
 		var req models.NodeHeartbeatRequest
@@ -126,6 +136,9 @@ func heartbeatHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		req.NodeID = nodeID
 
 		if err := mm.Heartbeat(&req); err != nil {
+			if nw != nil {
+				nw.TriggerEvent(nodeID, "node.heartbeat_failed", "unhealthy")
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
@@ -139,7 +152,7 @@ func heartbeatHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 	}
 }
 
-func deregisterNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+func deregisterNodeHandler(mm *matchmaker.Matchmaker, nw *gateway.NodeWebhook) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		nodeID := c.Param("id")
 
@@ -148,6 +161,10 @@ func deregisterNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 				"error": err.Error(),
 			})
 			return
+		}
+
+		if nw != nil {
+			nw.TriggerEvent(nodeID, "node.deregistered", "deregistered")
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -723,9 +740,74 @@ func nodeHealthScoreHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
+			"status":  "success",
 			"node_id": nodeID,
-			"score": score,
+			"score":   score,
 		})
 	}
 }
+
+func registerWebhookHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req gateway.WebhookConfig
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.URL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+			return
+		}
+		nodeID := c.Query("node_id")
+		if nodeID == "" {
+			nodeID = c.GetHeader("X-Node-ID")
+		}
+		if nodeID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "node_id is required (query or X-Node-ID header)"})
+			return
+		}
+		if len(req.Events) == 0 {
+			req.Events = []string{"*"}
+		}
+		nw.RegisterWebhook(nodeID, req)
+		c.JSON(http.StatusCreated, gin.H{
+			"status":  "success",
+			"node_id": nodeID,
+			"url":     req.URL,
+			"events":  req.Events,
+		})
+	}
+}
+
+func listWebhooksHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "success",
+			"webhooks": nw.GetAllWebhooks(),
+		})
+	}
+}
+
+func getWebhooksHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.Param("nodeID")
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "success",
+			"node_id":  nodeID,
+			"webhooks": nw.GetWebhooks(nodeID),
+		})
+	}
+}
+
+func deleteWebhooksHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nodeID := c.Param("nodeID")
+		nw.ClearWebhooks(nodeID)
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"node_id": nodeID,
+			"message": "Webhooks cleared",
+		})
+	}
+}
+
