@@ -1,9 +1,12 @@
 package gateway
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -248,6 +251,10 @@ type ResponseCompressor struct {
 	level   int
 }
 
+// skipPrefixes are paths that should never be gzip-compressed (streaming/SSE,
+// Prometheus plaintext scrape format, etc.).
+var skipPrefixes = []string{"/ws", "/api/peer/stream", "/metrics", "/v1/metrics"}
+
 func NewResponseCompressor(enabled bool, level int) *ResponseCompressor {
 	if level <= 0 {
 		level = 5
@@ -258,6 +265,15 @@ func NewResponseCompressor(enabled bool, level int) *ResponseCompressor {
 	}
 }
 
+func (rc *ResponseCompressor) shouldSkip(path string) bool {
+	for _, p := range skipPrefixes {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (rc *ResponseCompressor) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !rc.enabled {
@@ -265,7 +281,54 @@ func (rc *ResponseCompressor) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Header("X-Compression", "enabled")
+		// Only compress when the client explicitly accepts gzip and the response
+		// is not already encoded (e.g. a pre-compressed static asset).
+		if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") ||
+			c.Writer.Header().Get("Content-Encoding") != "" ||
+			rc.shouldSkip(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
+		gz, err := gzip.NewWriterLevel(c.Writer, rc.level)
+		if err != nil {
+			c.Next()
+			return
+		}
+		defer gz.Close()
+
+		cw := &gzipResponseWriter{ResponseWriter: c.Writer, gz: gz}
+		c.Writer = cw
+
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+		// Body length is now unknown until flushed; drop any preset length.
+		c.Header("Content-Length", "")
+
 		c.Next()
+
+		_ = gz.Flush()
+	}
+}
+
+// gzipResponseWriter wraps gin's ResponseWriter, compressing everything written
+// through it with gzip while delegating control/flush behavior to the parent.
+type gzipResponseWriter struct {
+	gin.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.gz.Write(b)
+}
+
+func (w *gzipResponseWriter) WriteString(s string) (int, error) {
+	return w.gz.Write([]byte(s))
+}
+
+func (w *gzipResponseWriter) Flush() {
+	_ = w.gz.Flush()
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }

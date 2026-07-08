@@ -44,6 +44,12 @@ type GatewayConfig struct {
 	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`
 	RequestIDPrefix            string `mapstructure:"request_id_prefix"`
 	RequestIDFormat            string `mapstructure:"request_id_format"`
+	Compression             CompressionConfig `mapstructure:"compression"`
+}
+
+type CompressionConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	Level   int  `mapstructure:"level"`
 }
 
 type MatchmakerConfig struct {

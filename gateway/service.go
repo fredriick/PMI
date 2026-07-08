@@ -77,6 +77,11 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 	router := gin.New()
 	router.Use(gin.Recovery())
 
+	if cfg.Gateway.Compression.Enabled {
+		rc := NewResponseCompressor(cfg.Gateway.Compression.Enabled, cfg.Gateway.Compression.Level)
+		router.Use(rc.Middleware())
+	}
+
 	connPool := NewConnPool(10, 5*time.Second)
 	requestID := NewRequestIDGenerator(cfg.Gateway.RequestIDPrefix, cfg.Gateway.RequestIDFormat, redisClient)
 	gw := &Gateway{

@@ -12,6 +12,9 @@ gateway:
   read_header_timeout_seconds: 10
   request_id_prefix: "req"
   request_id_format: "unix"
+  compression:
+    enabled: true
+    level: 5
 
 redis:
   host: "127.0.0.1"
