@@ -18,8 +18,9 @@ A hybrid mesh proxy network combining datacenter and residential exit nodes.
 ```
 ProxyMeshProject/
 ├── main.go                  # Application entry point
-├── admin.go                 # Admin API routes (nodes, cooldowns, subnets, keys)
-├── peer_api.go              # Peer dashboard API routes (auth, status, earnings)
+├── admin.go                 # Admin API routes (nodes, cooldowns, subnets, keys, webhooks, health)
+├── admin_test.go            # Admin API tests (webhook CRUD, event delivery)
+├── peer_api.go              # Peer dashboard API routes (auth, status, earnings, health, SSE stream)
 ├── config.yaml              # Configuration file
 ├── docker-compose.yml       # Local development environment
 ├── k8s/                     # Kubernetes deployment manifests
@@ -35,9 +36,15 @@ ProxyMeshProject/
 │   ├── metrics.go           # Prometheus metrics endpoint
 │   ├── logger.go            # Structured JSON logging
 │   ├── tracing.go           # OpenTelemetry tracing
+│   ├── broadcast.go         # Node broadcasting, response compression, health score
+│   ├── timeout_webhook.go   # Node webhooks with retry + backoff
+│   ├── web/                 # Web UI routes and handlers
+│   │   ├── webui.go         # Admin dashboard HTTP routes
+│   │   └── webui_test.go    # Web UI route tests
 │   ├── compliance_test.go   # Compliance unit tests
 │   ├── ratelimit_test.go    # Rate limiter unit tests
 │   ├── connpool_test.go     # Connection pool tests
+│   ├── compression_test.go  # Gzip response compression tests
 │   └── integration_test.go  # Integration tests
 ├── matchmaker/              # Node selection service
 │   ├── service.go           # Selection logic with circuit breaker
@@ -99,6 +106,9 @@ gateway:
   tracing_enabled: true
   request_id_prefix: "req"
   request_id_format: "unix"
+  compression:
+    enabled: true
+    level: 5
 
 matchmaker:
   host: "localhost"
@@ -259,6 +269,13 @@ All admin endpoints require the `X-Admin-Key` header.
 | GET | `/api/admin/audit` | Query audit log entries |
 | GET | `/api/admin/request-id` | Get request ID generation settings |
 | POST | `/api/admin/request-id` | Update request ID prefix or format |
+| GET | `/api/admin/health` | Top peers by health score |
+| GET | `/api/admin/health/:nodeID` | Per-node health score detail |
+| GET | `/api/admin/health/:nodeID/history` | Health score time-series (decay trend) |
+| POST | `/api/admin/webhooks` | Register a webhook for a node |
+| GET | `/api/admin/webhooks` | List all registered webhooks |
+| GET | `/api/admin/webhooks/:nodeID` | List webhooks for a node |
+| DELETE | `/api/admin/webhooks/:nodeID` | Clear webhooks for a node |
 
 ### API Key Management
 
@@ -330,13 +347,17 @@ Features:
 - **Subnets** - Manage IPv6 subnet pools and allocations
 - **Sessions** - View/delete active sessions with TTL
 - **Capacity** - Node capacity report with utilization and status
-- Auto-refreshes every 10 seconds
+- **Health** — Per-peer health scores with summary cards (total/healthy/warning/critical), clickable rows for drill-down modals showing score breakdown and decay-trend sparkline
+- **Activity** — Admin audit log of recent actions (method, path, status, IP)
+- Auto-refreshes every 10 seconds; supports gzip response compression (`Accept-Encoding: gzip`)
 
 ## Peer Dashboard (PWA)
 
 Access the peer dashboard at `http://localhost:8000/peer/`.
 
 Residential node operators can authenticate with their node ID to view status, track earnings, and manage participation.
+
+The peer dashboard uses **Server-Sent Events** (`GET /api/peer/stream?token=<token>`) for live telemetry, replacing the previous 15-second REST polling. If the SSE stream errors, it automatically falls back to REST polling.
 
 ### Peer API
 
@@ -346,6 +367,8 @@ Residential node operators can authenticate with their node ID to view status, t
 | GET | `/api/peer/status` | `X-Peer-Token` | Get node status, battery, CPU, load |
 | GET | `/api/peer/bandwidth` | `X-Peer-Token` | Get bandwidth data and history |
 | GET | `/api/peer/earnings` | `X-Peer-Token` | Get payout calculation and rates |
+| GET | `/api/peer/health` | `X-Peer-Token` | Get peer health score |
+| GET | `/api/peer/stream` | `?token=<token>` | SSE telemetry stream (replaces 15s polling) |
 | POST | `/api/peer/consent` | `X-Peer-Token` | Toggle node active/inactive |
 | POST | `/api/peer/disconnect` | `X-Peer-Token` | Disconnect and revoke session |
 
@@ -507,6 +530,11 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **IPv6 Subnet Allocation** - Pool-based /64 subnet assignment for datacenter nodes
 - **Cooldown Management** - Domain-specific node cooldowns with auto-expiration
 - **Admin Dashboard** - Web UI for node/cooldown/subnet management
+- **Peer Dashboard (PWA)** - Residential node operator dashboard with SSE telemetry
+- **Health Scoring** - Composite peer health scores with time-series history and decay trend
+- **Node Webhooks** - Per-node webhook registration with lifecycle event delivery and retry
+- **Response Compression** - Gzip compression for JSON/admin responses (skips SSE/stream/metrics)
+- **Activity Dashboard** - Admin audit log of all actions
 - **Load Testing** - Built-in synthetic traffic generator
 - **Health Endpoint** - `/health` for load balancer probes
 - **Graceful Shutdown** - SIGTERM handling with 15s drain timeout
