@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -114,5 +115,74 @@ func TestWebhookHTTPRoutes(t *testing.T) {
 	}
 	if len(nw.GetWebhooks("n1")) != 0 {
 		t.Fatal("expected webhooks cleared after delete")
+	}
+}
+
+func TestNodeWebhook_RetryWithBackoff(t *testing.T) {
+	var mu sync.Mutex
+	attempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		attempts++
+		n := attempts
+		mu.Unlock()
+		if n < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	nw := gateway.NewNodeWebhook(5)
+	nw.RegisterWebhook("node-3", gateway.WebhookConfig{URL: srv.URL, Events: []string{"*"}})
+	nw.TriggerEvent("node-3", "node.registered", "registered")
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		mu.Lock()
+		got := attempts
+		mu.Unlock()
+		if got >= 3 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("webhook not retried enough; attempts=%d", got)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	mu.Lock()
+	final := attempts
+	mu.Unlock()
+	if final < 3 {
+		t.Fatalf("expected at least 3 delivery attempts, got %d", final)
+	}
+	if nw.WebhookFailCount(srv.URL) != 0 {
+		t.Fatalf("expected failCount reset to 0 after success, got %d", nw.WebhookFailCount(srv.URL))
+	}
+}
+
+func TestNodeWebhook_RecordsFailureAfterExhaustingRetries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	nw := gateway.NewNodeWebhook(2)
+	nw.RegisterWebhook("node-4", gateway.WebhookConfig{URL: srv.URL, Events: []string{"*"}})
+	nw.TriggerEvent("node-4", "node.registered", "registered")
+
+	// maxRetries=2 => total attempts = 3. Allow backoff (500ms+1s) plus margin.
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		if nw.WebhookFailCount(srv.URL) >= 1 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if nw.WebhookFailCount(srv.URL) < 1 {
+		t.Fatal("expected failCount >= 1 after exhausting retries")
 	}
 }

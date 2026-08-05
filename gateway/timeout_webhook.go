@@ -181,23 +181,64 @@ func (nw *NodeWebhook) TriggerEvent(nodeID, event, state string) {
 }
 
 func (nw *NodeWebhook) sendWebhook(url string, payload WebhookPayload) error {
-	data, _ := json.Marshal(payload)
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	// Retry with exponential backoff (500ms, 1s, 2s, ...) up to maxRetries.
+	backoff := 500 * time.Millisecond
+	var lastErr error
+	for attempt := 0; attempt <= nw.maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
+		req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-ProxyMesh-Event", payload.Event)
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			nw.recordSuccess(url)
+			return nil
+		}
+		lastErr = fmt.Errorf("webhook returned status %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 
-	return nil
+	nw.recordFailure(url)
+	return lastErr
+}
+
+func (nw *NodeWebhook) recordSuccess(url string) {
+	nw.mu.Lock()
+	defer nw.mu.Unlock()
+	nw.failCount[url] = 0
+}
+
+func (nw *NodeWebhook) recordFailure(url string) {
+	nw.mu.Lock()
+	defer nw.mu.Unlock()
+	nw.failCount[url]++
+}
+
+// WebhookFailCount returns the consecutive failure count for a webhook URL.
+func (nw *NodeWebhook) WebhookFailCount(url string) int {
+	nw.mu.RLock()
+	defer nw.mu.RUnlock()
+	return nw.failCount[url]
 }
 
 type ActivityDashboard struct {
