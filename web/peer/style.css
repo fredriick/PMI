@@ -275,6 +275,21 @@ header {
   box-shadow: 0 0 8px var(--green);
 }
 
+.status-dot.offline {
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+}
+
+.status-dot.connecting {
+  background: var(--orange);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 /* Navigation */
 nav {
   display: flex;
@@ -722,26 +737,61 @@ main {
   color: var(--green);
 }
 
-/* Responsive */
-@media (min-width: 640px) {
-  main {
-    max-width: 640px;
-    margin: 0 auto;
-  }
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, rgba(59,130,246,0.06) 25%, rgba(59,130,246,0.12) 50%, rgba(59,130,246,0.06) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  min-height: 18px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-row { height: 36px; margin-bottom: 8px; border-radius: 4px; }
+.skeleton-card { height: 80px; border-radius: var(--radius); }
+.skeleton-metric { height: 32px; width: 60px; border-radius: 4px; }
 
-  .metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+/* Error state */
+.error-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--red);
+  font-size: 0.85em;
+}
+.error-state .error-icon { font-size: 1.5em; margin-bottom: 6px; }
+
+/* Section fade-in */
+.page.active { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Responsive mobile */
+@media (max-width: 640px) {
+  .metrics-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .metric-card { padding: 12px; }
+  .metric-value { font-size: 16px; }
+  .metric-label { font-size: 10px; }
+  .earnings-amount { font-size: 32px; }
+  .bw-bar-label { width: 55px; font-size: 10px; }
+  .bw-bar-value { width: 50px; font-size: 11px; }
+  .history-item { padding: 8px; font-size: 12px; }
+  .info-grid { gap: 6px 12px; }
+  .info-row { padding: 4px 0; }
+  .info-label, .info-value { font-size: 12px; }
+  header { padding: 8px 12px; }
+  .node-label { font-size: 11px; }
+  nav { top: 42px; }
+  .nav-btn { font-size: 10px; padding: 8px 0; }
+  .nav-btn svg { width: 16px; height: 16px; }
+  main { padding: 10px; }
+  .card { padding: 12px; margin-bottom: 10px; }
+  .card h3 { font-size: 12px; margin-bottom: 10px; }
 }
 
-@media (min-width: 900px) {
-  main {
-    max-width: 800px;
-  }
-
-  .metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+@media (max-width: 400px) {
+  .metrics-grid { grid-template-columns: 1fr; }
+  .earnings-amount { font-size: 28px; }
 }
 
 code, pre {

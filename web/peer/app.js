@@ -1,22 +1,29 @@
 (function () {
   'use strict';
 
-  const API = '/api/peer';
-  let token = localStorage.getItem('peer_token');
-  let nodeId = localStorage.getItem('peer_node_id');
-  let refreshTimer = null;
-  let streamEvtSource = null;
+const API = '/api/peer';
+let token = localStorage.getItem('peer_token');
+let nodeId = localStorage.getItem('peer_node_id');
+let refreshTimer = null;
+let streamEvtSource = null;
 
-  // DOM
-  const $ = id => document.getElementById(id);
-  const loginScreen = $('login-screen');
-  const mainApp = $('main-app');
-  const loginForm = $('login-form');
-  const loginError = $('login-error');
-  const nodeIdInput = $('node-id');
-  const headerNodeId = $('header-node-id');
-  const statusDot = $('status-dot');
-  const toast = $('toast');
+// DOM
+const $ = id => document.getElementById(id);
+const loginScreen = $('login-screen');
+const mainApp = $('main-app');
+const loginForm = $('login-form');
+const loginError = $('login-error');
+const nodeIdInput = $('node-id');
+const headerNodeId = $('header-node-id');
+const statusDot = $('status-dot');
+const toast = $('toast');
+
+function skeletonHTML(cls, count) {
+  return Array.from({length: count}, () => `<div class="skeleton ${cls}"></div>`).join('');
+}
+function errorHTML(msg) {
+  return '<div class="error-state"><div class="error-icon">?</div>' + msg + '</div>';
+}
 
   // Init
   if (token && nodeId) {
@@ -95,6 +102,12 @@
     mainApp.classList.add('active');
     headerNodeId.textContent = nodeId;
     $('s-node-id').textContent = nodeId;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const dashBtn = document.querySelector('.nav-btn[data-page="dashboard"]');
+    if (dashBtn) dashBtn.classList.add('active');
+    const dashPage = $('page-dashboard');
+    if (dashPage) dashPage.classList.add('active');
     refresh();
     connectStream();
   }
@@ -128,170 +141,209 @@
     }
   }
 
-  function connectStream() {
-    if (!token || typeof EventSource === 'undefined') {
+function connectStream() {
+  if (!token || typeof EventSource === 'undefined') {
+    startPolling();
+    return;
+  }
+  statusDot.className = 'status-dot connecting';
+  try {
+    const es = new EventSource(API + '/stream?token=' + encodeURIComponent(token));
+    streamEvtSource = es;
+
+    es.addEventListener('telemetry', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        stopPolling();
+        statusDot.className = 'status-dot online';
+        applyTelemetry(data);
+      } catch (_) {}
+    });
+
+    es.addEventListener('error', () => {
+      es.close();
+      streamEvtSource = null;
+      statusDot.className = 'status-dot offline';
       startPolling();
+    });
+  } catch (_) {
+    statusDot.className = 'status-dot offline';
+    startPolling();
+  }
+}
+
+function applyTelemetry(data) {
+  loadStatus(data);
+  loadBandwidth(data).catch(e => console.error('Bandwidth error:', e));
+  loadEarnings(data).catch(e => console.error('Earnings error:', e));
+  loadHealth(data).catch(e => console.error('Health error:', e));
+}
+
+async function loadHealth(data) {
+  let score = null;
+  try {
+    if (!data) {
+      const res = await api('GET', '/health');
+      score = res.score;
+    } else {
+      score = data.score;
+    }
+  } catch (err) {
+    console.error('Failed to load health:', err);
+    score = null;
+  }
+  if (score && score.overall_score != null) {
+    $('m-health').textContent = score.overall_score.toFixed(0);
+  } else {
+    $('m-health').textContent = '--';
+  }
+}
+
+async function refresh() {
+  // Show loading skeletons
+  $('m-status').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-battery').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-cpu').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-load').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-country').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-isp').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  $('m-health').innerHTML = '<span class="skeleton skeleton-metric"></span>';
+  try {
+    await Promise.all([loadStatus(), loadBandwidth(), loadEarnings(), loadHealth()]);
+  } catch (err) {
+    if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+      disconnect();
+    } else {
+      console.error('Refresh error:', err);
+    }
+  }
+}
+
+async function loadStatus(data) {
+  if (!data) {
+    try { data = await api('GET', '/status'); }
+    catch (e) {
+      console.error('Failed to load status:', e);
+      $('m-status').textContent = 'Error';
       return;
     }
-    try {
-      const es = new EventSource(API + '/stream?token=' + encodeURIComponent(token));
-      streamEvtSource = es;
+  }
+  const node = data.node;
+  const load = data.load || 0;
 
-      es.addEventListener('telemetry', (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          stopPolling();
-          applyTelemetry(data);
-        } catch (_) {}
-      });
+  statusDot.className = 'status-dot ' + (node.online !== false ? 'online' : 'offline');
+  $('m-status').textContent = node.online !== false ? 'Online' : 'Offline';
+  $('m-battery').textContent = node.battery ? node.battery + '%' : '--';
+  $('m-cpu').textContent = node.cpu_usage ? node.cpu_usage.toFixed(1) + '%' : '--';
+  $('m-load').textContent = load;
+  $('m-country').textContent = node.country || '--';
+  $('m-isp').textContent = node.isp || '--';
 
-      es.addEventListener('error', () => {
-        es.close();
-        streamEvtSource = null;
-        startPolling();
-      });
-    } catch (_) {
-      startPolling();
+  $('i-node-id').textContent = node.id || '--';
+  $('i-type').textContent = node.node_type || 'residential';
+  $('i-ip').textContent = node.ip || '--';
+  $('i-city').textContent = node.city || '--';
+  $('i-os').textContent = node.os || '--';
+  $('i-last-seen').textContent = node.last_seen ? timeAgo(node.last_seen) : '--';
+  $('i-reputation').textContent = node.reputation ? node.reputation.toFixed(0) : '--';
+
+  $('consent-toggle').checked = true;
+}
+
+async function loadBandwidth(data) {
+  if (!data) {
+    try { data = await api('GET', '/bandwidth'); }
+    catch (e) {
+      console.error('Failed to load bandwidth:', e);
+      $('bw-sent').textContent = 'Error';
+      $('bw-received').textContent = 'Error';
+      $('bw-duration').textContent = '--';
+      return;
     }
   }
+  const bw = data.current || {};
+  const history = data.history || {};
 
-  function applyTelemetry(data) {
-    loadStatus(data);
-    loadBandwidth(data);
-    loadEarnings(data);
-    loadHealth(data);
+  $('bw-sent').textContent = formatBytes(bw.bytes_sent || 0);
+  $('bw-received').textContent = formatBytes(bw.bytes_received || 0);
+  $('bw-duration').textContent = formatDuration(bw.duration_seconds || 0);
+
+  const entries = Object.entries(history);
+  const historyCard = $('history-card');
+  const historyList = $('history-list');
+
+  if (entries.length > 0) {
+    historyCard.style.display = '';
+    historyList.innerHTML = '';
+    entries.sort((a, b) => b[0].localeCompare(a[0])).forEach(([date, d]) => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = '<span>' + date + '</span><span>' + formatBytes(d.bytes_sent || 0) + ' / ' + formatBytes(d.bytes_received || 0) + '</span>';
+      historyList.appendChild(div);
+    });
+  } else {
+    historyCard.style.display = 'none';
   }
+}
 
-  async function loadHealth(data) {
-    let score = null;
-    try {
-      if (!data) {
-        const res = await api('GET', '/health');
-        score = res.score;
-      } else {
-        score = data.score;
-      }
-    } catch (err) {
-      score = null;
-    }
-    if (score && score.overall_score != null) {
-      $('m-health').textContent = score.overall_score.toFixed(0);
-    } else {
-      $('m-health').textContent = '--';
-    }
-  }
-
-  async function refresh() {
-    try {
-      await Promise.all([loadStatus(), loadBandwidth(), loadEarnings(), loadHealth()]);
-    } catch (err) {
-      if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-        disconnect();
-      }
-    }
-  }
-
-  async function loadStatus(data) {
-    if (!data) data = await api('GET', '/status');
-    const node = data.node;
-    const load = data.load || 0;
-
-    statusDot.className = 'status-dot online';
-    $('m-status').textContent = 'Online';
-    $('m-battery').textContent = node.battery ? node.battery + '%' : '--';
-    $('m-cpu').textContent = node.cpu_usage ? node.cpu_usage.toFixed(1) + '%' : '--';
-    $('m-load').textContent = load;
-    $('m-country').textContent = node.country || '--';
-    $('m-isp').textContent = node.isp || '--';
-
-    $('i-node-id').textContent = node.id || '--';
-    $('i-type').textContent = node.node_type || 'residential';
-    $('i-ip').textContent = node.ip || '--';
-    $('i-city').textContent = node.city || '--';
-    $('i-os').textContent = node.os || '--';
-    $('i-last-seen').textContent = node.last_seen ? timeAgo(node.last_seen) : '--';
-    $('i-reputation').textContent = node.reputation ? node.reputation.toFixed(0) : '--';
-
-    $('consent-toggle').checked = true;
-  }
-
-  async function loadBandwidth(data) {
-    if (!data) data = await api('GET', '/bandwidth');
-    const bw = data.current || {};
-    const history = data.history || {};
-
-    $('bw-sent').textContent = formatBytes(bw.bytes_sent || 0);
-    $('bw-received').textContent = formatBytes(bw.bytes_received || 0);
-    $('bw-duration').textContent = formatDuration(bw.duration_seconds || 0);
-
-    // History
-    const entries = Object.entries(history);
-    const historyCard = $('history-card');
-    const historyList = $('history-list');
-
-    if (entries.length > 0) {
-      historyCard.style.display = '';
-      historyList.innerHTML = '';
-      entries.sort((a, b) => b[0].localeCompare(a[0])).forEach(([date, data]) => {
-        const div = document.createElement('div');
-        div.className = 'history-item';
-        div.innerHTML = `<span>${date}</span><span>${formatBytes(data.bytes_sent || 0)} / ${formatBytes(data.bytes_received || 0)}</span>`;
-        historyList.appendChild(div);
-      });
-    } else {
-      historyCard.style.display = 'none';
+async function loadEarnings(data) {
+  if (!data) {
+    try { data = await api('GET', '/earnings'); }
+    catch (e) {
+      console.error('Failed to load earnings:', e);
+      $('e-amount').textContent = 'Error';
+      $('e-tier').textContent = '--';
+      $('r-tier').textContent = '--';
+      return;
     }
   }
+  const p = data.payout || {};
+  const rates = data.rates || {};
+  const tiers = data.tiers || [];
 
-  async function loadEarnings(data) {
-    if (!data) data = await api('GET', '/earnings');
-    const p = data.payout || {};
-    const rates = data.rates || {};
-    const tiers = data.tiers || [];
+  $('e-amount').textContent = '$' + (p.amount || 0).toFixed(2);
+  $('e-period').textContent = p.period || 'Current Month';
+  $('e-tier').textContent = p.tier || 'Basic';
+  $('r-tier').textContent = p.tier || 'Basic';
 
-    $('e-amount').textContent = '$' + (p.amount || 0).toFixed(2);
-    $('e-period').textContent = p.period || 'Current Month';
-    $('e-tier').textContent = p.tier || 'Basic';
-    $('r-tier').textContent = p.tier || 'Basic';
-
-    if (p.tier) {
-      const tierInfo = tiers.find(t => t.name === p.tier);
-      if (tierInfo) {
-        $('r-sent').textContent = '$' + tierInfo.rate_per_gb_sent.toFixed(2);
-        $('r-received').textContent = '$' + tierInfo.rate_per_gb_recv.toFixed(2);
-      }
-    } else {
-      $('r-sent').textContent = '$' + (rates.RatePerGBSent || 0.50).toFixed(2);
-      $('r-received').textContent = '$' + (rates.RatePerGBReceived || 0.30).toFixed(2);
+  if (p.tier) {
+    const tierInfo = tiers.find(t => t.name === p.tier);
+    if (tierInfo) {
+      $('r-sent').textContent = '$' + tierInfo.rate_per_gb_sent.toFixed(2);
+      $('r-received').textContent = '$' + tierInfo.rate_per_gb_recv.toFixed(2);
     }
-    $('r-min').textContent = '$' + (rates.MinPayoutAmount || 10.00).toFixed(2);
-
-    const gbSent = p.gb_sent || 0;
-    const gbReceived = p.gb_received || 0;
-    const maxGB = Math.max(gbSent, gbReceived, 1);
-
-    $('bar-sent').style.width = ((gbSent / maxGB) * 100) + '%';
-    $('bar-received').style.width = ((gbReceived / maxGB) * 100) + '%';
-    $('e-sent-gb').textContent = gbSent.toFixed(2) + ' GB';
-    $('e-received-gb').textContent = gbReceived.toFixed(2) + ' GB';
-
-    const historyCard = $('history-card');
-    const historyList = $('history-list');
-    const history = data.payout_history || data.history || [];
-
-    if (history.length > 0) {
-      historyCard.style.display = '';
-      historyList.innerHTML = '';
-      history.forEach(h => {
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.innerHTML = '<span>' + (h.period || '--') + '</span><span>$' + (h.amount || 0).toFixed(2) + ' · ' + (h.tier || '--') + '</span>';
-        historyList.appendChild(item);
-      });
-    } else {
-      historyCard.style.display = 'none';
-    }
+  } else {
+    $('r-sent').textContent = '$' + (rates.RatePerGBSent || 0.50).toFixed(2);
+    $('r-received').textContent = '$' + (rates.RatePerGBReceived || 0.30).toFixed(2);
   }
+  $('r-min').textContent = '$' + (rates.MinPayoutAmount || 10.00).toFixed(2);
+
+  const gbSent = p.gb_sent || 0;
+  const gbReceived = p.gb_received || 0;
+  const maxGB = Math.max(gbSent, gbReceived, 1);
+
+  $('bar-sent').style.width = ((gbSent / maxGB) * 100) + '%';
+  $('bar-received').style.width = ((gbReceived / maxGB) * 100) + '%';
+  $('e-sent-gb').textContent = gbSent.toFixed(2) + ' GB';
+  $('e-received-gb').textContent = gbReceived.toFixed(2) + ' GB';
+
+  const historyCard = $('history-card');
+  const historyList = $('history-list');
+  const history = data.payout_history || data.history || [];
+
+  if (history.length > 0) {
+    historyCard.style.display = '';
+    historyList.innerHTML = '';
+    history.forEach(h => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = '<span>' + (h.period || '--') + '</span><span>$' + (h.amount || 0).toFixed(2) + ' · ' + (h.tier || '--') + '</span>';
+      historyList.appendChild(item);
+    });
+  } else {
+    historyCard.style.display = 'none';
+  }
+}
 
   async function api(method, path, body, noAuth) {
     const opts = {
