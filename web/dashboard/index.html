@@ -269,6 +269,40 @@ tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
   .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 }
 
+@media(max-width:768px){
+  .container{padding:0 16px}
+  header .container{flex-direction:column;align-items:flex-start;gap:8px}
+  .nav{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{font-size:0.75em;padding:5px 10px;white-space:nowrap;flex-shrink:0}
+  .auto-refresh{font-size:0.75em}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  th,td{padding:8px 10px;font-size:0.8em}
+  .card{padding:14px}
+  .card .value{font-size:1.6em}
+  .info-grid{grid-template-columns:1fr}
+  .form-row{flex-direction:column}
+  .form-row input,.form-row select{width:100%}
+  .btn{font-size:0.8em;padding:6px 12px}
+  .section-header{flex-direction:column;align-items:flex-start;gap:8px}
+}
+
+@media(max-width:480px){
+  .grid{grid-template-columns:1fr}
+  .card .value{font-size:1.4em}
+  h1{font-size:1.1em}
+  .section-title{font-size:1em}
+  #health-modal{padding:12px}
+  #health-modal .card{max-width:100%}
+}
+
+@media(max-width:480px){
+  .grid{grid-template-columns:1fr}
+  .card .value{font-size:1.4em}
+  h1{font-size:1.1em}
+  .section-title{font-size:1em}
+}
+
 /* Code / pre blocks */
 pre,code{
   font-family:'JetBrains Mono',monospace;
@@ -320,12 +354,12 @@ pre{
 <div class="card"><h3>Uptime</h3><div class="value mono" id="m-uptime">--</div></div>
 </div>
 <h3 style="margin:20px 0 12px;color:var(--text-dim);font-size:0.75em;text-transform:uppercase;letter-spacing:1px">Raw Metrics</h3>
-<pre id="metrics-raw" style="..."></pre>
+<pre id="metrics-raw"></pre>
 </div>
 
 <!-- Nodes -->
 <div id="nodes" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="section-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
 <h2 class="section-title">Registered Nodes</h2>
 <button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
 </div>
@@ -390,7 +424,7 @@ pre{
 
 <!-- Subnets -->
 <div id="subnets" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="section-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
 <h2 class="section-title">Subnet Pools</h2>
 <button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
 </div>
@@ -432,7 +466,7 @@ pre{
 
 <!-- Users -->
 <div id="users" class="section">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="section-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
 <h2 class="section-title">User Management</h2>
 <button class="btn btn-primary" onclick="showUserForm()">+ Add User</button>
 </div>
