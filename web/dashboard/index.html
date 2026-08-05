@@ -245,11 +245,25 @@ tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
   display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;
 }
 
-/* Section headers */
-.section-title{
-  font-size:1.15em;font-weight:600;margin-bottom:16px;
-  color:var(--text);letter-spacing:-0.2px;
-}
+/* Info grid (used in health modal) */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:12px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(59,130,246,0.06)}
+.info-label{color:var(--text-dim);font-size:0.82em}
+.info-value{font-family:'JetBrains Mono',monospace;font-size:0.85em;color:var(--text)}
+
+/* Loading skeleton */
+.skeleton{background:linear-gradient(90deg,rgba(59,130,246,0.06) 25%,rgba(59,130,246,0.12) 50%,rgba(59,130,246,0.06) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;min-height:18px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton-row{height:36px;margin-bottom:8px;border-radius:4px}
+.skeleton-card{height:80px;border-radius:8px}
+
+/* Error state */
+.error-state{text-align:center;padding:40px 20px;color:var(--red);font-size:0.9em}
+.error-state .error-icon{font-size:2em;margin-bottom:8px}
+
+/* Section fade-in */
+.section.active{animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 @media(max-width:900px){
   .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
@@ -360,7 +374,7 @@ pre{
 </div>
 
 <!-- Health Detail Modal -->
-<div id="health-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(5,8,16,0.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)closeHealthModal()">
+<div id="health-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(5,8,16,0.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;animation:fadeIn 0.2s ease" onclick="if(event.target===this)closeHealthModal()">
 <div class="card" style="max-width:520px;width:100%;position:relative">
 <button class="btn btn-ghost" style="position:absolute;top:16px;right:16px" onclick="closeHealthModal()">Close</button>
 <h3 style="color:var(--accent-bright);margin-bottom:16px">Node Health Detail</h3>
@@ -380,7 +394,7 @@ pre{
 <h2 class="section-title">Subnet Pools</h2>
 <button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
 </div>
-<div id="pool-form" style="display:none" class="card" style="margin-bottom:16px">
+<div id="pool-form" class="card" style="display:none;margin-bottom:16px">
 <h3>Create Subnet Pool</h3>
 <div class="form-row" style="margin-top:12px">
 <input id="pool-prefix" placeholder="IPv6 Prefix (e.g. 2001:db8::)">
@@ -465,11 +479,18 @@ let refreshTimer;
 
 function headers(){return{'X-Admin-Key':ADMIN_KEY,'Content-Type':'application/json'}}
 
+function skeleton(rows){return Array.from({length:rows},()=>'<div class="skeleton skeleton-row"></div>').join('')}
+function skeletonCards(count){return Array.from({length:count},()=>'<div class="card skeleton skeleton-card"></div>').join('')}
+function errorState(msg){return '<div class="error-state"><div class="error-icon">⚠</div>'+msg+'</div>'}
+
+function headers(){return{'X-Admin-Key':ADMIN_KEY,'Content-Type':'application/json'}}
+
 function showSection(name){
 document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
 document.getElementById(name).classList.add('active');
 document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
 event.target.classList.add('active');
+window.scrollTo({top:0,behavior:'smooth'});
 if(name==='nodes')loadNodes();
 if(name==='health')loadHealth();
 if(name==='cooldowns')loadCooldowns();
@@ -489,6 +510,8 @@ setTimeout(()=>t.remove(),3000);
 }
 
 async function loadMetrics(){
+const cards=['m-requests','m-success-rate','m-sessions','m-latency','m-nodes','m-rate-limited','m-failed','m-uptime'];
+cards.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:60px;height:28px"></span>'});
 try{
 const r=await fetch('/metrics');
 const text=await r.text();
@@ -512,10 +535,16 @@ const uptime=parseFloat(m.uptime_seconds)||0;
 const hrs=Math.floor(uptime/3600);
 const mins=Math.floor((uptime%3600)/60);
 document.getElementById('m-uptime').textContent=hrs+'h '+mins+'m';
-}catch(e){console.error('Failed to load metrics:',e)}
+}catch(e){
+console.error('Failed to load metrics:',e);
+document.getElementById('metrics-raw').innerHTML=errorState('Failed to load metrics');
+}
 }
 
 async function loadNodes(){
+const tbody=document.getElementById('nodes-table');
+if(tbody)tbody.innerHTML=skeleton(5);
+updateNodeMap([]);
 try{
 const r=await fetch(API+'/nodes',{headers:headers()});
 const data=await r.json();
@@ -529,8 +558,9 @@ tbody.innerHTML=data.nodes.map(n=>{
 const node=n.node||{};
 const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
 const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
+const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
 return `<tr>
-<td><span class="status-dot dot-green"></span></td>
+<td><span class="status-dot ${dotColor}"></span></td>
 <td><strong>${n.id}</strong></td>
 <td>${typeBadge}</td>
 <td>${node.country||'--'}</td>
@@ -541,7 +571,12 @@ return `<tr>
 </tr>`;
 }).join('');
 updateNodeMap(data.nodes);
-}catch(e){console.error('Failed to load nodes:',e)}
+}catch(e){
+console.error('Failed to load nodes:',e);
+const tbody=document.getElementById('nodes-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="8">'+errorState('Failed to load nodes')+'</td></tr>';
+updateNodeMap([]);
+}
 }
 
 function updateNodeMap(nodes){
@@ -597,6 +632,8 @@ else toast(data.error||data.message||'Failed','error');
 }
 
 async function loadCooldowns(){
+const div=document.getElementById('cooldowns-list');
+if(div)div.innerHTML=skeletonCards(3);
 try{
 const r=await fetch(API+'/cooldowns',{headers:headers()});
 const data=await r.json();
@@ -609,10 +646,16 @@ div.innerHTML=Object.entries(data.cooldowns).map(([target,nodes])=>`
 <div class="card"><h3 style="color:var(--accent-bright);font-size:1em;text-transform:none;letter-spacing:0">${target}</h3>
 <p style="color:var(--text-dim);font-size:0.85em;margin-top:4px">Nodes: ${nodes.join(', ')}</p>
 </div>`).join('');
-}catch(e){console.error('Failed to load cooldowns:',e)}
+}catch(e){
+console.error('Failed to load cooldowns:',e);
+const div=document.getElementById('cooldowns-list');
+if(div)div.innerHTML=errorState('Failed to load cooldowns');
+}
 }
 
 async function loadPools(){
+const div=document.getElementById('pools-list');
+if(div)div.innerHTML=skeletonCards(2);
 try{
 const r=await fetch(SUBNET_API+'/pools',{headers:headers()});
 const data=await r.json();
@@ -630,7 +673,11 @@ return `<div class="card" style="margin-bottom:12px">
 ${rows?`<table><thead><tr><th>Node ID</th><th>Subnet</th></tr></thead><tbody>${rows}</tbody></table>`:''}
 </div>`;
 }).join('');
-}catch(e){console.error('Failed to load pools:',e)}
+}catch(e){
+console.error('Failed to load pools:',e);
+const div=document.getElementById('pools-list');
+if(div)div.innerHTML=errorState('Failed to load subnet pools');
+}
 }
 
 function showPoolForm(){document.getElementById('pool-form').style.display='block'}
@@ -649,6 +696,8 @@ else toast(data.error||'Failed','error');
 }
 
 async function loadSessions(){
+const tbody=document.getElementById('sessions-table');
+if(tbody)tbody.innerHTML=skeleton(3);
 try{
 const r=await fetch(API+'/sessions',{headers:headers()});
 const data=await r.json();
@@ -663,7 +712,11 @@ tbody.innerHTML=data.sessions.map(s=>`<tr>
 <td>${s.ttl}</td>
 <td><button class="btn btn-danger" onclick="deleteSession('${s.session_id}')">Delete</button></td>
 </tr>`).join('');
-}catch(e){console.error('Failed to load sessions:',e)}
+}catch(e){
+console.error('Failed to load sessions:',e);
+const tbody=document.getElementById('sessions-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="4">'+errorState('Failed to load sessions')+'</td></tr>';
+}
 }
 
 async function deleteSession(id){
@@ -677,6 +730,11 @@ else toast(data.error||'Failed','error');
 }
 
 async function loadCapacity(){
+['cap-total','cap-healthy','cap-warning','cap-critical'].forEach(id=>{
+const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
+});
+const tbody=document.getElementById('capacity-table');
+if(tbody)tbody.innerHTML=skeleton(3);
 try{
 const r=await fetch(API+'/capacity',{headers:headers()});
 const data=await r.json();
@@ -703,10 +761,19 @@ return `<tr>
 <td>${n.current_load}</td>
 </tr>`;
 }).join('');
-}catch(e){console.error('Failed to load capacity:',e)}
+}catch(e){
+console.error('Failed to load capacity:',e);
+const tbody=document.getElementById('capacity-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load capacity')+'</td></tr>';
+}
 }
 
 async function loadHealth(){
+['h-total','h-healthy','h-warning','h-critical'].forEach(id=>{
+const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
+});
+const tbody=document.getElementById('health-table');
+if(tbody)tbody.innerHTML=skeleton(3);
 try{
 const r=await fetch(API+'/health',{headers:headers()});
 const data=await r.json();
@@ -744,7 +811,11 @@ return `<tr>
 document.getElementById('h-healthy').textContent=healthy;
 document.getElementById('h-warning').textContent=warning;
 document.getElementById('h-critical').textContent=critical;
-}catch(e){console.error('Failed to load health:',e)}
+}catch(e){
+console.error('Failed to load health:',e);
+const tbody=document.getElementById('health-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load health scores')+'</td></tr>';
+}
 }
 
 async function loadNodeHealth(nodeID){
@@ -834,6 +905,8 @@ else toast(data.error||'Failed','error');
 }
 
 async function loadUsers(){
+const tbody=document.getElementById('users-table');
+if(tbody)tbody.innerHTML=skeleton(3);
 try{
 const r=await fetch(API+'/users',{headers:headers()});
 const data=await r.json();
@@ -855,7 +928,11 @@ return `<tr>
 <td><button class="btn btn-danger" onclick="deleteUser('${u.username}')">Delete</button></td>
 </tr>`;
 }).join('');
-}catch(e){console.error('Failed to load users:',e)}
+}catch(e){
+console.error('Failed to load users:',e);
+const tbody=document.getElementById('users-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load users')+'</td></tr>';
+}
 }
 
 async function deleteUser(username){
@@ -869,6 +946,8 @@ else toast(data.error||'Failed','error');
 }
 
 async function loadActivity(){
+const tbody=document.getElementById('activity-table');
+if(tbody)tbody.innerHTML=skeleton(3);
 try{
 const r=await fetch(API+'/audit?limit=50',{headers:headers()});
 const data=await r.json();
@@ -891,7 +970,11 @@ return `<tr>
 <td>${e.user_ip||'--'}</td>
 </tr>`;
 }).join('');
-}catch(e){console.error('Failed to load activity:',e)}
+}catch(e){
+console.error('Failed to load activity:',e);
+const tbody=document.getElementById('activity-table');
+if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load activity')+'</td></tr>';
+}
 }
 
 function startAutoRefresh(){
