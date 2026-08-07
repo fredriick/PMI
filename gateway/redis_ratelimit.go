@@ -26,6 +26,14 @@ func NewDistributedRateLimiter(client *redis.Client, requestsPerWindow int, wind
 	}
 }
 
+func (rl *DistributedRateLimiter) SetLimit(limit int) {
+	rl.limit = limit
+}
+
+func (rl *DistributedRateLimiter) GetLimit() int {
+	return rl.limit
+}
+
 func (rl *DistributedRateLimiter) Allow(clientID string) (bool, error) {
 	key := fmt.Sprintf("ratelimit:%s", clientID)
 	now := time.Now()

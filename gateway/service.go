@@ -25,7 +25,7 @@ type Gateway struct {
 	router                  *gin.Engine
 	matchmaker              *matchmaker.Matchmaker
 	compliance              *ComplianceService
-	rateLimiter             RateLimiter
+	rateLimiter             *TieredRateLimiter
 	tracing                 *Tracer
 	webUI                   *web.WebUI
 	apiKeyService           *APIKeyService
@@ -39,6 +39,7 @@ type Gateway struct {
 	nodeWebhook             *NodeWebhook
 	nodeFailures            map[string]int
 	nodeConnections         map[string]int64
+	rateLimitTiers          *RateLimitTiers
 	mu                      sync.RWMutex
 }
 
@@ -84,11 +85,15 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 
 	connPool := NewConnPool(10, 5*time.Second)
 	requestID := NewRequestIDGenerator(cfg.Gateway.RequestIDPrefix, cfg.Gateway.RequestIDFormat, redisClient)
+	
+	rateLimitTiers := NewRateLimitTiers(redisClient)
+	tieredLimiter := NewTieredRateLimiter(rateLimiter, rateLimitTiers)
+	
 	gw := &Gateway{
 		router:                  router,
 		matchmaker:              mm,
 		compliance:              comp,
-		rateLimiter:             rateLimiter,
+		rateLimiter:             tieredLimiter,
 		tracing:                 tracer,
 		webUI:                   web.NewWebUI(mm),
 		apiKeyService:           nil,
@@ -101,6 +106,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
 		nodeFailures:            make(map[string]int),
 		nodeConnections:         make(map[string]int64),
+		rateLimitTiers:          rateLimitTiers,
 	}
 
 	gw.setupRoutes()

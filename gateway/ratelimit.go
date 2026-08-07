@@ -11,6 +11,8 @@ import (
 type RateLimiter interface {
 	Allow(clientID string) (bool, error)
 	Middleware() gin.HandlerFunc
+	SetLimit(limit int)
+	GetLimit() int
 }
 
 type LocalRateLimiter struct {
@@ -75,6 +77,14 @@ func (rl *LocalRateLimiter) Allow(clientID string) (bool, error) {
 
 	client.count++
 	return true, nil
+}
+
+func (rl *LocalRateLimiter) SetLimit(limit int) {
+	rl.limit = limit
+}
+
+func (rl *LocalRateLimiter) GetLimit() int {
+	return rl.limit
 }
 
 func (rl *LocalRateLimiter) Middleware() gin.HandlerFunc {
