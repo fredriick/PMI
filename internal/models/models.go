@@ -72,6 +72,7 @@ type NodeRegistrationRequest struct {
 	IP         string   `json:"ip"`
 	IPv6Subnet string   `json:"ipv6_subnet,omitempty"`
 	OS         string   `json:"os"`
+	ReferralCode string `json:"referral_code,omitempty"`
 }
 
 type NodeHeartbeatRequest struct {

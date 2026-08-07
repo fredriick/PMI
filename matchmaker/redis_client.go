@@ -492,3 +492,18 @@ func (r *RedisClient) GetPayoutHistory(nodeID string, count int64) ([]map[string
 	}
 	return payouts, nil
 }
+
+func (r *RedisClient) RecordReferral(referrerCode, newNodeID string) error {
+	key := fmt.Sprintf("referrals:%s", referrerCode)
+	return r.client.RPush(r.ctx, key, newNodeID).Err()
+}
+
+func (r *RedisClient) GetReferrals(referrerCode string) ([]string, error) {
+	key := fmt.Sprintf("referrals:%s", referrerCode)
+	return r.client.LRange(r.ctx, key, 0, -1).Result()
+}
+
+func (r *RedisClient) GetReferralCount(referrerCode string) (int64, error) {
+	key := fmt.Sprintf("referrals:%s", referrerCode)
+	return r.client.LLen(r.ctx, key).Result()
+}

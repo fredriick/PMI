@@ -2,9 +2,10 @@ package matchmaker
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"math"
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -318,6 +319,12 @@ func (m *Matchmaker) RegisterNode(req *models.NodeRegistrationRequest) error {
 
 	if err := m.redis.AddNode(node); err != nil {
 		return fmt.Errorf("failed to register node: %w", err)
+	}
+
+	if req.ReferralCode != "" {
+		if err := m.redis.RecordReferral(req.ReferralCode, req.NodeID); err != nil {
+			log.Printf("Warning: failed to record referral: %v", err)
+		}
 	}
 
 	return nil

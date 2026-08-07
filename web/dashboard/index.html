@@ -479,6 +479,7 @@ pre{
 <button onclick="showSection('users')">Users</button>
 <button onclick="showSection('activity')">Activity</button>
 <button onclick="showSection('benchmark')">Benchmark</button>
+<button onclick="showSection('referrals')">Referrals</button>
 </div>
 </div>
 </div>
@@ -701,6 +702,19 @@ pre{
 <div id="bench-results"></div>
 </div>
 
+<!-- Referrals -->
+<div id="referrals" class="section">
+<h2 class="section-title" style="margin-bottom:16px">Referral Program</h2>
+<div class="card" style="margin-bottom:16px">
+<h3>Referral Stats</h3>
+<div class="form-row">
+<input id="ref-code" placeholder="Referral Code" style="flex:1">
+<button class="btn btn-primary" onclick="loadReferrals()">Lookup</button>
+</div>
+</div>
+<div id="ref-results"></div>
+</div>
+
 </div>
 
 <script>
@@ -732,6 +746,7 @@ if(name==='capacity')loadCapacity();
 if(name==='users')loadUsers();
 if(name==='activity')loadActivity();
 if(name==='benchmark')document.getElementById('bench-results').innerHTML='';
+if(name==='referrals')document.getElementById('ref-results').innerHTML='';
 }
 
 function toast(msg,type){
@@ -941,6 +956,28 @@ async function runBenchmark(){
     </div>`;
     toast(`Benchmark complete: ${avgLatency}ms avg`,'success');
   }catch(e){toast('Benchmark failed','error');resultsDiv.innerHTML='';}
+}
+
+async function loadReferrals(){
+  const code=document.getElementById('ref-code').value.trim();
+  const resultsDiv=document.getElementById('ref-results');
+  if(!code){toast('Enter a referral code','error');return;}
+  resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Loading...</p></div>';
+  try{
+    const r=await fetch(API+'/referrals/'+encodeURIComponent(code),{headers:headers()});
+    const data=await r.json();
+    if(data.status!=='success'){toast(data.error||'Not found','error');resultsDiv.innerHTML='';return;}
+    const referrals=data.referrals||[];
+    resultsDiv.innerHTML=`
+    <div class="grid" style="margin-bottom:16px">
+      <div class="card"><h3>Referral Code</h3><div class="value mono">${data.code}</div></div>
+      <div class="card"><h3>Total Referrals</h3><div class="value mono">${data.count}</div></div>
+    </div>
+    <div class="card">
+      <h3>Referred Nodes</h3>
+      ${referrals.length?`<table><thead><tr><th>Node ID</th></tr></thead><tbody>${referrals.map(ref=>`<tr><td>${ref}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--text-dim)">No referrals yet</p>'}
+    </div>`;
+  }catch(e){toast('Failed to load referrals','error');resultsDiv.innerHTML='';}
 }
 
 let allNodes=[];

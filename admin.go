@@ -35,6 +35,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 	admin.GET("/health", healthScoreHandler(mm))
 	admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
 	admin.POST("/benchmark", benchmarkNodeHandler(mm))
+	admin.GET("/referrals/:code", getReferralsHandler(mm))
 		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
@@ -775,11 +776,11 @@ func benchmarkNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 				status = "error"
 			}
 			results = append(results, map[string]interface{}{
-				"iteration": i + 1,
-				"status":    status,
+				"iteration":   i + 1,
+				"status":      status,
 				"latency_ms": latency,
-				"node_id":   req.NodeID,
-				"timestamp": time.Now().Unix(),
+				"node_id":    req.NodeID,
+				"timestamp":  time.Now().Unix(),
 			})
 		}
 
@@ -800,12 +801,38 @@ func benchmarkNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status":        "success",
-			"node_id":       req.NodeID,
-			"iterations":    req.Count,
-			"success_count": successCount,
+			"status":         "success",
+			"node_id":        req.NodeID,
+			"iterations":     req.Count,
+			"success_count":  successCount,
 			"avg_latency_ms": avgLatency,
-			"results":       results,
+			"results":        results,
+		})
+	}
+}
+
+func getReferralsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "referral code is required"})
+			return
+		}
+		referrals, err := mm.GetRedis().GetReferrals(code)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		count, err := mm.GetRedis().GetReferralCount(code)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "success",
+			"code":      code,
+			"count":     count,
+			"referrals": referrals,
 		})
 	}
 }
