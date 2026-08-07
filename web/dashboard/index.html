@@ -324,6 +324,22 @@ input[type="checkbox"].node-select{
 }
 .export-bar .btn{font-size:0.78em;padding:5px 12px}
 
+/* Filter bar */
+.filter-bar{
+  display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;
+}
+.filter-bar input,.filter-bar select{
+  background:rgba(10,14,26,0.8);border:1px solid var(--border);color:var(--text);
+  padding:6px 12px;border-radius:6px;font-size:0.82em;font-family:inherit;
+}
+.filter-bar input:focus,.filter-bar select:focus{
+  border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-dim);
+}
+.filter-bar input{min-width:140px}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{color:var(--accent-bright)}
+.sort-indicator{margin-left:4px;font-size:0.7em;opacity:0.6}
+
 /* Notifications panel */
 .notifications-btn{
   position:relative;background:none;border:none;color:var(--text-dim);
@@ -468,6 +484,24 @@ pre{
   <button class="btn btn-ghost" onclick="exportNodes('json')">Export JSON</button>
 </div>
 
+<div class="filter-bar">
+  <input type="text" id="filter-search" placeholder="Search Node ID..." oninput="applyNodeFilters()">
+  <select id="filter-type" onchange="applyNodeFilters()">
+    <option value="">All Types</option>
+    <option value="residential">Residential</option>
+    <option value="datacenter">Datacenter</option>
+  </select>
+  <select id="filter-status" onchange="applyNodeFilters()">
+    <option value="">All Status</option>
+    <option value="healthy">Healthy</option>
+    <option value="warning">Warning</option>
+    <option value="critical">Critical</option>
+  </select>
+  <select id="filter-country" onchange="applyNodeFilters()">
+    <option value="">All Countries</option>
+  </select>
+</div>
+
 <!-- Map Visualization -->
 <div class="card" style="margin-bottom:16px">
 <h3>Geographic Distribution</h3>
@@ -491,7 +525,7 @@ pre{
 </div>
 </div>
 <table>
-<thead><tr><th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
+<thead><tr><th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th><th class="sortable" onclick="sortNodes('status')">Status <span class="sort-indicator">↕</span></th><th class="sortable" onclick="sortNodes('id')">Node ID <span class="sort-indicator">↕</span></th><th class="sortable" onclick="sortNodes('type')">Type <span class="sort-indicator">↕</span></th><th class="sortable" onclick="sortNodes('country')">Country <span class="sort-indicator">↕</span></th><th>City</th><th>ISP</th><th class="sortable" onclick="sortNodes('lastSeen')">Last Seen <span class="sort-indicator">↕</span></th><th>Actions</th></tr></thead>
 <tbody id="nodes-table"></tbody>
 </table>
 </div>
@@ -679,60 +713,6 @@ document.getElementById('metrics-raw').innerHTML=errorState('Failed to load metr
 }
 }
 
-async function loadNodes(){
-  const tbody=document.getElementById('nodes-table');
-  if(tbody)tbody.innerHTML=skeleton(5);
-  updateNodeMap([]);
-  try{
-    const r=await fetch(API+'/nodes',{headers:headers()});
-    const data=await r.json();
-    const tbody=document.getElementById('nodes-table');
-    if(!data.nodes||data.nodes.length===0){
-      tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes registered</td></tr>';
-      updateNodeMap([]);
-      prevNodeStates={};
-      return;
-    }
-    const currentNodeStates={};
-    data.nodes.forEach(n=>{
-      const node=n.node||{};
-      const nodeId=n.id;
-      const status=node.status||node.online!==false?'online':'offline';
-      currentNodeStates[nodeId]=status;
-      if(prevNodeStates[nodeId]&&prevNodeStates[nodeId]!=='offline'&&status==='offline'){
-        addNotification('Node Offline',`Node ${nodeId} has gone offline`,'alert');
-      }
-      if(prevNodeStates[nodeId]&&prevNodeStates[nodeId]==='offline'&&status!=='offline'){
-        addNotification('Node Online',`Node ${nodeId} is back online`,'success');
-      }
-    });
-    prevNodeStates=currentNodeStates;
-tbody.innerHTML=data.nodes.map(n=>{
-  const node=n.node||{};
-  const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
-  const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
-  const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
-  return `<tr data-node-id="${n.id}">
-  <td><input type="checkbox" class="node-select" value="${n.id}" onchange="updateBulkBar()"></td>
-  <td><span class="status-dot ${dotColor}"></span></td>
-  <td><strong>${n.id}</strong></td>
-  <td>${typeBadge}</td>
-  <td>${node.country||'--'}</td>
-  <td>${node.city||'--'}</td>
-  <td>${node.isp||'--'}</td>
-  <td>${lastSeen}</td>
-  <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
-  </tr>`;
-}).join('');
-    updateNodeMap(data.nodes);
-  }catch(e){
-    console.error('Failed to load nodes:',e);
-    const tbody=document.getElementById('nodes-table');
-    if(tbody)tbody.innerHTML='<tr><td colspan="8">'+errorState('Failed to load nodes')+'</td></tr>';
-    updateNodeMap([]);
-  }
-}
-
 function updateNodeMap(nodes){
 const container=document.getElementById('map-container');
 if(!container)return;
@@ -859,6 +839,131 @@ async function exportNodes(format){
       toast('Exported nodes as CSV','success');
     }
   }catch(e){toast('Export failed','error')}
+}
+
+let allNodes=[];
+let currentSort={field:null,asc:true};
+
+async function loadNodes(){
+  const tbody=document.getElementById('nodes-table');
+  if(tbody)tbody.innerHTML=skeleton(5);
+  updateNodeMap([]);
+  try{
+    const r=await fetch(API+'/nodes',{headers:headers()});
+    const data=await r.json();
+    allNodes=data.nodes||[];
+    const tbody=document.getElementById('nodes-table');
+    if(!allNodes.length){
+      tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes registered</td></tr>';
+      updateNodeMap([]);
+      prevNodeStates={};
+      populateCountryFilter(allNodes);
+      return;
+    }
+    const currentNodeStates={};
+    allNodes.forEach(n=>{
+      const node=n.node||{};
+      const status=node.status||node.online!==false?'online':'offline';
+      currentNodeStates[n.id]=status;
+      if(prevNodeStates[n.id]&&prevNodeStates[n.id]!=='offline'&&status==='offline'){
+        addNotification('Node Offline',`Node ${n.id} has gone offline`,'alert');
+      }
+      if(prevNodeStates[n.id]&&prevNodeStates[n.id]==='offline'&&status!=='offline'){
+        addNotification('Node Online',`Node ${n.id} is back online`,'success');
+      }
+    });
+    prevNodeStates=currentNodeStates;
+    populateCountryFilter(allNodes);
+    applyNodeFilters();
+  }catch(e){
+    console.error('Failed to load nodes:',e);
+    const tbody=document.getElementById('nodes-table');
+    if(tbody)tbody.innerHTML='<tr><td colspan="9">'+errorState('Failed to load nodes')+'</td></tr>';
+    updateNodeMap([]);
+  }
+}
+
+function populateCountryFilter(nodes){
+  const countries=[...new Set(nodes.map(n=>(n.node||{}).country).filter(Boolean))].sort();
+  const select=document.getElementById('filter-country');
+  if(!select)return;
+  const current=select.value;
+  select.innerHTML='<option value="">All Countries</option>'+
+    countries.map(c=>`<option value="${c}">${c}</option>`).join('');
+  select.value=current;
+}
+
+function applyNodeFilters(){
+  if(!allNodes.length)return;
+  const search=(document.getElementById('filter-search')?.value||'').toLowerCase();
+  const type=document.getElementById('filter-type')?.value||'';
+  const status=document.getElementById('filter-status')?.value||'';
+  const country=document.getElementById('filter-country')?.value||'';
+
+  let filtered=allNodes.filter(n=>{
+    const node=n.node||{};
+    const idMatch=!search||n.id.toLowerCase().includes(search);
+    const typeMatch=!type||node.node_type===type;
+    const statusMatch=!status||node.status===status;
+    const countryMatch=!country||node.country===country;
+    return idMatch&&typeMatch&&statusMatch&&countryMatch;
+  });
+
+  if(currentSort.field){
+    filtered=[...filtered].sort((a,b)=>{
+      let aVal,bVal;
+      const nodeA=a.node||{},nodeB=b.node||{};
+      switch(currentSort.field){
+        case 'id':aVal=a.id;bVal=b.id;break;
+        case 'type':aVal=nodeA.node_type;bVal=nodeB.node_type;break;
+        case 'country':aVal=nodeA.country;bVal=nodeB.country;break;
+        case 'status':aVal=nodeA.status;bVal=nodeB.status;break;
+        case 'lastSeen':aVal=nodeA.last_seen?new Date(nodeA.last_seen).getTime():0;bVal=nodeB.last_seen?new Date(nodeB.last_seen).getTime():0;break;
+        default:aVal=a.id;bVal=b.id;
+      }
+      if(aVal<bVal)return currentSort.asc?-1:1;
+      if(aVal>bVal)return currentSort.asc?1:-1;
+      return 0;
+    });
+  }
+
+  renderFilteredNodes(filtered);
+}
+
+function renderFilteredNodes(nodes){
+  const tbody=document.getElementById('nodes-table');
+  if(!nodes.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes match filters</td></tr>';
+    return;
+  }
+  tbody.innerHTML=nodes.map(n=>{
+    const node=n.node||{};
+    const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
+    const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
+    const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
+    return `<tr data-node-id="${n.id}">
+    <td><input type="checkbox" class="node-select" value="${n.id}" onchange="updateBulkBar()"></td>
+    <td><span class="status-dot ${dotColor}"></span></td>
+    <td><strong>${n.id}</strong></td>
+    <td>${typeBadge}</td>
+    <td>${node.country||'--'}</td>
+    <td>${node.city||'--'}</td>
+    <td>${node.isp||'--'}</td>
+    <td>${lastSeen}</td>
+    <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+  updateNodeMap(nodes);
+}
+
+function sortNodes(field){
+  if(currentSort.field===field){
+    currentSort.asc=!currentSort.asc;
+  }else{
+    currentSort.field=field;
+    currentSort.asc=true;
+  }
+  applyNodeFilters();
 }
 
 function showRegisterForm(){document.getElementById('register-form').style.display='block'}
