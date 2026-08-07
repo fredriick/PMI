@@ -318,6 +318,12 @@ input[type="checkbox"].node-select{
   width:16px;height:16px;accent-color:var(--accent);cursor:pointer;
 }
 
+/* Export buttons */
+.export-bar{
+  display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;
+}
+.export-bar .btn{font-size:0.78em;padding:5px 12px}
+
 /* Notifications panel */
 .notifications-btn{
   position:relative;background:none;border:none;color:var(--text-dim);
@@ -455,6 +461,11 @@ pre{
   <span class="bulk-count" id="bulk-count">0 selected</span>
   <button class="btn btn-danger" onclick="bulkDeregister()">Remove Selected</button>
   <button class="btn btn-ghost" onclick="clearSelection()">Clear Selection</button>
+</div>
+
+<div class="export-bar">
+  <button class="btn btn-ghost" onclick="exportNodes('csv')">Export CSV</button>
+  <button class="btn btn-ghost" onclick="exportNodes('json')">Export JSON</button>
 </div>
 
 <!-- Map Visualization -->
@@ -800,6 +811,54 @@ async function bulkDeregister(){
     clearSelection();
     loadNodes();
   }catch(e){toast('Bulk deregister failed','error')}
+}
+
+function escapeCsv(value){
+  const str=String(value!=null?value:'');
+  if(str.includes(',')||str.includes('"')||str.includes('\n')){
+    return '"'+str.replace(/"/g,'""')+'"';
+  }
+  return str;
+}
+
+function downloadFile(content,filename,type){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function exportNodes(format){
+  try{
+    const r=await fetch(API+'/nodes',{headers:headers()});
+    const data=await r.json();
+    const nodes=data.nodes||[];
+    if(format==='json'){
+      downloadFile(JSON.stringify(nodes,null,2),'nodes.json','application/json');
+      toast('Exported nodes as JSON','success');
+    }else if(format==='csv'){
+      if(nodes.length===0){toast('No nodes to export','error');return;}
+      const headers=['Node ID','Type','Country','City','ISP','OS','Status','Last Seen'];
+      const rows=nodes.map(n=>{
+        const node=n.node||{};
+        return [
+          escapeCsv(n.id),
+          escapeCsv(node.node_type),
+          escapeCsv(node.country),
+          escapeCsv(node.city),
+          escapeCsv(node.isp),
+          escapeCsv(node.os),
+          escapeCsv(node.status),
+          escapeCsv(node.last_seen?new Date(node.last_seen).toLocaleString():'')
+        ];
+      });
+      const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
+      downloadFile(csv,'nodes.csv','text/csv');
+      toast('Exported nodes as CSV','success');
+    }
+  }catch(e){toast('Export failed','error')}
 }
 
 function showRegisterForm(){document.getElementById('register-form').style.display='block'}
