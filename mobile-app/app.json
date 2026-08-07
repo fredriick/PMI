@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "ProxyMesh Peer",
+    "slug": "proxymesh-peer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#050810",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.proxymesh.peer"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#050810",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "package": "io.proxymesh.peer"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
