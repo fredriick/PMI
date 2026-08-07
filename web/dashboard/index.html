@@ -303,6 +303,60 @@ tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
   .section-title{font-size:1em}
 }
 
+/* Notifications panel */
+.notifications-btn{
+  position:relative;background:none;border:none;color:var(--text-dim);
+  cursor:pointer;padding:6px;transition:color 0.2s;font-size:1.2em;
+}
+.notifications-btn:hover{color:var(--accent-bright)}
+.notifications-badge{
+  position:absolute;top:0;right:0;
+  background:var(--red);color:#fff;font-size:0.65em;font-weight:700;
+  width:16px;height:16px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--bg);
+}
+.notifications-panel{
+  position:fixed;top:60px;right:20px;z-index:200;
+  width:360px;max-width:calc(100vw - 40px);
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  backdrop-filter:blur(20px);display:none;overflow:hidden;
+}
+.notifications-panel.open{display:block;animation:fadeIn 0.2s ease}
+.notifications-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+}
+.notifications-header h3{font-size:0.85em;color:var(--text);font-weight:600}
+.notifications-clear{
+  background:none;border:none;color:var(--accent);font-size:0.75em;
+  cursor:pointer;font-family:inherit;font-weight:500;
+}
+.notifications-clear:hover{color:var(--accent-bright)}
+.notifications-list{max-height:400px;overflow-y:auto}
+.notification-item{
+  display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(59,130,246,0.06);
+  transition:background 0.2s;cursor:pointer;
+}
+.notification-item:hover{background:var(--accent-dim)}
+.notification-item.unread{border-left:3px solid var(--accent)}
+.notification-icon{
+  width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:1em;flex-shrink:0;
+}
+.notification-icon.alert{background:rgba(239,68,68,0.12);color:var(--red)}
+.notification-icon.warning{background:rgba(245,158,11,0.12);color:var(--orange)}
+.notification-icon.info{background:rgba(59,130,246,0.12);color:var(--accent)}
+.notification-icon.success{background:rgba(16,185,129,0.12);color:var(--green)}
+.notification-content{flex:1;min-width:0}
+.notification-title{font-size:0.82em;color:var(--text);font-weight:500;margin-bottom:2px}
+.notification-message{font-size:0.75em;color:var(--text-dim);line-height:1.4}
+.notification-time{font-size:0.68em;color:var(--text-dim);white-space:nowrap;flex-shrink:0;margin-top:2px}
+.notifications-empty{
+  text-align:center;padding:30px 20px;color:var(--text-dim);font-size:0.85em;
+}
+
 /* Code / pre blocks */
 pre,code{
   font-family:'JetBrains Mono',monospace;
@@ -325,6 +379,13 @@ pre{
 <h1><img src="../logo.svg" alt="ProxyMesh" style="height:32px;width:auto"></h1>
 <div style="display:flex;align-items:center;gap:16px">
 <label class="auto-refresh"><input type="checkbox" id="autoRefresh" checked> Auto-refresh (10s)</label>
+<button class="notifications-btn" id="notifications-btn" onclick="toggleNotifications()" title="Notifications">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+  </svg>
+  <span class="notifications-badge" id="notifications-badge" style="display:none">0</span>
+</button>
 <div class="nav">
   <button class="active" onclick="showSection('overview')">Overview</button>
   <button onclick="showSection('nodes')">Nodes</button>
@@ -339,6 +400,17 @@ pre{
 </div>
 </div>
 </header>
+
+<!-- Notifications Panel -->
+<div id="notifications-panel" class="notifications-panel">
+  <div class="notifications-header">
+    <h3>Notifications</h3>
+    <button class="notifications-clear" onclick="clearNotifications()">Clear all</button>
+  </div>
+  <div id="notifications-list" class="notifications-list">
+    <div class="notifications-empty">No notifications</div>
+  </div>
+</div>
 
 <div class="container">
 <!-- Overview -->
@@ -576,41 +648,56 @@ document.getElementById('metrics-raw').innerHTML=errorState('Failed to load metr
 }
 
 async function loadNodes(){
-const tbody=document.getElementById('nodes-table');
-if(tbody)tbody.innerHTML=skeleton(5);
-updateNodeMap([]);
-try{
-const r=await fetch(API+'/nodes',{headers:headers()});
-const data=await r.json();
-const tbody=document.getElementById('nodes-table');
-if(!data.nodes||data.nodes.length===0){
-tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes registered</td></tr>';
-updateNodeMap([]);
-return;
-}
-tbody.innerHTML=data.nodes.map(n=>{
-const node=n.node||{};
-const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
-const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
-const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
-return `<tr>
-<td><span class="status-dot ${dotColor}"></span></td>
-<td><strong>${n.id}</strong></td>
-<td>${typeBadge}</td>
-<td>${node.country||'--'}</td>
-<td>${node.city||'--'}</td>
-<td>${node.isp||'--'}</td>
-<td>${lastSeen}</td>
-<td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
-</tr>`;
-}).join('');
-updateNodeMap(data.nodes);
-}catch(e){
-console.error('Failed to load nodes:',e);
-const tbody=document.getElementById('nodes-table');
-if(tbody)tbody.innerHTML='<tr><td colspan="8">'+errorState('Failed to load nodes')+'</td></tr>';
-updateNodeMap([]);
-}
+  const tbody=document.getElementById('nodes-table');
+  if(tbody)tbody.innerHTML=skeleton(5);
+  updateNodeMap([]);
+  try{
+    const r=await fetch(API+'/nodes',{headers:headers()});
+    const data=await r.json();
+    const tbody=document.getElementById('nodes-table');
+    if(!data.nodes||data.nodes.length===0){
+      tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes registered</td></tr>';
+      updateNodeMap([]);
+      prevNodeStates={};
+      return;
+    }
+    const currentNodeStates={};
+    data.nodes.forEach(n=>{
+      const node=n.node||{};
+      const nodeId=n.id;
+      const status=node.status||node.online!==false?'online':'offline';
+      currentNodeStates[nodeId]=status;
+      if(prevNodeStates[nodeId]&&prevNodeStates[nodeId]!=='offline'&&status==='offline'){
+        addNotification('Node Offline',`Node ${nodeId} has gone offline`,'alert');
+      }
+      if(prevNodeStates[nodeId]&&prevNodeStates[nodeId]==='offline'&&status!=='offline'){
+        addNotification('Node Online',`Node ${nodeId} is back online`,'success');
+      }
+    });
+    prevNodeStates=currentNodeStates;
+    tbody.innerHTML=data.nodes.map(n=>{
+      const node=n.node||{};
+      const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
+      const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
+      const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
+      return `<tr>
+      <td><span class="status-dot ${dotColor}"></span></td>
+      <td><strong>${n.id}</strong></td>
+      <td>${typeBadge}</td>
+      <td>${node.country||'--'}</td>
+      <td>${node.city||'--'}</td>
+      <td>${node.isp||'--'}</td>
+      <td>${lastSeen}</td>
+      <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+    updateNodeMap(data.nodes);
+  }catch(e){
+    console.error('Failed to load nodes:',e);
+    const tbody=document.getElementById('nodes-table');
+    if(tbody)tbody.innerHTML='<tr><td colspan="8">'+errorState('Failed to load nodes')+'</td></tr>';
+    updateNodeMap([]);
+  }
 }
 
 function updateNodeMap(nodes){
@@ -764,92 +851,118 @@ else toast(data.error||'Failed','error');
 }
 
 async function loadCapacity(){
-['cap-total','cap-healthy','cap-warning','cap-critical'].forEach(id=>{
-const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
-});
-const tbody=document.getElementById('capacity-table');
-if(tbody)tbody.innerHTML=skeleton(3);
-try{
-const r=await fetch(API+'/capacity',{headers:headers()});
-const data=await r.json();
-document.getElementById('cap-total').textContent=data.total_nodes||0;
-document.getElementById('cap-healthy').textContent=data.healthy_nodes||0;
-document.getElementById('cap-warning').textContent=data.warning_nodes||0;
-document.getElementById('cap-critical').textContent=data.critical_nodes||0;
-const tbody=document.getElementById('capacity-table');
-if(!data.nodes||data.nodes.length===0){
-  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes</td></tr>';
-return;
-}
-tbody.innerHTML=data.nodes.map(n=>{
-const statusBadge=n.status==='healthy'?'<span class="badge badge-green">Healthy</span>':
-n.status==='warning'?'<span class="badge badge-yellow">Warning</span>':
-'<span class="badge badge-red">Critical</span>';
-const util=n.utilization_percent.toFixed(1)+'%';
-return `<tr>
-<td><strong>${n.node_id}</strong></td>
-<td>${statusBadge}</td>
-<td>${n.bandwidth_gb_day.toFixed(2)}</td>
-<td>${n.bandwidth_gb_week.toFixed(2)}</td>
-<td>${util}</td>
-<td>${n.current_load}</td>
-</tr>`;
-}).join('');
-}catch(e){
-console.error('Failed to load capacity:',e);
-const tbody=document.getElementById('capacity-table');
-if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load capacity')+'</td></tr>';
-}
+  ['cap-total','cap-healthy','cap-warning','cap-critical'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
+  });
+  const tbody=document.getElementById('capacity-table');
+  if(tbody)tbody.innerHTML=skeleton(3);
+  try{
+    const r=await fetch(API+'/capacity',{headers:headers()});
+    const data=await r.json();
+    const criticalCount=data.critical_nodes||0;
+    const warningCount=data.warning_nodes||0;
+    document.getElementById('cap-total').textContent=data.total_nodes||0;
+    document.getElementById('cap-healthy').textContent=data.healthy_nodes||0;
+    document.getElementById('cap-warning').textContent=warningCount;
+    document.getElementById('cap-critical').textContent=criticalCount;
+    const prevCritical=prevCapacityStates.critical||0;
+    const prevWarning=prevCapacityStates.warning||0;
+    if(criticalCount>0&&prevCritical===0){
+      addNotification('Capacity Critical',`${criticalCount} node(s) in critical status`,'alert');
+    }else if(criticalCount>prevCritical&&prevCritical>0){
+      addNotification('Capacity Warning',`Critical nodes increased from ${prevCritical} to ${criticalCount}`,'warning');
+    }
+    if(warningCount>5&&prevWarning<=5){
+      addNotification('Capacity Warning',`${warningCount} nodes in warning status`,'warning');
+    }
+    prevCapacityStates={critical:criticalCount,warning:warningCount};
+    const tbody=document.getElementById('capacity-table');
+    if(!data.nodes||data.nodes.length===0){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No nodes</td></tr>';
+    return;
+    }
+    tbody.innerHTML=data.nodes.map(n=>{
+      const statusBadge=n.status==='healthy'?'<span class="badge badge-green">Healthy</span>':
+      n.status==='warning'?'<span class="badge badge-yellow">Warning</span>':
+      '<span class="badge badge-red">Critical</span>';
+      const util=n.utilization_percent.toFixed(1)+'%';
+      return `<tr>
+      <td><strong>${n.node_id}</strong></td>
+      <td>${statusBadge}</td>
+      <td>${n.bandwidth_gb_day.toFixed(2)}</td>
+      <td>${n.bandwidth_gb_week.toFixed(2)}</td>
+      <td>${util}</td>
+      <td>${n.current_load}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    console.error('Failed to load capacity:',e);
+    const tbody=document.getElementById('capacity-table');
+    if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load capacity')+'</td></tr>';
+  }
 }
 
 async function loadHealth(){
-['h-total','h-healthy','h-warning','h-critical'].forEach(id=>{
-const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
-});
-const tbody=document.getElementById('health-table');
-if(tbody)tbody.innerHTML=skeleton(3);
-try{
-const r=await fetch(API+'/health',{headers:headers()});
-const data=await r.json();
-const peers=data.peers||[];
-document.getElementById('h-total').textContent=peers.length;
-let healthy=0,warning=0,critical=0;
-const tbody=document.getElementById('health-table');
-if(peers.length===0){
-  tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No health scores yet</td></tr>';
-}else{
-tbody.innerHTML=peers.map(p=>{
-const overall=p.overall_score!=null?p.overall_score.toFixed(0):'--';
-const conn=p.connection_score!=null?p.connection_score.toFixed(0):'--';
-const lat=p.latency_score!=null?p.latency_score.toFixed(0):'--';
-const bw=p.bandwidth_score!=null?p.bandwidth_score.toFixed(0):'--';
-const rel=p.reliability_score!=null?p.reliability_score.toFixed(0):'--';
-const checked=p.last_checked?new Date(p.last_checked).toLocaleString():'--';
-if(overall!=='--'){
-const o=parseFloat(overall);
-if(o>=80)healthy++;
-else if(o>=50)warning++;
-else critical++;
-}
-return `<tr>
-<td><strong style="cursor:pointer;color:var(--accent-bright)" onclick="loadNodeHealth('${p.node_id}')">${p.node_id}</strong></td>
-<td>${overall}</td>
-<td>${conn}</td>
-<td>${lat}</td>
-<td>${bw}</td>
-<td>${rel}</td>
-<td>${checked}</td>
-</tr>`;
-}).join('');
-}
-document.getElementById('h-healthy').textContent=healthy;
-document.getElementById('h-warning').textContent=warning;
-document.getElementById('h-critical').textContent=critical;
-}catch(e){
-console.error('Failed to load health:',e);
-const tbody=document.getElementById('health-table');
-if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load health scores')+'</td></tr>';
-}
+  ['h-total','h-healthy','h-warning','h-critical'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.innerHTML='<span class="skeleton" style="display:inline-block;width:40px;height:28px"></span>';
+  });
+  const tbody=document.getElementById('health-table');
+  if(tbody)tbody.innerHTML=skeleton(3);
+  try{
+    const r=await fetch(API+'/health',{headers:headers()});
+    const data=await r.json();
+    const peers=data.peers||[];
+    document.getElementById('h-total').textContent=peers.length;
+    let healthy=0,warning=0,critical=0;
+    const tbody=document.getElementById('health-table');
+    const currentHealthStates={};
+    if(peers.length===0){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;font-size:0.9em">No health scores yet</td></tr>';
+    }else{
+      tbody.innerHTML=peers.map(p=>{
+        const overall=p.overall_score!=null?p.overall_score.toFixed(0):'--';
+        const conn=p.connection_score!=null?p.connection_score.toFixed(0):'--';
+        const lat=p.latency_score!=null?p.latency_score.toFixed(0):'--';
+        const bw=p.bandwidth_score!=null?p.bandwidth_score.toFixed(0):'--';
+        const rel=p.reliability_score!=null?p.reliability_score.toFixed(0):'--';
+        const checked=p.last_checked?new Date(p.last_checked).toLocaleString():'--';
+        if(overall!=='--'){
+          const o=parseFloat(overall);
+          if(o>=80)healthy++;
+          else if(o>=50)warning++;
+          else critical++;
+        }
+        currentHealthStates[p.node_id]=overall;
+        const prevScore=prevHealthStates[p.node_id];
+        if(prevScore&&overall!=='--'){
+          const prev=parseFloat(prevScore);
+          const curr=parseFloat(overall);
+          if(prev>=70&&curr<50){
+            addNotification('Health Critical',`Node ${p.node_id} health dropped to ${overall}`,'alert');
+          }else if(prev>=50&&curr<30){
+            addNotification('Health Critical',`Node ${p.node_id} health critically low: ${overall}`,'alert');
+          }
+        }
+        return `<tr>
+        <td><strong style="cursor:pointer;color:var(--accent-bright)" onclick="loadNodeHealth('${p.node_id}')">${p.node_id}</strong></td>
+        <td>${overall}</td>
+        <td>${conn}</td>
+        <td>${lat}</td>
+        <td>${bw}</td>
+        <td>${rel}</td>
+        <td>${checked}</td>
+        </tr>`;
+      }).join('');
+    }
+    prevHealthStates=currentHealthStates;
+    document.getElementById('h-healthy').textContent=healthy;
+    document.getElementById('h-warning').textContent=warning;
+    document.getElementById('h-critical').textContent=critical;
+  }catch(e){
+    console.error('Failed to load health:',e);
+    const tbody=document.getElementById('health-table');
+    if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load health scores')+'</td></tr>';
+  }
 }
 
 async function loadNodeHealth(nodeID){
@@ -1010,6 +1123,98 @@ const tbody=document.getElementById('activity-table');
 if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load activity')+'</td></tr>';
 }
 }
+
+/* Notifications */
+let notifications=[];
+let notificationsOpen=false;
+let prevNodeStates={};
+let prevHealthStates={};
+let prevCapacityStates={};
+
+function toggleNotifications(){
+  const panel=document.getElementById('notifications-panel');
+  notificationsOpen=!notificationsOpen;
+  panel.classList.toggle('open',notificationsOpen);
+  if(notificationsOpen)renderNotifications();
+}
+
+function closeNotifications(){
+  const panel=document.getElementById('notifications-panel');
+  notificationsOpen=false;
+  panel.classList.remove('open');
+}
+
+function addNotification(title,message,type='info'){
+  const item={id:Date.now()+Math.random(),title,message,type,time:new Date().toISOString(),unread:true};
+  notifications.unshift(item);
+  if(notifications.length>50)notifications.pop();
+  updateNotificationsBadge();
+}
+
+function updateNotificationsBadge(){
+  const unread=notifications.filter(n=>n.unread).length;
+  const badge=document.getElementById('notifications-badge');
+  if(unread>0){
+    badge.textContent=unread>99?'99+':unread;
+    badge.style.display='flex';
+  }else{
+    badge.style.display='none';
+  }
+}
+
+function clearNotifications(){
+  notifications=[];
+  updateNotificationsBadge();
+  renderNotifications();
+}
+
+function markAllRead(){
+  notifications.forEach(n=>n.unread=false);
+  updateNotificationsBadge();
+  renderNotifications();
+}
+
+function renderNotifications(){
+  const list=document.getElementById('notifications-list');
+  if(!notifications.length){
+    list.innerHTML='<div class="notifications-empty">No notifications</div>';
+    return;
+  }
+  list.innerHTML=notifications.map(n=>{
+    const time=new Date(n.time);
+    const timeStr=time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const iconMap={alert:'⚠',warning:'⚡',info:'ℹ',success:'✓'};
+    return `<div class="notification-item${n.unread?' unread':''}" onclick="markNotificationRead('${n.id}')">
+      <div class="notification-icon ${n.type}">${iconMap[n.type]||'ℹ'}</div>
+      <div class="notification-content">
+        <div class="notification-title">${escapeHtml(n.title)}</div>
+        <div class="notification-message">${escapeHtml(n.message)}</div>
+      </div>
+      <div class="notification-time">${timeStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function markNotificationRead(id){
+  const n=notifications.find(x=>String(x.id)===String(id));
+  if(n)n.unread=false;
+  updateNotificationsBadge();
+  renderNotifications();
+}
+
+function escapeHtml(text){
+  const div=document.createElement('div');
+  div.textContent=text;
+  return div.innerHTML;
+}
+
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('notifications-panel');
+  const btn=document.getElementById('notifications-btn');
+  if(notificationsOpen&&!panel.contains(e.target)&&!btn.contains(e.target)){
+    closeNotifications();
+  }
+});
 
 function startAutoRefresh(){
 if(refreshTimer)clearInterval(refreshTimer);
