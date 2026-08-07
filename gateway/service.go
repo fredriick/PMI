@@ -41,6 +41,7 @@ type Gateway struct {
 	nodeConnections         map[string]int64
 	rateLimitTiers          *RateLimitTiers
 	requestLogger           *HTTPRequestLogger
+	scalingPolicyManager    *ScalingPolicyManager
 	mu                      sync.RWMutex
 }
 
@@ -94,6 +95,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 	rateLimitTiers := NewRateLimitTiers(redisClient)
 	tieredLimiter := NewTieredRateLimiter(rateLimiter, rateLimitTiers)
 	requestLogger := NewRequestLogger(redisClient, cfg.Gateway.RequestLoggingEnabled)
+	scalingPolicyManager := NewScalingPolicyManager()
 	
 	gw := &Gateway{
 		router:                  router,
@@ -114,11 +116,13 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		nodeConnections:         make(map[string]int64),
 		rateLimitTiers:          rateLimitTiers,
 		requestLogger:           requestLogger,
+		scalingPolicyManager:    scalingPolicyManager,
 	}
 
 	gw.setupRoutes()
 	gw.setupWebSocket()
 	go gw.wsHub.Run()
+	go gw.scalingPolicyManager.StartEvaluationLoop(mm, 1*time.Minute)
 	return gw
 }
 

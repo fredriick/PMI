@@ -23,6 +23,7 @@ type Matchmaker struct {
 	geoipFunc       func(string) string
 	stopHealthCheck chan bool
 	stopCooldown    chan bool
+	capacityPlanner *CapacityPlanner
 }
 
 func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int, geoipLookup func(string) string) *Matchmaker {
@@ -38,8 +39,7 @@ func NewMatchmaker(redis *RedisClient, threshold int, cooldownTTLMinutes int, ge
 		cooldownTTL:     ttl,
 		geoipFunc:       geoipLookup,
 		healthScore:     NewPeerHealthScore(redis.Client()),
-		stopHealthCheck: make(chan bool),
-		stopCooldown:    make(chan bool),
+		capacityPlanner: NewCapacityPlanner(redis),
 	}
 
 	go mm.healthCheckLoop()
@@ -356,6 +356,10 @@ func (m *Matchmaker) GetAllNodes() ([]string, error) {
 
 func (m *Matchmaker) GetRedis() *RedisClient {
 	return m.redis
+}
+
+func (m *Matchmaker) GetCapacityReport() (*CapacityReport, error) {
+	return m.capacityPlanner.GenerateReport()
 }
 
 func (m *Matchmaker) GetSessionNode(sessionID string) (string, error) {
