@@ -128,6 +128,9 @@ func main() {
 		}
 	}()
 
+	go gw.StartNodeBroadcast()
+	log.Println("WebSocket broadcast started")
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

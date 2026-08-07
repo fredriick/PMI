@@ -352,6 +352,19 @@ th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
 th.sortable:hover{color:var(--accent-bright)}
 .sort-indicator{margin-left:4px;font-size:0.7em;opacity:0.6}
 
+/* WebSocket status */
+.ws-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:0.78em;color:var(--text-dim);font-weight:500;
+}
+.ws-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--text-dim);transition:background 0.3s;
+}
+.ws-dot.connected{background:var(--green);box-shadow:0 0 6px var(--green)}
+.ws-dot.disconnected{background:var(--red);box-shadow:0 0 6px var(--red)}
+.ws-dot.connecting{background:var(--orange);animation:pulse 1s infinite}
+
 /* Notifications panel */
 .notifications-btn{
   position:relative;background:none;border:none;color:var(--text-dim);
@@ -451,6 +464,10 @@ pre{
     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
   </svg>
 </button>
+<div class="ws-status" id="ws-status" title="WebSocket connection">
+  <span class="ws-dot disconnected" id="ws-dot"></span>
+  <span id="ws-text">Disconnected</span>
+</div>
 <div class="nav">
   <button class="active" onclick="showSection('overview')">Overview</button>
   <button onclick="showSection('nodes')">Nodes</button>
@@ -1495,6 +1512,82 @@ function loadTheme(){
   document.getElementById('theme-icon-light').style.display=saved==='light'?'block':'none';
 }
 
+let ws=null;
+let wsReconnectTimer=null;
+
+function connectWebSocket(){
+  const protocol=window.location.protocol==='https:'?'wss:':'ws:';
+  const wsUrl=protocol+'//'+window.location.host+'/ws';
+  const wsDot=document.getElementById('ws-dot');
+  const wsText=document.getElementById('ws-text');
+  wsDot.className='ws-dot connecting';
+  wsText.textContent='Connecting...';
+
+  try{
+    ws=new WebSocket(wsUrl);
+  }catch(e){
+    wsDot.className='ws-dot disconnected';
+    wsText.textContent='Disconnected';
+    scheduleWsReconnect();
+    return;
+  }
+
+  ws.onopen=()=>{
+    wsDot.className='ws-dot connected';
+    wsText.textContent='Live';
+    console.log('WebSocket connected');
+  };
+
+  ws.onmessage=(event)=>{
+    try{
+      const msg=JSON.parse(event.data);
+      handleWsMessage(msg);
+    }catch(e){console.error('Failed to parse WS message:',e)}
+  };
+
+  ws.onclose=()=>{
+    wsDot.className='ws-dot disconnected';
+    wsText.textContent='Disconnected';
+    console.log('WebSocket disconnected');
+    scheduleWsReconnect();
+  };
+
+  ws.onerror=(err)=>{
+    console.error('WebSocket error:',err);
+    wsDot.className='ws-dot disconnected';
+    wsText.textContent='Error';
+  };
+}
+
+function scheduleWsReconnect(){
+  if(wsReconnectTimer)clearTimeout(wsReconnectTimer);
+  wsReconnectTimer=setTimeout(connectWebSocket,5000);
+}
+
+function handleWsMessage(msg){
+  if(msg.type==='node_update'){
+    const update=msg.payload;
+    const row=document.querySelector(`tr[data-node-id="${update.node_id}"]`);
+    if(row){
+      const dot=row.querySelector('.status-dot');
+      if(dot){
+        const colorMap={healthy:'dot-green',warning:'dot-yellow',critical:'dot-red',offline:'dot-red'};
+        dot.className='status-dot '+(colorMap[update.status]||'dot-green');
+      }
+      const lastSeenCell=row.querySelector('td:nth-child(7)');
+      if(lastSeenCell&&update.timestamp){
+        lastSeenCell.textContent=new Date(update.timestamp*1000).toLocaleString();
+      }
+    }
+    addNotification('Node Update',`Node ${update.node_id} status: ${update.status}`,'info');
+  }else if(msg.type==='metrics_update'){
+    const m=msg.payload;
+    document.getElementById('m-requests').textContent=m.requests?.toLocaleString()||'--';
+    document.getElementById('m-success-rate').textContent=m.success&&m.requests?((m.success/m.requests)*100).toFixed(1)+'%':'--';
+    document.getElementById('m-latency').textContent=m.latency_avg?.toFixed(0)||'--';
+  }
+}
+
 function startAutoRefresh(){
 if(refreshTimer)clearInterval(refreshTimer);
 if(document.getElementById('autoRefresh').checked){
@@ -1515,6 +1608,7 @@ if(activeSection.id==='activity')loadActivity();
 
 document.getElementById('autoRefresh').addEventListener('change',startAutoRefresh);
 loadTheme();
+connectWebSocket();
 loadMetrics();
 startAutoRefresh();
 </script>
