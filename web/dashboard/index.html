@@ -475,9 +475,10 @@ pre{
   <button onclick="showSection('cooldowns')">Cooldowns</button>
   <button onclick="showSection('subnets')">Subnets</button>
   <button onclick="showSection('sessions')">Sessions</button>
-  <button onclick="showSection('capacity')">Capacity</button>
-  <button onclick="showSection('users')">Users</button>
-  <button onclick="showSection('activity')">Activity</button>
+<button onclick="showSection('capacity')">Capacity</button>
+<button onclick="showSection('users')">Users</button>
+<button onclick="showSection('activity')">Activity</button>
+<button onclick="showSection('benchmark')">Benchmark</button>
 </div>
 </div>
 </div>
@@ -686,6 +687,20 @@ pre{
 </table>
 </div>
 
+<!-- Benchmark -->
+<div id="benchmark" class="section">
+<h2 class="section-title" style="margin-bottom:16px">Node Benchmark</h2>
+<div class="card" style="margin-bottom:16px">
+<h3>Run Benchmark</h3>
+<div class="form-row">
+<input id="bench-node-id" placeholder="Node ID" style="flex:1">
+<input type="number" id="bench-count" placeholder="Iterations" value="10" min="1" max="100" style="width:120px">
+<button class="btn btn-primary" onclick="runBenchmark()">Run</button>
+</div>
+</div>
+<div id="bench-results"></div>
+</div>
+
 </div>
 
 <script>
@@ -716,6 +731,7 @@ if(name==='sessions')loadSessions();
 if(name==='capacity')loadCapacity();
 if(name==='users')loadUsers();
 if(name==='activity')loadActivity();
+if(name==='benchmark')document.getElementById('bench-results').innerHTML='';
 }
 
 function toast(msg,type){
@@ -884,6 +900,47 @@ async function exportNodes(format){
       toast('Exported nodes as CSV','success');
     }
   }catch(e){toast('Export failed','error')}
+}
+
+async function runBenchmark(){
+  const nodeId=document.getElementById('bench-node-id').value.trim();
+  const count=parseInt(document.getElementById('bench-count').value)||10;
+  const resultsDiv=document.getElementById('bench-results');
+  if(!nodeId){toast('Enter a Node ID','error');return;}
+  resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Running benchmark...</p></div>';
+  try{
+    const r=await fetch(API+'/benchmark',{
+      method:'POST',
+      headers:headers(),
+      body:JSON.stringify({node_id:nodeId,count:Math.min(count,100)})
+    });
+    const data=await r.json();
+    if(data.status!=='success'){toast(data.error||'Benchmark failed','error');return;}
+    const results=data.results||[];
+    const avgLatency=data.avg_latency_ms?data.avg_latency_ms.toFixed(1):'--';
+    const successRate=data.iterations?((data.success_count/data.iterations)*100).toFixed(1):'0';
+    resultsDiv.innerHTML=`
+    <div class="grid" style="margin-bottom:16px">
+      <div class="card"><h3>Avg Latency</h3><div class="value mono">${avgLatency} ms</div></div>
+      <div class="card"><h3>Success Rate</h3><div class="value mono">${successRate}%</div></div>
+      <div class="card"><h3>Iterations</h3><div class="value mono">${data.iterations}</div></div>
+    </div>
+    <div class="card">
+      <h3>Results</h3>
+      <table>
+        <thead><tr><th>#</th><th>Status</th><th>Latency</th><th>Timestamp</th></tr></thead>
+        <tbody>
+          ${results.map(r=>`<tr>
+            <td>${r.iteration}</td>
+            <td><span class="badge ${r.status==='ok'?'badge-green':'badge-red'}">${r.status}</span></td>
+            <td>${r.latency_ms} ms</td>
+            <td>${r.timestamp?new Date(r.timestamp*1000).toLocaleTimeString():'--'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+    toast(`Benchmark complete: ${avgLatency}ms avg`,'success');
+  }catch(e){toast('Benchmark failed','error');resultsDiv.innerHTML='';}
 }
 
 let allNodes=[];

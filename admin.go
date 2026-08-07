@@ -34,6 +34,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/circuitbreakers", circuitBreakersHandler(mm))
 	admin.GET("/health", healthScoreHandler(mm))
 	admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
+	admin.POST("/benchmark", benchmarkNodeHandler(mm))
 		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
@@ -743,6 +744,68 @@ func nodeHealthScoreHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 			"status":  "success",
 			"node_id": nodeID,
 			"score":   score,
+		})
+	}
+}
+
+func benchmarkNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			NodeID string `json:"node_id" binding:"required"`
+			Count  int    `json:"count"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if req.Count == 0 {
+			req.Count = 10
+		}
+		if req.Count > 100 {
+			req.Count = 100
+		}
+
+		results := make([]map[string]interface{}, 0, req.Count)
+		for i := 0; i < req.Count; i++ {
+			start := time.Now()
+			_, err := mm.GetNodeStatus(req.NodeID)
+			latency := time.Since(start).Milliseconds()
+			status := "ok"
+			if err != nil {
+				status = "error"
+			}
+			results = append(results, map[string]interface{}{
+				"iteration": i + 1,
+				"status":    status,
+				"latency_ms": latency,
+				"node_id":   req.NodeID,
+				"timestamp": time.Now().Unix(),
+			})
+		}
+
+		var totalLatency int64
+		var successCount int
+		for _, r := range results {
+			if lat, ok := r["latency_ms"].(int64); ok {
+				totalLatency += lat
+			}
+			if r["status"] == "ok" {
+				successCount++
+			}
+		}
+
+		avgLatency := float64(0)
+		if successCount > 0 {
+			avgLatency = float64(totalLatency) / float64(successCount)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":        "success",
+			"node_id":       req.NodeID,
+			"iterations":    req.Count,
+			"success_count": successCount,
+			"avg_latency_ms": avgLatency,
+			"results":       results,
 		})
 	}
 }
