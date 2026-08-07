@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,7 @@ import (
 	"proxymesh/payout"
 )
 
-func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator, payoutSvc *payout.PayoutService, nw *gateway.NodeWebhook) {
+func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.SubnetAllocator, apiKeySvc *gateway.APIKeyService, auditLog *gateway.AuditLogger, requestID *gateway.RequestIDGenerator, payoutSvc *payout.PayoutService, nw *gateway.NodeWebhook, gw *gateway.Gateway) {
 	admin := r.Group("/api/admin")
 	admin.Use(adminAuthMiddleware())
 	if auditLog != nil {
@@ -36,7 +37,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 	admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
 	admin.POST("/benchmark", benchmarkNodeHandler(mm))
 	admin.GET("/referrals/:code", getReferralsHandler(mm))
-		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
+	admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
@@ -52,6 +53,27 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 			admin.GET("/webhooks", listWebhooksHandler(nw))
 			admin.GET("/webhooks/:nodeID", getWebhooksHandler(nw))
 			admin.DELETE("/webhooks/:nodeID", deleteWebhooksHandler(nw))
+		}
+		if gw.RequestLogger() != nil {
+			admin.GET("/logs", func(c *gin.Context) {
+				date := c.DefaultQuery("date", time.Now().Format("20060102"))
+				limitStr := c.DefaultQuery("limit", "100")
+				limit := 100
+				if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 1000 {
+					limit = l
+				}
+				logs, err := gw.RequestLogger().GetLogs(date, int64(limit))
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"status": "success",
+					"date":   date,
+					"count":  len(logs),
+					"logs":   logs,
+				})
+			})
 		}
 	}
 

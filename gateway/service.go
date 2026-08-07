@@ -40,6 +40,7 @@ type Gateway struct {
 	nodeFailures            map[string]int
 	nodeConnections         map[string]int64
 	rateLimitTiers          *RateLimitTiers
+	requestLogger           *HTTPRequestLogger
 	mu                      sync.RWMutex
 }
 
@@ -67,6 +68,10 @@ func (g *Gateway) NodeWebhook() *NodeWebhook {
 	return g.nodeWebhook
 }
 
+func (g *Gateway) RequestLogger() *HTTPRequestLogger {
+	return g.requestLogger
+}
+
 func (g *Gateway) ReloadCompliance(cfg *config.ComplianceConfig) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -88,6 +93,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 	
 	rateLimitTiers := NewRateLimitTiers(redisClient)
 	tieredLimiter := NewTieredRateLimiter(rateLimiter, rateLimitTiers)
+	requestLogger := NewRequestLogger(redisClient, cfg.Gateway.RequestLoggingEnabled)
 	
 	gw := &Gateway{
 		router:                  router,
@@ -107,6 +113,7 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		nodeFailures:            make(map[string]int),
 		nodeConnections:         make(map[string]int64),
 		rateLimitTiers:          rateLimitTiers,
+		requestLogger:           requestLogger,
 	}
 
 	gw.setupRoutes()
@@ -119,7 +126,9 @@ func (g *Gateway) setupRoutes() {
 	InitLogger(LevelInfo, "")
 	SetupMetricsRoutes(g.router)
 	g.router.Use(g.requestID.Middleware())
-	g.router.Use(RequestLogger())
+	if g.requestLogger != nil {
+		g.router.Use(g.requestLogger.Middleware())
+	}
 	g.router.Use(g.rateLimiter.Middleware())
 
 	g.router.GET("/health", g.healthHandler)

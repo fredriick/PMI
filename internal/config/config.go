@@ -42,9 +42,10 @@ type GatewayConfig struct {
 	RequestTimeoutSeconds    int    `mapstructure:"request_timeout_seconds"`
 	IdleTimeoutSeconds       int    `mapstructure:"idle_timeout_seconds"`
 	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`
-	RequestIDPrefix            string `mapstructure:"request_id_prefix"`
-	RequestIDFormat            string `mapstructure:"request_id_format"`
-	Compression             CompressionConfig `mapstructure:"compression"`
+	RequestIDPrefix          string `mapstructure:"request_id_prefix"`
+	RequestIDFormat          string `mapstructure:"request_id_format"`
+	Compression              CompressionConfig `mapstructure:"compression"`
+	RequestLoggingEnabled    bool   `mapstructure:"request_logging_enabled"`
 }
 
 type CompressionConfig struct {

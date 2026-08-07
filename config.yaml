@@ -15,6 +15,7 @@ gateway:
   compression:
     enabled: true
     level: 5
+  request_logging_enabled: false
 
 redis:
   host: "127.0.0.1"
