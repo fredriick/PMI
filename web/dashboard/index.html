@@ -303,6 +303,21 @@ tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
   .section-title{font-size:1em}
 }
 
+/* Bulk actions */
+.bulk-bar{
+  display:none;align-items:center;gap:12px;
+  padding:10px 16px;margin-bottom:12px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+}
+.bulk-bar.open{display:flex}
+.bulk-bar .btn{font-size:0.8em;padding:6px 12px}
+.bulk-count{font-size:0.82em;color:var(--text-dim);font-weight:500}
+tr.selected{background:rgba(59,130,246,0.08)!important}
+tr.selected td:first-child{border-left:3px solid var(--accent)}
+input[type="checkbox"].node-select{
+  width:16px;height:16px;accent-color:var(--accent);cursor:pointer;
+}
+
 /* Notifications panel */
 .notifications-btn{
   position:relative;background:none;border:none;color:var(--text-dim);
@@ -436,6 +451,12 @@ pre{
 <button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
 </div>
 
+<div id="bulk-bar" class="bulk-bar">
+  <span class="bulk-count" id="bulk-count">0 selected</span>
+  <button class="btn btn-danger" onclick="bulkDeregister()">Remove Selected</button>
+  <button class="btn btn-ghost" onclick="clearSelection()">Clear Selection</button>
+</div>
+
 <!-- Map Visualization -->
 <div class="card" style="margin-bottom:16px">
 <h3>Geographic Distribution</h3>
@@ -459,7 +480,7 @@ pre{
 </div>
 </div>
 <table>
-<thead><tr><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
+<thead><tr><th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th><th>Status</th><th>Node ID</th><th>Type</th><th>Country</th><th>City</th><th>ISP</th><th>Last Seen</th><th>Actions</th></tr></thead>
 <tbody id="nodes-table"></tbody>
 </table>
 </div>
@@ -675,22 +696,23 @@ async function loadNodes(){
       }
     });
     prevNodeStates=currentNodeStates;
-    tbody.innerHTML=data.nodes.map(n=>{
-      const node=n.node||{};
-      const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
-      const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
-      const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
-      return `<tr>
-      <td><span class="status-dot ${dotColor}"></span></td>
-      <td><strong>${n.id}</strong></td>
-      <td>${typeBadge}</td>
-      <td>${node.country||'--'}</td>
-      <td>${node.city||'--'}</td>
-      <td>${node.isp||'--'}</td>
-      <td>${lastSeen}</td>
-      <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
-      </tr>`;
-    }).join('');
+tbody.innerHTML=data.nodes.map(n=>{
+  const node=n.node||{};
+  const lastSeen=node.last_seen?new Date(node.last_seen).toLocaleString():'--';
+  const typeBadge=node.node_type==='residential'?'<span class="badge badge-yellow">Residential</span>':'<span class="badge badge-green">Datacenter</span>';
+  const dotColor=node.status==='healthy'?'dot-green':(node.status==='warning'?'dot-yellow':'dot-red');
+  return `<tr data-node-id="${n.id}">
+  <td><input type="checkbox" class="node-select" value="${n.id}" onchange="updateBulkBar()"></td>
+  <td><span class="status-dot ${dotColor}"></span></td>
+  <td><strong>${n.id}</strong></td>
+  <td>${typeBadge}</td>
+  <td>${node.country||'--'}</td>
+  <td>${node.city||'--'}</td>
+  <td>${node.isp||'--'}</td>
+  <td>${lastSeen}</td>
+  <td><button class="btn btn-danger" onclick="deregisterNode('${n.id}')">Remove</button></td>
+  </tr>`;
+}).join('');
     updateNodeMap(data.nodes);
   }catch(e){
     console.error('Failed to load nodes:',e);
@@ -723,13 +745,61 @@ container.innerHTML=html;
 }
 
 async function deregisterNode(id){
-if(!confirm('Deregister node '+id+'?'))return;
-try{
-const r=await fetch(API+'/nodes/'+id,{method:'DELETE',headers:headers()});
-const data=await r.json();
-if(data.status==='success'){toast('Node deregistered','success');loadNodes();}
-else toast(data.error||'Failed','error');
-}catch(e){toast('Request failed','error')}
+  if(!confirm('Deregister node '+id+'?'))return;
+  try{
+    const r=await fetch(API+'/nodes/'+id,{method:'DELETE',headers:headers()});
+    const data=await r.json();
+    if(data.status==='success'){toast('Node deregistered','success');loadNodes();}
+    else toast(data.error||'Failed','error');
+  }catch(e){toast('Request failed','error')}
+}
+
+function toggleSelectAll(checkbox){
+  document.querySelectorAll('.node-select').forEach(cb=>{
+    cb.checked=checkbox.checked;
+    cb.closest('tr').classList.toggle('selected',checkbox.checked);
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const checkboxes=document.querySelectorAll('.node-select:checked');
+  const count=checkboxes.length;
+  const bulkBar=document.getElementById('bulk-bar');
+  const bulkCount=document.getElementById('bulk-count');
+  const selectAll=document.getElementById('select-all');
+  bulkCount.textContent=count+' selected';
+  bulkBar.classList.toggle('open',count>0);
+  if(selectAll)selectAll.checked=count>0&&count===document.querySelectorAll('.node-select').length;
+  document.querySelectorAll('.node-select').forEach(cb=>{
+    cb.closest('tr').classList.toggle('selected',cb.checked);
+  });
+}
+
+function clearSelection(){
+  document.querySelectorAll('.node-select').forEach(cb=>{
+    cb.checked=false;
+    cb.closest('tr').classList.remove('selected');
+  });
+  const selectAll=document.getElementById('select-all');
+  if(selectAll)selectAll.checked=false;
+  updateBulkBar();
+}
+
+async function bulkDeregister(){
+  const checkboxes=document.querySelectorAll('.node-select:checked');
+  if(checkboxes.length===0)return;
+  const ids=Array.from(checkboxes).map(cb=>cb.value);
+  if(!confirm(`Deregister ${ids.length} node(s)?`))return;
+  try{
+    const results=await Promise.all(ids.map(id=>
+      fetch(API+'/nodes/'+encodeURIComponent(id),{method:'DELETE',headers:headers()})
+    ));
+    const successCount=results.filter(r=>r.ok).length;
+    toast(`Deregistered ${successCount}/${ids.length} nodes`,successCount===ids.length?'success':'error');
+    clearSelection();
+    loadNodes();
+  }catch(e){toast('Bulk deregister failed','error')}
 }
 
 function showRegisterForm(){document.getElementById('register-form').style.display='block'}
