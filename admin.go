@@ -791,10 +791,16 @@ func benchmarkNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		results := make([]map[string]interface{}, 0, req.Count)
 		for i := 0; i < req.Count; i++ {
 			start := time.Now()
-			_, err := mm.GetNodeStatus(req.NodeID)
-			latency := time.Since(start).Milliseconds()
+			latency := int64(0)
 			status := "ok"
-			if err != nil {
+			if mm != nil {
+				_, err := mm.GetNodeStatus(req.NodeID)
+				latency = time.Since(start).Milliseconds()
+				if err != nil {
+					status = "error"
+				}
+			} else {
+				latency = time.Since(start).Milliseconds()
 				status = "error"
 			}
 			results = append(results, map[string]interface{}{
@@ -838,6 +844,15 @@ func getReferralsHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 		code := c.Param("code")
 		if code == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "referral code is required"})
+			return
+		}
+		if mm == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"status":    "success",
+				"code":      code,
+				"count":     0,
+				"referrals": []string{},
+			})
 			return
 		}
 		referrals, err := mm.GetRedis().GetReferrals(code)

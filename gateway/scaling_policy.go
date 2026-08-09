@@ -172,8 +172,11 @@ func (spm *ScalingPolicyManager) StartEvaluationLoop(mm *matchmaker.Matchmaker, 
 	}
 }
 
+var policyCounter int
+
 func generatePolicyID() string {
-	return "pol-" + time.Now().Format("20060102150405")
+	policyCounter++
+	return "pol-" + time.Now().Format("20060102150405") + "-" + string(rune(policyCounter))
 }
 
 func (spm *ScalingPolicyManager) MarshalPolicies() ([]byte, error) {
