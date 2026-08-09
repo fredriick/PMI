@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "proxymesh.fullname" . }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "proxymesh.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  config.yaml: |
+    gateway:
+      host: "{{ .Values.config.gateway.host }}"
+      port: {{ .Values.config.gateway.port }}
+      mtls_enabled: {{ .Values.config.gateway.mtlsEnabled }}
+      ca_cert_path: "{{ .Values.config.gateway.caCertPath }}"
+      server_cert_path: "{{ .Values.config.gateway.serverCertPath }}"
+      server_key_path: "{{ .Values.config.gateway.serverKeyPath }}"
+      circuit_breaker_threshold: {{ .Values.config.gateway.circuitBreakerThreshold }}
+      rate_limit_requests: {{ .Values.config.gateway.rateLimitRequests }}
+      rate_limit_window_seconds: {{ .Values.config.gateway.rateLimitWindowSeconds }}
+      rate_limit_distributed: {{ .Values.config.gateway.rateLimitDistributed }}
+      tracing_enabled: {{ .Values.config.gateway.tracingEnabled }}
+      cooldown_seconds: {{ .Values.config.gateway.cooldownSeconds }}
+      request_timeout_seconds: {{ .Values.config.gateway.requestTimeoutSeconds }}
+      idle_timeout_seconds: {{ .Values.config.gateway.idleTimeoutSeconds }}
+      read_header_timeout_seconds: {{ .Values.config.gateway.readHeaderTimeoutSeconds }}
+      request_id_prefix: "{{ .Values.config.gateway.requestIdPrefix }}"
+      request_id_format: "{{ .Values.config.gateway.requestIdFormat }}"
+      compression:
+        enabled: {{ .Values.config.gateway.compression.enabled }}
+        level: {{ .Values.config.gateway.compression.level }}
+      request_logging_enabled: {{ .Values.config.gateway.requestLoggingEnabled }}
+
+    matchmaker:
+      host: "{{ .Values.config.matchmaker.host }}"
+      port: {{ .Values.config.matchmaker.port }}
+      pool_size: {{ .Values.config.matchmaker.poolSize }}
+      cooldown_ttl_minutes: {{ .Values.config.matchmaker.cooldownTtlMinutes }}
+
+    redis:
+      host: "{{ .Values.config.redis.host }}"
+      port: {{ .Values.config.redis.port }}
+      password: "{{ .Values.config.redis.password }}"
+      db: {{ .Values.config.redis.db }}
+      cluster_enabled: {{ .Values.config.redis.clusterEnabled }}
+      cluster_addrs: []
+      pool_size: {{ .Values.config.redis.poolSize }}
+      max_retries: {{ .Values.config.redis.maxRetries }}
+
+    compliance:
+      blocked_domains:
+        {{- range .Values.config.compliance.blockedDomains }}
+        - "{{ . }}"
+        {{- end }}
+      kyc_required: {{ .Values.config.compliance.kycRequired }}
+
+    peer:
+      min_battery_percent: {{ .Values.config.peer.minBatteryPercent }}
+      max_cpu_percent: {{ .Values.config.peer.maxCpuPercent }}
+      require_unmetered_wifi: {{ .Values.config.peer.requireUnmeteredWifi }}
+
+    subnet:
+      enabled: {{ .Values.config.subnet.enabled }}
+      prefix: "{{ .Values.config.subnet.prefix }}"
+      prefix_len: {{ .Values.config.subnet.prefixLen }}
+
+    pricing:
+      tiers:
+        {{- range .Values.config.pricing.tiers }}
+        - name: {{ .name }}
+          min_gb_monthly: {{ .minGbMonthly }}
+          max_gb_monthly: {{ .maxGbMonthly }}
+          rate_per_gb_sent: {{ .ratePerGbSent }}
+          rate_per_gb_recv: {{ .ratePerGbRecv }}
+        {{- end }}
+
+    federation:
+      enabled: {{ .Values.config.federation.enabled }}
+      regions:
+        {{- range .Values.config.federation.regions }}
+        - {{ . }}
+        {{- end }}
+      heartbeat_interval_seconds: {{ .Values.config.federation.heartbeatIntervalSeconds }}
+      sync_interval_seconds: {{ .Values.config.federation.syncIntervalSeconds }}
+
+    jwt:
+      enabled: {{ .Values.config.jwt.enabled }}
+      secret_key: "{{ .Values.config.jwt.secretKey }}"
+      expiration: {{ .Values.config.jwt.expiration }}
+
+    rbac:
+      enabled: {{ .Values.config.rbac.enabled }}
+      default_role: {{ .Values.config.rbac.defaultRole }}
+      min_password_len: {{ .Values.config.rbac.minPasswordLen }}
+      max_login_attempts: {{ .Values.config.rbac.maxLoginAttempts }}
+      lockout_duration_minutes: {{ .Values.config.rbac.lockoutDurationMinutes }}
+
+    prometheus:
+      enabled: {{ .Values.config.prometheus.enabled }}
+      push_gateway_url: "{{ .Values.config.prometheus.pushGatewayUrl }}"
+      push_interval_seconds: {{ .Values.config.prometheus.pushIntervalSeconds }}
+      job_name: {{ .Values.config.prometheus.jobName }}

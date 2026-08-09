@@ -1,0 +1,19 @@
+# Charts
+charts/
+*.tgz
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Helm
+*.lock

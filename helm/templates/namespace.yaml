@@ -1,0 +1,10 @@
+{{- if .Values.global.namespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.namespace }}
+  labels:
+    name: {{ .Values.global.namespace }}
+    app.kubernetes.io/name: {{ include "proxymesh.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

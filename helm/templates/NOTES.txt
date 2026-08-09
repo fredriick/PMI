@@ -1,0 +1,17 @@
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+  http://{{ .Values.ingress.host }}
+{{- else }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Values.global.namespace }} -o jsonpath="{.spec.ports[1].nodePort}" services {{ include "proxymesh.fullname" . }}-gateway)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Values.global.namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- end }}
+
+2. Verify the deployment:
+   kubectl rollout status deployment/{{ include "proxymesh.fullname" . }}-gateway -n {{ .Values.global.namespace }}
+
+3. Check logs:
+   kubectl logs -l app.kubernetes.io/component=gateway -n {{ .Values.global.namespace }} -f
+
+4. To upgrade:
+   helm upgrade --install proxymesh ./helm -n {{ .Values.global.namespace }} --create-namespace
