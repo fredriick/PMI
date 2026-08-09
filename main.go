@@ -13,6 +13,7 @@ import (
 	"proxymesh/gateway"
 	"proxymesh/internal/config"
 	"proxymesh/internal/grpc"
+	"proxymesh/internal/migrations"
 	"proxymesh/internal/subnet"
 	"proxymesh/matchmaker"
 	"proxymesh/payout"
@@ -29,6 +30,13 @@ func main() {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 	defer redisClient.Close()
+
+	migrator := migrations.NewMigrationRunner(redisClient.Client(), migrations.GetMigrations())
+	if err := migrator.Run(context.Background()); err != nil {
+		log.Printf("Warning: migrations failed: %v", err)
+	} else {
+		log.Println("Database migrations completed")
+	}
 
 	geoip := gateway.NewGeoIPService()
 
