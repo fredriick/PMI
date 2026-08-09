@@ -61,7 +61,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			log.Printf("WS client connected: %s", client.conn.ClientIP())
+			log.Printf("WS client connected: %s", client.getIP())
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -70,7 +70,7 @@ func (h *Hub) Run() {
 				close(client.send)
 			}
 			h.mu.Unlock()
-			log.Printf("WS client disconnected: %s", client.conn.ClientIP())
+			log.Printf("WS client disconnected: %s", client.getIP())
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
@@ -85,6 +85,13 @@ func (h *Hub) Run() {
 			h.mu.RUnlock()
 		}
 	}
+}
+
+func (c *Client) getIP() string {
+	if c.conn != nil {
+		return c.conn.ClientIP()
+	}
+	return "unknown"
 }
 
 func (h *Hub) Register(c *Client) {
