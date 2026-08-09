@@ -78,6 +78,9 @@ function errorHTML(msg) {
   $('logout-btn').addEventListener('click', disconnect);
   $('disconnect-btn').addEventListener('click', disconnect);
 
+  // Theme toggle
+  $('theme-toggle').addEventListener('click', toggleTheme);
+
   // Consent toggle
   $('consent-toggle').addEventListener('change', async function () {
     try {
@@ -108,6 +111,7 @@ function errorHTML(msg) {
     if (dashBtn) dashBtn.classList.add('active');
     const dashPage = $('page-dashboard');
     if (dashPage) dashPage.classList.add('active');
+    loadTheme();
     refresh();
     connectStream();
   }
@@ -127,6 +131,23 @@ function errorHTML(msg) {
     localStorage.removeItem('peer_node_id');
     showLogin();
     showToast('Disconnected', 'success');
+  }
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isLight = html.getAttribute('data-theme') === 'light';
+    const newTheme = isLight ? 'dark' : 'light';
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('peer-theme', newTheme);
+    document.getElementById('theme-icon-dark').style.display = isLight ? 'block' : 'none';
+    document.getElementById('theme-icon-light').style.display = isLight ? 'none' : 'block';
+  }
+
+  function loadTheme() {
+    const saved = localStorage.getItem('peer-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('theme-icon-dark').style.display = saved === 'light' ? 'none' : 'block';
+    document.getElementById('theme-icon-light').style.display = saved === 'light' ? 'block' : 'none';
   }
 
   function startPolling() {
