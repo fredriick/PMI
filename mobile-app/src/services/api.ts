@@ -149,6 +149,17 @@ class ApiService {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to update consent');
   }
+
+  async updateNodeDetails(updates: { country?: string; city?: string; os?: string }): Promise<void> {
+    if (!this.token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE}/node`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Peer-Token': this.token },
+      body: JSON.stringify(updates),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update node');
+  }
 }
 
 export const api = new ApiService();

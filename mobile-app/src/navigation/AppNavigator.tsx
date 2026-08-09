@@ -5,12 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
 import EarningsScreen from '../screens/EarningsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import NodeManagementScreen from '../screens/NodeManagementScreen';
 import { Colors } from '../theme';
 
 export type RootTabParamList = {
   Dashboard: undefined;
   Earnings: undefined;
   Settings: undefined;
+  Node: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -29,6 +31,8 @@ export default function AppNavigator() {
               iconName = focused ? 'cash' : 'cash-outline';
             } else if (route.name === 'Settings') {
               iconName = focused ? 'settings' : 'settings-outline';
+            } else if (route.name === 'Node') {
+              iconName = focused ? 'server' : 'server-outline';
             }
 
             return <Ionicons name={iconName} size={size} color={color} />;
@@ -51,6 +55,7 @@ export default function AppNavigator() {
       >
         <Tab.Screen name="Dashboard" component={DashboardScreen} />
         <Tab.Screen name="Earnings" component={EarningsScreen} />
+        <Tab.Screen name="Node" component={NodeManagementScreen} />
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
     </NavigationContainer>
