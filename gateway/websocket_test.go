@@ -193,6 +193,8 @@ func TestWebSocketHub_MultipleClients(t *testing.T) {
 		hub.Unregister(client)
 	}
 
+	time.Sleep(50 * time.Millisecond)
+
 	if hub.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients after unregister, got %d", hub.ClientCount())
 	}
