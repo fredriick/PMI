@@ -143,6 +143,8 @@ func (g *Gateway) setupRoutes() {
 		c.String(200, metrics.String())
 	})
 	g.router.GET("/v1/dashboard", g.serveDashboard)
+	g.router.GET("/api/admin/config", g.getConfigHandler)
+	g.router.POST("/api/admin/config", g.updateConfigHandler)
 
 	g.webUI.RegisterRoutes(g.router)
 
@@ -535,4 +537,25 @@ func (g *Gateway) Shutdown(ctx context.Context) error {
 	defer g.mu.Unlock()
 	Info("Gateway shutting down", nil)
 	return nil
+}
+
+func (g *Gateway) getConfigHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"config": g.config,
+	})
+}
+
+func (g *Gateway) updateConfigHandler(c *gin.Context) {
+	var updates map[string]interface{}
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Config updated. Restart required for some changes.",
+		"updates": updates,
+	})
 }

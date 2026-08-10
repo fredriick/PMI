@@ -479,8 +479,9 @@ pre{
 <button onclick="showSection('users')">Users</button>
 <button onclick="showSection('activity')">Activity</button>
 <button onclick="showSection('benchmark')">Benchmark</button>
-<button onclick="showSection('referrals')">Referrals</button>
-<button onclick="showSection('logs')">Logs</button>
+  <button onclick="showSection('referrals')">Referrals</button>
+  <button onclick="showSection('logs')">Logs</button>
+  <button onclick="showSection('config')">Config</button>
 </div>
 </div>
 </div>
@@ -730,6 +731,15 @@ pre{
 <div id="log-results"></div>
 </div>
 
+<!-- Config -->
+<div id="config" class="section">
+<h2 class="section-title" style="margin-bottom:16px">System Configuration</h2>
+<div class="card" style="margin-bottom:16px">
+<h3>Current Config</h3>
+<div id="config-results"></div>
+</div>
+</div>
+
 </div>
 
 <script>
@@ -763,6 +773,7 @@ if(name==='activity')loadActivity();
 if(name==='benchmark')document.getElementById('bench-results').innerHTML='';
 if(name==='referrals')document.getElementById('ref-results').innerHTML='';
 if(name==='logs')document.getElementById('log-results').innerHTML='';
+if(name==='config')document.getElementById('config-results').innerHTML='';
 }
 
 function toast(msg,type){
@@ -1042,6 +1053,28 @@ async function loadLogs(){
 
 let allNodes=[];
 let currentSort={field:null,asc:true};
+
+async function loadConfig(){
+  const resultsDiv=document.getElementById('config-results');
+  resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Loading config...</p></div>';
+  try{
+    const r=await fetch(API+'/config',{headers:headers()});
+    const data=await r.json();
+    if(data.status!=='success'){toast(data.error||'Failed to load config','error');resultsDiv.innerHTML='';return;}
+    const config=data.config||{};
+    const entries=Object.entries(config);
+    resultsDiv.innerHTML=`
+    <div class="card">
+      <h3>System Configuration</h3>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+        <tbody>${entries.map(([k,v])=>`<tr><td class="mono">${k}</td><td>${JSON.stringify(v)}</td></tr>`).join('')}</tbody>
+      </table>
+      </div>
+    </div>`;
+  }catch(e){toast('Failed to load config','error');resultsDiv.innerHTML='';}
+}
 
 async function loadNodes(){
   const tbody=document.getElementById('nodes-table');
