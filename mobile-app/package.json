@@ -19,7 +19,7 @@
     "expo-router": "~6.0.3",
     "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~57.0.1",
-    "react": "19.2.3",
+    "react": "19.2.8",
     "react-native": "0.86.2",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "@types/react": "~19.0.10",
+    "@types/react": "~19.2.18",
     "@types/react-native-vector-icons": "^6.4.18",
     "typescript": "~5.3.3"
   },
