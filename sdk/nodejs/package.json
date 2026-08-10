@@ -1,0 +1,12 @@
+{
+  "name": "@proxymesh/peer-sdk",
+  "version": "1.0.0",
+  "description": "ProxyMesh Node.js Peer SDK",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
+  "keywords": ["proxymesh", "p2p", "proxy", "sdk"],
+  "license": "MIT"
+}
