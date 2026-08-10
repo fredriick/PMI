@@ -31,14 +31,14 @@ func TestWebUI_RegisterRoutes(t *testing.T) {
 	}
 
 	expected := map[string]bool{
-		"GET /web/dashboard":            true,
-		"GET /web/api/nodes":            true,
-		"GET /web/api/cooldowns":        true,
-		"GET /web/api/health":           true,
-		"GET /web/api/health/:nodeID":   true,
+		"GET /web/dashboard":                  true,
+		"GET /web/api/nodes":                  true,
+		"GET /web/api/cooldowns":              true,
+		"GET /web/api/health":                 true,
+		"GET /web/api/health/:nodeID":         true,
 		"GET /web/api/health/:nodeID/history": true,
-		"POST /web/api/nodes/:id/reset": true,
-		"POST /web/api/nodes/:id/eject": true,
+		"POST /web/api/nodes/:id/reset":       true,
+		"POST /web/api/nodes/:id/eject":       true,
 	}
 	for path := range expected {
 		if !found[path] {

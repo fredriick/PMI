@@ -27,25 +27,25 @@ type Config struct {
 }
 
 type GatewayConfig struct {
-	Host                     string `mapstructure:"host"`
-	Port                     int    `mapstructure:"port"`
-	MTLSEnabled              bool   `mapstructure:"mtls_enabled"`
-	CACertPath               string `mapstructure:"ca_cert_path"`
-	ServerCertPath           string `mapstructure:"server_cert_path"`
-	ServerKeyPath            string `mapstructure:"server_key_path"`
-	CircuitBreakerThreshold  int    `mapstructure:"circuit_breaker_threshold"`
-	RateLimitRequests        int    `mapstructure:"rate_limit_requests"`
-	RateLimitWindowSeconds   int    `mapstructure:"rate_limit_window_seconds"`
-	RateLimitDistributed     bool   `mapstructure:"rate_limit_distributed"`
-	TracingEnabled           bool   `mapstructure:"tracing_enabled"`
-	CooldownSeconds          int    `mapstructure:"cooldown_seconds"`
-	RequestTimeoutSeconds    int    `mapstructure:"request_timeout_seconds"`
-	IdleTimeoutSeconds       int    `mapstructure:"idle_timeout_seconds"`
-	ReadHeaderTimeoutSeconds int    `mapstructure:"read_header_timeout_seconds"`
-	RequestIDPrefix          string `mapstructure:"request_id_prefix"`
-	RequestIDFormat          string `mapstructure:"request_id_format"`
+	Host                     string            `mapstructure:"host"`
+	Port                     int               `mapstructure:"port"`
+	MTLSEnabled              bool              `mapstructure:"mtls_enabled"`
+	CACertPath               string            `mapstructure:"ca_cert_path"`
+	ServerCertPath           string            `mapstructure:"server_cert_path"`
+	ServerKeyPath            string            `mapstructure:"server_key_path"`
+	CircuitBreakerThreshold  int               `mapstructure:"circuit_breaker_threshold"`
+	RateLimitRequests        int               `mapstructure:"rate_limit_requests"`
+	RateLimitWindowSeconds   int               `mapstructure:"rate_limit_window_seconds"`
+	RateLimitDistributed     bool              `mapstructure:"rate_limit_distributed"`
+	TracingEnabled           bool              `mapstructure:"tracing_enabled"`
+	CooldownSeconds          int               `mapstructure:"cooldown_seconds"`
+	RequestTimeoutSeconds    int               `mapstructure:"request_timeout_seconds"`
+	IdleTimeoutSeconds       int               `mapstructure:"idle_timeout_seconds"`
+	ReadHeaderTimeoutSeconds int               `mapstructure:"read_header_timeout_seconds"`
+	RequestIDPrefix          string            `mapstructure:"request_id_prefix"`
+	RequestIDFormat          string            `mapstructure:"request_id_format"`
 	Compression              CompressionConfig `mapstructure:"compression"`
-	RequestLoggingEnabled    bool   `mapstructure:"request_logging_enabled"`
+	RequestLoggingEnabled    bool              `mapstructure:"request_logging_enabled"`
 }
 
 type CompressionConfig struct {

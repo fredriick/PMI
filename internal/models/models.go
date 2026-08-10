@@ -64,15 +64,15 @@ type CircuitBreaker struct {
 }
 
 type NodeRegistrationRequest struct {
-	NodeID     string   `json:"node_id"`
-	NodeType   NodeType `json:"node_type"`
-	Country    string   `json:"country"`
-	City       string   `json:"city"`
-	ISP        string   `json:"isp"`
-	IP         string   `json:"ip"`
-	IPv6Subnet string   `json:"ipv6_subnet,omitempty"`
-	OS         string   `json:"os"`
-	ReferralCode string `json:"referral_code,omitempty"`
+	NodeID       string   `json:"node_id"`
+	NodeType     NodeType `json:"node_type"`
+	Country      string   `json:"country"`
+	City         string   `json:"city"`
+	ISP          string   `json:"isp"`
+	IP           string   `json:"ip"`
+	IPv6Subnet   string   `json:"ipv6_subnet,omitempty"`
+	OS           string   `json:"os"`
+	ReferralCode string   `json:"referral_code,omitempty"`
 }
 
 type NodeHeartbeatRequest struct {

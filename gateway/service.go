@@ -91,12 +91,12 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 
 	connPool := NewConnPool(10, 5*time.Second)
 	requestID := NewRequestIDGenerator(cfg.Gateway.RequestIDPrefix, cfg.Gateway.RequestIDFormat, redisClient)
-	
+
 	rateLimitTiers := NewRateLimitTiers(redisClient)
 	tieredLimiter := NewTieredRateLimiter(rateLimiter, rateLimitTiers)
 	requestLogger := NewRequestLogger(redisClient, cfg.Gateway.RequestLoggingEnabled)
 	scalingPolicyManager := NewScalingPolicyManager()
-	
+
 	gw := &Gateway{
 		router:                  router,
 		matchmaker:              mm,

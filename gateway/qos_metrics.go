@@ -11,12 +11,12 @@ type QoSReporter struct {
 }
 
 type QoSMetrics struct {
-	NodeID           string
-	PacketLoss       float64
-	JitterMs         float64
-	ThroughputMbps   float64
-	LatencyMs        float64
-	LastMeasured     time.Time
+	NodeID         string
+	PacketLoss     float64
+	JitterMs       float64
+	ThroughputMbps float64
+	LatencyMs      float64
+	LastMeasured   time.Time
 }
 
 func NewQoSReporter() *QoSReporter {

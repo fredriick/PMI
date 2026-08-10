@@ -7,9 +7,18 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func TestRunMigrations(t *testing.T) {
+func redisClient(t *testing.T) *redis.Client {
+	t.Helper()
 	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		t.Skipf("Redis not available: %v", err)
+	}
 	_ = rdb.FlushDB(context.Background()).Err()
+	return rdb
+}
+
+func TestRunMigrations(t *testing.T) {
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	migrations := GetMigrations()
@@ -33,8 +42,7 @@ func TestRunMigrations(t *testing.T) {
 }
 
 func TestRunMigrationsIdempotent(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
-	_ = rdb.FlushDB(context.Background()).Err()
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	migrations := GetMigrations()
@@ -50,8 +58,7 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
-	_ = rdb.FlushDB(context.Background()).Err()
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	migrations := GetMigrations()
@@ -69,8 +76,7 @@ func TestRollback(t *testing.T) {
 }
 
 func TestRecordMigrationTimestamp(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
-	_ = rdb.FlushDB(context.Background()).Err()
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	if err := RecordMigrationTimestamp(context.Background(), rdb, "test_migration"); err != nil {

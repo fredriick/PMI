@@ -18,15 +18,15 @@ const (
 )
 
 type ScalingPolicy struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Enabled     bool      `json:"enabled"`
-	Metric      string    `json:"metric"`
-	Threshold   float64   `json:"threshold"`
-	Comparison  string    `json:"comparison"`
-	Action      ScalingAction `json:"action"`
-	Cooldown    time.Duration `json:"cooldown"`
-	LastTriggered time.Time `json:"last_triggered"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Enabled       bool          `json:"enabled"`
+	Metric        string        `json:"metric"`
+	Threshold     float64       `json:"threshold"`
+	Comparison    string        `json:"comparison"`
+	Action        ScalingAction `json:"action"`
+	Cooldown      time.Duration `json:"cooldown"`
+	LastTriggered time.Time     `json:"last_triggered"`
 }
 
 type ScalingPolicyManager struct {
@@ -45,7 +45,7 @@ func NewScalingPolicyManager() *ScalingPolicyManager {
 		Threshold:  0,
 		Comparison: ">",
 		Action:     ActionScaleUp,
-		Cooldown:    5 * time.Minute,
+		Cooldown:   5 * time.Minute,
 	})
 	spm.AddPolicy(&ScalingPolicy{
 		Name:       "High Average Utilization",
@@ -54,7 +54,7 @@ func NewScalingPolicyManager() *ScalingPolicyManager {
 		Threshold:  80,
 		Comparison: ">",
 		Action:     ActionScaleUp,
-		Cooldown:    10 * time.Minute,
+		Cooldown:   10 * time.Minute,
 	})
 	return spm
 }
@@ -149,13 +149,13 @@ func (spm *ScalingPolicyManager) evaluatePolicy(policy *ScalingPolicy, mm *match
 }
 
 type ScalingEvaluation struct {
-	PolicyID      string        `json:"policy_id"`
-	PolicyName    string        `json:"policy_name"`
-	Triggered     bool          `json:"triggered"`
-	Action        ScalingAction `json:"action"`
-	CurrentValue  float64       `json:"current_value"`
-	Threshold     float64       `json:"threshold"`
-	Timestamp     time.Time     `json:"timestamp"`
+	PolicyID     string        `json:"policy_id"`
+	PolicyName   string        `json:"policy_name"`
+	Triggered    bool          `json:"triggered"`
+	Action       ScalingAction `json:"action"`
+	CurrentValue float64       `json:"current_value"`
+	Threshold    float64       `json:"threshold"`
+	Timestamp    time.Time     `json:"timestamp"`
 }
 
 func (spm *ScalingPolicyManager) StartEvaluationLoop(mm *matchmaker.Matchmaker, interval time.Duration) {

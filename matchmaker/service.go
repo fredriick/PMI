@@ -2,10 +2,10 @@ package matchmaker
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
 	"math"
-	"crypto/rand"
 	"math/big"
 	"sync"
 	"time"
@@ -14,7 +14,7 @@ import (
 )
 
 type Matchmaker struct {
-	healthScore *PeerHealthScore
+	healthScore     *PeerHealthScore
 	redis           *RedisClient
 	circuitBreakers map[string]*models.CircuitBreaker
 	mu              sync.RWMutex
@@ -421,7 +421,6 @@ func (m *Matchmaker) ResetCircuitBreaker(nodeID string) {
 func (m *Matchmaker) GetLatencyTracker() *LatencyTracker {
 	return nil
 }
-
 
 func (m *Matchmaker) UpdateHealthScore(nodeID string, latencyMs int64, bandwidthMbps float64, reliability float64) {
 	m.healthScore.UpdateScore(nodeID, latencyMs, bandwidthMbps, reliability)

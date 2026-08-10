@@ -48,14 +48,13 @@ func (s *PeerSessionStore) Revoke(token string) {
 	s.mu.Unlock()
 }
 
-
 func peerHealthHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		nodeID := c.GetString("nodeID")
 		score := mm.GetHealthScore(nodeID)
 		if score == nil {
 			c.JSON(http.StatusOK, gin.H{
-				"status": "success",
+				"status":  "success",
 				"node_id": nodeID,
 				"score":   nil,
 				"message": "No health score available yet",

@@ -36,10 +36,10 @@ type APIKey struct {
 type APIKeyScope string
 
 const (
-	ScopeRead      APIKeyScope = "read"
-	ScopeWrite     APIKeyScope = "write"
-	ScopeAdmin     APIKeyScope = "admin"
-	ScopeAll       APIKeyScope = "*"
+	ScopeRead  APIKeyScope = "read"
+	ScopeWrite APIKeyScope = "write"
+	ScopeAdmin APIKeyScope = "admin"
+	ScopeAll   APIKeyScope = "*"
 )
 
 var validScopes = map[APIKeyScope]bool{
@@ -89,6 +89,9 @@ func (s *APIKeyService) CreateKey(name string, ttlDays int, scope string) (*APIK
 }
 
 func (s *APIKeyService) ValidateKey(rawKey string) (string, error) {
+	if s == nil || s.client == nil {
+		return "", fmt.Errorf("api key service not initialized")
+	}
 	hash := hashKey(rawKey)
 	redisKey := fmt.Sprintf("apikey:%s", hash)
 
@@ -151,6 +154,9 @@ func (s *APIKeyService) ListKeys() ([]map[string]string, error) {
 }
 
 func (s *APIKeyService) HasScope(rawKey string, requiredScope string) bool {
+	if s == nil || s.client == nil {
+		return false
+	}
 	scope, err := s.ValidateKey(rawKey)
 	if err != nil || scope == "" {
 		return false

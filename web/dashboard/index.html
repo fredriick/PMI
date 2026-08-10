@@ -482,6 +482,7 @@ pre{
   <button onclick="showSection('referrals')">Referrals</button>
   <button onclick="showSection('logs')">Logs</button>
   <button onclick="showSection('config')">Config</button>
+  <button onclick="showSection('apikeys')">API Keys</button>
 </div>
 </div>
 </div>
@@ -735,9 +736,75 @@ pre{
 <div id="config" class="section">
 <h2 class="section-title" style="margin-bottom:16px">System Configuration</h2>
 <div class="card" style="margin-bottom:16px">
-<h3>Current Config</h3>
-<div id="config-results"></div>
+<h3>Gateway Settings</h3>
+<div class="form-row">
+<label style="flex:1">Host<input id="cfg-gw-host" value="0.0.0.0"></label>
+<label style="flex:1">Port<input id="cfg-gw-port" type="number" value="8000"></label>
 </div>
+<div class="form-row">
+<label style="flex:1">Circuit Breaker Threshold<input id="cfg-cb-threshold" type="number" value="5"></label>
+<label style="flex:1">Rate Limit Requests<input id="cfg-rl-requests" type="number" value="100"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Rate Limit Window (s)<input id="cfg-rl-window" type="number" value="60"></label>
+<label style="flex:1">Cooldown Seconds<input id="cfg-cooldown" type="number" value="3600"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Request Timeout (s)<input id="cfg-req-timeout" type="number" value="30"></label>
+<label style="flex:1">Idle Timeout (s)<input id="cfg-idle-timeout" type="number" value="120"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Tracing Enabled<select id="cfg-tracing"><option value="true">Yes</option><option value="false">No</option></select></label>
+<label style="flex:1">Compression Enabled<select id="cfg-compression"><option value="true">Yes</option><option value="false">No</option></select></label>
+</div>
+</div>
+<div class="card" style="margin-bottom:16px">
+<h3>Redis Settings</h3>
+<div class="form-row">
+<label style="flex:1">Host<input id="cfg-redis-host" value="localhost"></label>
+<label style="flex:1">Port<input id="cfg-redis-port" type="number" value="6379"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">DB<input id="cfg-redis-db" type="number" value="0"></label>
+<label style="flex:1">Pool Size<input id="cfg-redis-pool" type="number" value="10"></label>
+</div>
+</div>
+<div class="card" style="margin-bottom:16px">
+<h3>Matchmaker Settings</h3>
+<div class="form-row">
+<label style="flex:1">Host<input id="cfg-mm-host" value="localhost"></label>
+<label style="flex:1">Port<input id="cfg-mm-port" type="number" value="6379"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Pool Size<input id="cfg-mm-pool" type="number" value="10"></label>
+<label style="flex:1">Cooldown TTL (min)<input id="cfg-mm-cooldown" type="number" value="15"></label>
+</div>
+</div>
+<div style="display:flex;gap:8px">
+<button class="btn btn-primary" onclick="saveConfig()">Save Config</button>
+<button class="btn btn-secondary" onclick="loadConfig()">Reload</button>
+</div>
+<div id="config-results" style="margin-top:12px"></div>
+</div>
+
+<!-- API Keys -->
+<div id="apikeys" class="section">
+<h2 class="section-title" style="margin-bottom:16px">API Keys</h2>
+<div class="card" style="margin-bottom:16px">
+<h3>Create API Key</h3>
+<div class="form-row">
+<input id="apikey-name" placeholder="Key name" style="flex:1">
+<select id="apikey-scope" style="flex:1">
+<option value="read">Read</option>
+<option value="write">Write</option>
+<option value="admin">Admin</option>
+<option value="*">All (*)</option>
+</select>
+<input id="apikey-ttl" type="number" placeholder="TTL days (0=forever)" value="0" style="width:160px">
+<button class="btn btn-primary" onclick="createAPIKey()">Create</button>
+</div>
+</div>
+<div id="apikey-results"></div>
 </div>
 
 </div>
@@ -773,7 +840,8 @@ if(name==='activity')loadActivity();
 if(name==='benchmark')document.getElementById('bench-results').innerHTML='';
 if(name==='referrals')document.getElementById('ref-results').innerHTML='';
 if(name==='logs')document.getElementById('log-results').innerHTML='';
-if(name==='config')document.getElementById('config-results').innerHTML='';
+if(name==='config'){document.getElementById('config-results').innerHTML='';loadConfig();}
+if(name==='apikeys'){document.getElementById('apikey-results').innerHTML='';loadAPIKeys();}
 }
 
 function toast(msg,type){
@@ -1061,19 +1129,82 @@ async function loadConfig(){
     const r=await fetch(API+'/config',{headers:headers()});
     const data=await r.json();
     if(data.status!=='success'){toast(data.error||'Failed to load config','error');resultsDiv.innerHTML='';return;}
-    const config=data.config||{};
-    const entries=Object.entries(config);
-    resultsDiv.innerHTML=`
-    <div class="card">
-      <h3>System Configuration</h3>
-      <div style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Key</th><th>Value</th></tr></thead>
-        <tbody>${entries.map(([k,v])=>`<tr><td class="mono">${k}</td><td>${JSON.stringify(v)}</td></tr>`).join('')}</tbody>
-      </table>
-      </div>
-    </div>`;
+    const cfg=data.config||{};
+    const gw=cfg.gateway||{};
+    const redis=cfg.redis||{};
+    const mm=cfg.matchmaker||{};
+    setVal('cfg-gw-host', gw.host||'');
+    setVal('cfg-gw-port', gw.port||8000);
+    setVal('cfg-cb-threshold', gw.circuit_breaker_threshold||5);
+    setVal('cfg-rl-requests', gw.rate_limit_requests||100);
+    setVal('cfg-rl-window', gw.rate_limit_window_seconds||60);
+    setVal('cfg-cooldown', gw.cooldown_seconds||3600);
+    setVal('cfg-req-timeout', gw.request_timeout_seconds||30);
+    setVal('cfg-idle-timeout', gw.idle_timeout_seconds||120);
+    setVal('cfg-tracing', String(gw.tracing_enabled!==false));
+    setVal('cfg-compression', String(gw.compression?.enabled!==false));
+    setVal('cfg-redis-host', redis.host||'localhost');
+    setVal('cfg-redis-port', redis.port||6379);
+    setVal('cfg-redis-db', redis.db||0);
+    setVal('cfg-redis-pool', redis.pool_size||10);
+    setVal('cfg-mm-host', mm.host||'localhost');
+    setVal('cfg-mm-port', mm.port||6379);
+    setVal('cfg-mm-pool', mm.pool_size||10);
+    setVal('cfg-mm-cooldown', mm.cooldown_ttl_minutes||15);
+    resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Config loaded. Edit values and click Save.</p></div>';
   }catch(e){toast('Failed to load config','error');resultsDiv.innerHTML='';}
+}
+
+function setVal(id,val){
+  const el=document.getElementById(id);
+  if(el)el.value=val;
+}
+
+function getVal(id){
+  const el=document.getElementById(id);
+  return el?el.value:'';
+}
+
+async function saveConfig(){
+  const updates={
+    gateway:{
+      host:getVal('cfg-gw-host'),
+      port:parseInt(getVal('cfg-gw-port'))||8000,
+      circuit_breaker_threshold:parseInt(getVal('cfg-cb-threshold'))||5,
+      rate_limit_requests:parseInt(getVal('cfg-rl-requests'))||100,
+      rate_limit_window_seconds:parseInt(getVal('cfg-rl-window'))||60,
+      cooldown_seconds:parseInt(getVal('cfg-cooldown'))||3600,
+      request_timeout_seconds:parseInt(getVal('cfg-req-timeout'))||30,
+      idle_timeout_seconds:parseInt(getVal('cfg-idle-timeout'))||120,
+      tracing_enabled:getVal('cfg-tracing')==='true',
+      compression:{enabled:getVal('cfg-compression')==='true', level:5}
+    },
+    redis:{
+      host:getVal('cfg-redis-host'),
+      port:parseInt(getVal('cfg-redis-port'))||6379,
+      db:parseInt(getVal('cfg-redis-db'))||0,
+      pool_size:parseInt(getVal('cfg-redis-pool'))||10
+    },
+    matchmaker:{
+      host:getVal('cfg-mm-host'),
+      port:parseInt(getVal('cfg-mm-port'))||6379,
+      pool_size:parseInt(getVal('cfg-mm-pool'))||10,
+      cooldown_ttl_minutes:parseInt(getVal('cfg-mm-cooldown'))||15
+    }
+  };
+  const resultsDiv=document.getElementById('config-results');
+  resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Saving...</p></div>';
+  try{
+    const r=await fetch(API+'/config',{method:'POST',headers:headers(),body:JSON.stringify(updates)});
+    const data=await r.json();
+    if(data.status==='success'){
+      toast('Config saved. Restart may be required for some changes.','success');
+      resultsDiv.innerHTML='<div class="card"><p style="color:var(--green)">Config saved successfully.</p></div>';
+    }else{
+      toast(data.error||'Failed to save config','error');
+      resultsDiv.innerHTML='<div class="card"><p style="color:var(--red)">'+data.error+'</p></div>';
+    }
+  }catch(e){toast('Failed to save config','error');resultsDiv.innerHTML='';}
 }
 
 async function loadNodes(){
@@ -1556,6 +1687,68 @@ const data=await r.json();
 if(data.status==='success'){toast('User deleted','success');loadUsers();}
 else toast(data.error||'Failed','error');
 }catch(e){toast('Request failed','error')}
+}
+
+async function createAPIKey(){
+  const name=document.getElementById('apikey-name').value.trim();
+  const scope=document.getElementById('apikey-scope').value;
+  const ttl=parseInt(document.getElementById('apikey-ttl').value)||0;
+  const resultsDiv=document.getElementById('apikey-results');
+  if(!name){toast('Enter a key name','error');return;}
+  resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Creating...</p></div>';
+  try{
+    const r=await fetch(API+'/apikeys',{method:'POST',headers:headers(),body:JSON.stringify({name,scope,ttl_days:ttl})});
+    const data=await r.json();
+    if(data.status!=='success'){toast(data.error||'Failed','error');resultsDiv.innerHTML='';return;}
+    resultsDiv.innerHTML=`
+    <div class="card">
+      <h3>Created API Key</h3>
+      <div class="form-row">
+        <input class="mono" value="${data.key}" readonly style="flex:1">
+        <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${data.key}');toast('Copied','success')">Copy</button>
+      </div>
+      <p style="color:var(--text-dim);font-size:0.9em">Scope: ${data.scope} | Expires: ${data.expires_at?new Date(data.expires_at*1000).toLocaleString():'Never'}</p>
+    </div>`;
+    loadAPIKeys();
+  }catch(e){toast('Failed to create key','error');resultsDiv.innerHTML='';}
+}
+
+async function loadAPIKeys(){
+  const resultsDiv=document.getElementById('apikey-results');
+  try{
+    const r=await fetch(API+'/apikeys',{headers:headers()});
+    const data=await r.json();
+    if(data.status!=='success'){resultsDiv.innerHTML='';return;}
+    const keys=data.keys||[];
+    if(!keys.length){resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">No API keys</p></div>';return;}
+    const rows=keys.map(k=>`<tr>
+      <td class="mono">${(k.name||'--').slice(0,32)}</td>
+      <td><span class="badge badge-blue">${k.scope||'read'}</span></td>
+      <td>${k.created_at?new Date(parseInt(k.created_at)*1000).toLocaleDateString():'--'}</td>
+      <td>${k.expires_at?new Date(parseInt(k.expires_at)*1000).toLocaleDateString():'Never'}</td>
+      <td><button class="btn btn-danger" onclick="revokeAPIKey('${k.hash}')">Revoke</button></td>
+    </tr>`).join('');
+    resultsDiv.innerHTML=`
+    <div class="card">
+      <h3>Active Keys</h3>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Name</th><th>Scope</th><th>Created</th><th>Expires</th><th>Action</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+    </div>`;
+  }catch(e){resultsDiv.innerHTML='';}
+}
+
+async function revokeAPIKey(hash){
+  if(!confirm('Revoke this API key?'))return;
+  try{
+    const r=await fetch(API+'/apikeys/'+encodeURIComponent(hash),{method:'DELETE',headers:headers()});
+    const data=await r.json();
+    if(data.status==='success'){toast('Key revoked','success');loadAPIKeys();}
+    else{toast(data.error||'Failed','error');}
+  }catch(e){toast('Failed to revoke','error');}
 }
 
 async function loadActivity(){

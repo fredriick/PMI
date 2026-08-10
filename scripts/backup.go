@@ -23,10 +23,10 @@ type BackupEntry struct {
 }
 
 type BackupMetadata struct {
-	Timestamp time.Time   `json:"timestamp"`
-	Keys      int         `json:"keys_count"`
-	Databases int         `json:"databases"`
-	Size      int64       `json:"size_bytes"`
+	Timestamp time.Time     `json:"timestamp"`
+	Keys      int           `json:"keys_count"`
+	Databases int           `json:"databases"`
+	Size      int64         `json:"size_bytes"`
 	Entries   []BackupEntry `json:"entries,omitempty"`
 }
 
@@ -252,7 +252,7 @@ func backupKey(ctx context.Context, rdb *redis.Client, key string) (BackupEntry,
 		zset := make([]map[string]interface{}, 0, len(val))
 		for _, z := range val {
 			zset = append(zset, map[string]interface{}{
-				"score": z.Score,
+				"score":  z.Score,
 				"member": z.Member,
 			})
 		}

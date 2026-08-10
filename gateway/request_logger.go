@@ -65,14 +65,14 @@ func (rl *HTTPRequestLogger) Middleware() gin.HandlerFunc {
 		logEntry := RequestLogEntry{
 			Timestamp:    start.Unix(),
 			Method:       c.Request.Method,
-			Path:        c.Request.URL.Path,
-			Status:      c.Writer.Status(),
-			Duration:    duration,
-			ClientIP:    c.ClientIP(),
-			UserAgent:   c.Request.UserAgent(),
-			RequestSize: c.Request.ContentLength,
+			Path:         c.Request.URL.Path,
+			Status:       c.Writer.Status(),
+			Duration:     duration,
+			ClientIP:     c.ClientIP(),
+			UserAgent:    c.Request.UserAgent(),
+			RequestSize:  c.Request.ContentLength,
 			ResponseSize: int64(blw.body.Len()),
-			Error:       c.Errors.ByType(gin.ErrorTypePrivate).String(),
+			Error:        c.Errors.ByType(gin.ErrorTypePrivate).String(),
 		}
 
 		go rl.storeLog(logEntry)

@@ -17,9 +17,9 @@ type Migration struct {
 }
 
 type MigrationRunner struct {
-	rdb         *redis.Client
-	migrations  []Migration
-	migKey      string
+	rdb        *redis.Client
+	migrations []Migration
+	migKey     string
 }
 
 func NewMigrationRunner(rdb *redis.Client, migrations []Migration) *MigrationRunner {

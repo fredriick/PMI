@@ -11,9 +11,18 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func TestBackupAndRestore(t *testing.T) {
+func redisClient(t *testing.T) *redis.Client {
+	t.Helper()
 	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		t.Skipf("Redis not available: %v", err)
+	}
 	_ = rdb.FlushDB(context.Background()).Err()
+	return rdb
+}
+
+func TestBackupAndRestore(t *testing.T) {
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	ctx := context.Background()
@@ -25,7 +34,7 @@ func TestBackupAndRestore(t *testing.T) {
 
 	backupDir, err := os.MkdirTemp("", "redis-backup-test")
 	if err != nil {
-		t.Fatalf(" MkdirTemp failed: %v", err)
+		t.Fatalf("MkdirTemp failed: %v", err)
 	}
 	defer os.RemoveAll(backupDir)
 
@@ -77,8 +86,7 @@ func TestBackupAndRestore(t *testing.T) {
 }
 
 func TestBackupJSONFormat(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
-	_ = rdb.FlushDB(context.Background()).Err()
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	ctx := context.Background()
@@ -127,8 +135,7 @@ func TestFormatSize(t *testing.T) {
 }
 
 func TestBackupSkipsMetaKeys(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
-	_ = rdb.FlushDB(context.Background()).Err()
+	rdb := redisClient(t)
 	defer rdb.Close()
 
 	ctx := context.Background()

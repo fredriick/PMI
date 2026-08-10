@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"proxymesh/gateway"
+	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/internal/subnet"
-	"proxymesh/internal/config"
 	"proxymesh/matchmaker"
 	"proxymesh/payout"
 )
@@ -33,11 +33,11 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 		admin.GET("/capacity", capacityReportHandler(mm))
 		admin.GET("/scaling", scalingRecommendationsHandler(mm))
 		admin.GET("/circuitbreakers", circuitBreakersHandler(mm))
-	admin.GET("/health", healthScoreHandler(mm))
-	admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
-	admin.POST("/benchmark", benchmarkNodeHandler(mm))
-	admin.GET("/referrals/:code", getReferralsHandler(mm))
-	admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
+		admin.GET("/health", healthScoreHandler(mm))
+		admin.GET("/health/:nodeID", nodeHealthScoreHandler(mm))
+		admin.POST("/benchmark", benchmarkNodeHandler(mm))
+		admin.GET("/referrals/:code", getReferralsHandler(mm))
+		admin.POST("/circuitbreakers/:nodeId/reset", resetCircuitBreakerHandler(mm))
 		admin.GET("/latency", latencyRankingHandler(mm))
 		if auditLog != nil {
 			admin.GET("/audit", listAuditEntriesHandler(auditLog))
@@ -684,16 +684,16 @@ func payoutHistoryHandler(ps *payout.PayoutService) gin.HandlerFunc {
 			p, _ := ps.CalculatePayout(nodeID, time.Now())
 			if p != nil {
 				c.JSON(http.StatusOK, gin.H{
-					"status": "success",
+					"status":  "success",
 					"node_id": nodeID,
-					"latest": p,
+					"latest":  p,
 				})
 				return
 			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
+			"status":  "success",
 			"message": "No payout history available",
 		})
 	}
@@ -809,8 +809,8 @@ func benchmarkNodeHandler(mm *matchmaker.Matchmaker) gin.HandlerFunc {
 				status = "error"
 			}
 			results = append(results, map[string]interface{}{
-				"iteration":   i + 1,
-				"status":      status,
+				"iteration":  i + 1,
+				"status":     status,
 				"latency_ms": latency,
 				"node_id":    req.NodeID,
 				"timestamp":  time.Now().Unix(),
@@ -942,6 +942,3 @@ func deleteWebhooksHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
 		})
 	}
 }
-
-
-

@@ -86,14 +86,14 @@ func NewTieredRateLimiter(limiter RateLimiter, tiers *RateLimitTiers) *TieredRat
 func (t *TieredRateLimiter) Allow(clientID, apiKey string) (bool, error) {
 	tierName := t.tiers.GetTierForKey(apiKey)
 	tier := t.tiers.GetTier(tierName)
-	
+
 	originalLimit := t.limiter.GetLimit()
 	t.limiter.SetLimit(tier.Requests)
-	
+
 	allowed, err := t.limiter.Allow(clientID)
-	
+
 	t.limiter.SetLimit(originalLimit)
-	
+
 	return allowed, err
 }
 

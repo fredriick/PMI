@@ -14,7 +14,7 @@ import (
 
 func TestBenchmarkNodeHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
 	r.POST("/api/admin/benchmark", benchmarkNodeHandler(nil))
 
@@ -46,7 +46,7 @@ func TestBenchmarkNodeHandler(t *testing.T) {
 
 func TestBenchmarkNodeHandler_MissingNodeID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
 	r.POST("/api/admin/benchmark", benchmarkNodeHandler(nil))
 
@@ -63,7 +63,7 @@ func TestBenchmarkNodeHandler_MissingNodeID(t *testing.T) {
 
 func TestBenchmarkNodeHandler_DefaultCount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
 	r.POST("/api/admin/benchmark", benchmarkNodeHandler(nil))
 
@@ -88,7 +88,7 @@ func TestBenchmarkNodeHandler_DefaultCount(t *testing.T) {
 
 func TestReferralsHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
 	r.GET("/api/admin/referrals/:code", getReferralsHandler(nil))
 
@@ -112,7 +112,7 @@ func TestReferralsHandler(t *testing.T) {
 
 func TestReferralsHandler_MissingCode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
 	r.GET("/api/admin/referrals/:code", getReferralsHandler(nil))
 
@@ -213,9 +213,9 @@ func TestConfigRequestLoggingEnabled(t *testing.T) {
 
 func TestRequestLoggerMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
-	
+
 	logger := gateway.NewRequestLogger(nil, true)
 	r.Use(logger.Middleware())
 	r.GET("/test", func(c *gin.Context) {
@@ -233,9 +233,9 @@ func TestRequestLoggerMiddleware(t *testing.T) {
 
 func TestRequestLoggerDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	r := gin.New()
-	
+
 	logger := gateway.NewRequestLogger(nil, false)
 	r.Use(logger.Middleware())
 	r.GET("/test", func(c *gin.Context) {

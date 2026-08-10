@@ -88,11 +88,11 @@ func (c *PeerClient) Heartbeat(battery int, cpuUsage float64, isCharging bool, b
 	}
 
 	_, err := c.client.Heartbeat(c.ctx, &pbgrpc.HeartbeatRequest{
-		NodeId:          c.config.NodeID,
-		Battery:         int32(battery),
-		CpuUsage:        float32(cpuUsage),
-		IsCharging:      isCharging,
-		BandwidthSent:    bytesSent,
+		NodeId:            c.config.NodeID,
+		Battery:           int32(battery),
+		CpuUsage:          float32(cpuUsage),
+		IsCharging:        isCharging,
+		BandwidthSent:     bytesSent,
 		BandwidthReceived: bytesReceived,
 	})
 	if err != nil {
@@ -131,8 +131,8 @@ func (c *PeerClient) Disconnect(reason string) error {
 	c.stopped = true
 
 	_, err := c.client.Disconnect(c.ctx, &pbgrpc.DisconnectRequest{
-		NodeId:  c.config.NodeID,
-		Reason:  reason,
+		NodeId: c.config.NodeID,
+		Reason: reason,
 	})
 	if err != nil {
 		log.Printf("gRPC disconnect error: %v", err)
@@ -178,14 +178,14 @@ func (c *PeerClient) StartTelemetryStream(telemetryCh <-chan TelemetryUpdate) {
 
 		for update := range telemetryCh {
 			if err := stream.Send(&pbgrpc.TelemetryStreamRequest{
-				NodeId:          c.config.NodeID,
-				BatteryLevel:    int32(update.Battery),
-				CpuUsage:        float32(update.CPUUsage),
-				BandwidthSent:    update.BytesSent,
+				NodeId:            c.config.NodeID,
+				BatteryLevel:      int32(update.Battery),
+				CpuUsage:          float32(update.CPUUsage),
+				BandwidthSent:     update.BytesSent,
 				BandwidthReceived: update.BytesReceived,
-				IsCharging:      update.IsCharging,
-				IpAddress:       update.IP,
-				Timestamp:       time.Now().Unix(),
+				IsCharging:        update.IsCharging,
+				IpAddress:         update.IP,
+				Timestamp:         time.Now().Unix(),
 			}); err != nil {
 				log.Printf("Failed to send telemetry update: %v", err)
 				return

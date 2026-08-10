@@ -12,7 +12,6 @@ import (
 	"proxymesh/internal/config"
 	"proxymesh/internal/models"
 	"proxymesh/matchmaker"
-	
 )
 
 type PeerServer struct {
@@ -45,8 +44,8 @@ func (s *PeerServer) Connect(ctx context.Context, req *ConnectRequest) (*Connect
 		return &ConnectResponse{Success: false, Message: "node_id is required"}, nil
 	}
 
-// Eligibility validation (battery, CPU, WiFi) is performed via Heartbeat after connection.
-// For now, assume eligible if node_id is present (validated above).
+	// Eligibility validation (battery, CPU, WiFi) is performed via Heartbeat after connection.
+	// For now, assume eligible if node_id is present (validated above).
 
 	registrationReq := &models.NodeRegistrationRequest{
 		NodeID:     req.NodeId,
@@ -168,8 +167,8 @@ func (s *PeerServer) StreamTelemetry(stream PeerService_StreamTelemetryServer) e
 
 	// Send initial acknowledgment
 	if err := stream.Send(&TelemetryStreamResponse{
-		ServerTimestamp: time.Now().Format(time.RFC3339),
-		StatusMessage:   "Telemetry stream started",
+		ServerTimestamp:   time.Now().Format(time.RFC3339),
+		StatusMessage:     "Telemetry stream started",
 		ConnectionQuality: 100,
 	}); err != nil {
 		return err
@@ -189,8 +188,8 @@ func (s *PeerServer) StreamTelemetry(stream PeerService_StreamTelemetryServer) e
 			connectionQuality := 85 + (time.Now().Unix() % 15) // Vary between 85-100
 
 			if err := stream.Send(&TelemetryStreamResponse{
-				ServerTimestamp: time.Now().Format(time.RFC3339),
-				StatusMessage:   fmt.Sprintf("Telemetry update for %s", nodeID),
+				ServerTimestamp:   time.Now().Format(time.RFC3339),
+				StatusMessage:     fmt.Sprintf("Telemetry update for %s", nodeID),
 				ConnectionQuality: int32(connectionQuality),
 			}); err != nil {
 				log.Printf("Failed to send telemetry to %s: %v", nodeID, err)
