@@ -1,0 +1,17 @@
+# Development stage - hot reload
+FROM golang:1.25-alpine AS dev
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -o /proxy-mesh .
+
+EXPOSE 8000 9000
+
+CMD ["go", "run", "main.go"]

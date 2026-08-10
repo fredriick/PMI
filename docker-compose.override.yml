@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+    environment:
+      - GO_ENV=development
+      - REDIS_PASSWORD=
+      - MTLS_ENABLED=false
+    command: go run main.go
+
+volumes:
+  go-modules:

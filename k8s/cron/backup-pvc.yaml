@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: proxymesh-redis-backups
+  namespace: proxymesh
+  labels:
+    app.kubernetes.io/name: proxymesh
+    app.kubernetes.io/part-of: proxymesh
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

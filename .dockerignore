@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docs
+docs/
+
+# Tests
+*_test.go
+*.test
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+dist/
+
+# Temporary files
+tmp/
+temp/
+*.log
+
+# Mobile app
+mobile-app/
+
+# Monitoring configs (not needed in container)
+monitoring/
+k8s/
+helm/

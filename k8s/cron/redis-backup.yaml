@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: proxymesh-redis-backup
+  namespace: proxymesh
+  labels:
+    app.kubernetes.io/name: proxymesh
+    app.kubernetes.io/part-of: proxymesh
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: redis:7-alpine
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: proxymesh-secrets
+                      key: redis-password
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  BACKUP_DIR=/backups/redis
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  FILENAME="redis_backup_${TIMESTAMP}.rdb"
+                  
+                  mkdir -p ${BACKUP_DIR}
+                  
+                  redis-cli -a "$REDIS_PASSWORD" BGSAVE
+                  sleep 2
+                  
+                  if [ -f /data/dump.rdb ]; then
+                    cp /data/dump.rdb ${BACKUP_DIR}/${FILENAME}
+                    gzip ${BACKUP_DIR}/${FILENAME}
+                    echo "Backup created: ${FILENAME}.gz"
+                    
+                    ls -1t ${BACKUP_DIR}/redis_backup_*.rdb.gz | tail -n +31 | xargs -r rm -
+                    echo "Backup rotation complete"
+                  else
+                    echo "ERROR: dump.rdb not found"
+                    exit 1
+                  fi
+              volumeMounts:
+                - name: redis-data
+                  mountPath: /data
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: redis-data
+              persistentVolumeClaim:
+                claimName: proxymesh-redis-data
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: proxymesh-redis-backups

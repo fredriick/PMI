@@ -1,80 +1,49 @@
-.PHONY: help build test test-cli run clean
+.PHONY: help backup restore list-backups test lint build docker-build docker-run clean
 
-PROJECT_NAME := proxymesh
-BUILD_DIR := bin
-GO := go
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-help: ## Show help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+backup: ## Backup Redis data
+	@echo "Running Redis backup..."
+	@bash scripts/redis-backup.sh
 
-build: build-gateway build-cli build-loadtest ## Build all binaries
+restore: ## Restore Redis from latest backup
+	@echo "Finding latest backup..."
+	@LATEST=$$(ls -1t backups/redis_backup_*.rdb.gz 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then echo "No backups found"; exit 1; fi; \
+	echo "Restoring from $$LATEST..."; \
+	RESTORE_FILE=$$(basename "$$LATEST") bash scripts/redis-restore.sh
 
-build-gateway: ## Build the gateway binary
-	@mkdir -p $(BUILD_DIR)
-	$(GO) build -o $(BUILD_DIR)/gateway ./cmd/gateway
+restore-file: ## Restore specific backup (FILE=filename)
+	@if [ -z "$(FILE)" ]; then echo "Usage: make restore-file FILE=redis_backup_20240101_120000.rdb.gz"; exit 1; fi; \
+	RESTORE_FILE=$(FILE) bash scripts/redis-restore.sh
 
-build-cli: ## Build the CLI binary
-	@mkdir -p $(BUILD_DIR)
-	$(GO) build -o $(BUILD_DIR)/proxymesh-cli ./cmd/cli
-
-build-loadtest: ## Build the load testing binary
-	@mkdir -p $(BUILD_DIR)
-	$(GO) build -o $(BUILD_DIR)/loadtest ./cmd/loadtest
+list-backups: ## List available backups
+	@ls -lah backups/ 2>/dev/null || echo "No backups directory found"
 
 test: ## Run all tests
-	$(GO) test ./... -count=1
+	go test ./...
 
-test-gateway: ## Run gateway tests
-	$(GO) test ./gateway/... -v -count=1
+test-verbose: ## Run tests with verbose output
+	go test -v ./...
 
-test-matchmaker: ## Run matchmaker tests
-	$(GO) test ./matchmaker/... -v -count=1
+lint: ## Run linter
+	go vet ./...
+	gofmt -d .
 
-test-integration: ## Run integration tests (requires Redis)
-	$(GO) test ./gateway/... -v -count=1 -run Integration
+build: ## Build binary
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/proxy-mesh .
 
-test-coverage: ## Generate coverage report
-	$(GO) test ./... -coverprofile=coverage.out
-	$(GO) tool cover -html=coverage.out
+docker-build: ## Build Docker image
+	docker build -t proxymesh:latest .
 
-benchmark: ## Run benchmarks
-	$(GO) test ./... -bench=. -benchmem -run=^$ -benchtime=10s
+docker-run: ## Run with Docker Compose
+	docker compose up -d redis gateway
 
-run: build-gateway ## Run the gateway
-	$(BUILD_DIR)/gateway
-
-run-cli: build-cli ## Run the CLI tool
-	$(BUILD_DIR)/proxymesh-cli --help
-
-run-loadtest: build-loadtest ## Run load test (requires gateway running)
-	$(BUILD_DIR)/loadtest -c 50 -d 30s
-
-lint: ## Run linters
-	golangci-lint run ./...
-
-fmt: ## Format Go code
-	$(GO) fmt ./...
-
-vet: ## Run go vet
-	$(GO) vet ./...
-
-deps: ## Download dependencies
-	$(GO) mod download
-	$(GO) mod tidy
-
-proto: ## Generate protobuf code (requires protoc)
-	protoc --go_out=. --go_opt=module=proxymesh --go-grpc_out=. --go-grpc_opt=module=proxymesh internal/grpc/peer.proto
+docker-run-monitoring: ## Run with monitoring stack
+	docker compose --profile monitoring up -d
 
 clean: ## Clean build artifacts
-	rm -rf $(BUILD_DIR)
-	rm -f coverage.out coverage.html
-	$(GO) clean
-
-demo: ## Quick demo setup (requires Redis)
-	docker-compose up -d
-
-bench: build-loadtest ## Run loadtest benchmark
-	$(BUILD_DIR)/loadtest -c 20 -d 10s
-
-watch: build-loadtest ## Run loadtest with 200 workers for 60s
-	$(BUILD_DIR)/loadtest -c 200 -d 60s
+	rm -rf bin/
+	rm -f *.test
+	rm -f **/*.test

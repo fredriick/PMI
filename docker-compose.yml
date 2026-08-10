@@ -7,43 +7,38 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
 
   gateway:
     build:
       context: .
-      dockerfile: Dockerfile.gateway
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
+      - "9000:9000"
     depends_on:
       - redis
     environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - MTLS_ENABLED=false
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - ./config.yaml:/app/config.yaml
-
-  matchmaker:
-    build:
-      context: .
-      dockerfile: Dockerfile.matchmaker
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    volumes:
-      - ./config.yaml:/app/config.yaml
+      - ./config.yaml:/app/config.yaml:ro
 
   prometheus:
     image: prom/prometheus:latest
     ports:
       - "9090:9090"
     volumes:
-      - ./grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     depends_on:
       - gateway
+    profiles:
+      - monitoring
 
   grafana:
     image: grafana/grafana:latest
@@ -53,11 +48,13 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    profiles:
+      - monitoring
 
 volumes:
   redis_data:
