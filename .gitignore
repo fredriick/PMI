@@ -7,7 +7,7 @@
 loadtest
 
 # Redis runtime files
-redis/
+/redis/
 redis.zip
 dump.rdb
 
