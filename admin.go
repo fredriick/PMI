@@ -500,23 +500,28 @@ func createAPIKeyHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
 		var req struct {
 			Name    string `json:"name" binding:"required"`
 			TTLDays int    `json:"ttl_days"`
+			Scope   string `json:"scope"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if req.Scope == "" {
+			req.Scope = "read"
+		}
 
-		key, err := svc.CreateKey(req.Name, req.TTLDays)
+		key, err := svc.CreateKey(req.Name, req.TTLDays, req.Scope)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"status": "success",
-			"key":    key.Key,
-			"name":   key.Name,
-			"note":   "Store this key securely. It cannot be retrieved again.",
+			"status":     "success",
+			"key":        key.Key,
+			"name":       key.Name,
+			"scope":      key.Scope,
+			"expires_at": key.ExpiresAt,
 		})
 	}
 }
@@ -937,4 +942,6 @@ func deleteWebhooksHandler(nw *gateway.NodeWebhook) gin.HandlerFunc {
 		})
 	}
 }
+
+
 

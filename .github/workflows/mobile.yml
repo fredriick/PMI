@@ -1,0 +1,90 @@
+name: Mobile App CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/mobile.yml'
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npx expo lint --quiet
+        continue-on-error: true
+
+  eas-build:
+    name: EAS Build (${{ matrix.platform }})
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        platform: [ios, android]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile-app/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd mobile-app
+          npm ci
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build on EAS
+        run: |
+          cd mobile-app
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            eas build --platform ios --profile preview --non-interactive
+          else
+            eas build --platform android --profile preview --non-interactive
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-build-${{ matrix.platform }}
+          path: |
+            mobile-app/**/build-*.apk
+            mobile-app/**/*.aab
+          retention-days: 14

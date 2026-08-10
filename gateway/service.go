@@ -197,15 +197,36 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 			if key == "" {
 				key = authHeader
 			}
-			valid, err := g.apiKeyService.ValidateKey(key)
-			if err != nil || !valid {
+			scope, err := g.apiKeyService.ValidateKey(key)
+			if err != nil || scope == "" {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"error": "Invalid API key",
 				})
 				return
 			}
+			c.Set("api_key_scope", scope)
 		}
 
+		c.Next()
+	}
+}
+
+func (g *Gateway) requireScope(requiredScope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if g.apiKeyService == nil {
+			c.Next()
+			return
+		}
+		key, _ := c.Get("api_key")
+		rawKey, ok := key.(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing API key"})
+			return
+		}
+		if !g.apiKeyService.HasScope(rawKey, requiredScope) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient scope"})
+			return
+		}
 		c.Next()
 	}
 }

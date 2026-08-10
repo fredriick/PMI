@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -16,13 +17,6 @@ type APIKeyService struct {
 	ctx    context.Context
 }
 
-type APIKey struct {
-	Key       string    `json:"key"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
-}
-
 func NewAPIKeyService(client *redis.Client) *APIKeyService {
 	return &APIKeyService{
 		client: client,
@@ -30,19 +24,50 @@ func NewAPIKeyService(client *redis.Client) *APIKeyService {
 	}
 }
 
-func (s *APIKeyService) CreateKey(name string, ttlDays int) (*APIKey, error) {
+type APIKey struct {
+	Key       string    `json:"key"`
+	Name      string    `json:"name"`
+	Scope     string    `json:"scope"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	LastUsed  time.Time `json:"last_used,omitempty"`
+}
+
+type APIKeyScope string
+
+const (
+	ScopeRead      APIKeyScope = "read"
+	ScopeWrite     APIKeyScope = "write"
+	ScopeAdmin     APIKeyScope = "admin"
+	ScopeAll       APIKeyScope = "*"
+)
+
+var validScopes = map[APIKeyScope]bool{
+	ScopeRead:  true,
+	ScopeWrite: true,
+	ScopeAdmin: true,
+	ScopeAll:   true,
+}
+
+func (s *APIKeyService) CreateKey(name string, ttlDays int, scope string) (*APIKey, error) {
+	if !validScopes[APIKeyScope(scope)] {
+		scope = string(ScopeRead)
+	}
+
 	rawKey := generateKey(32)
 	hash := hashKey(rawKey)
 
 	key := &APIKey{
 		Key:       rawKey,
 		Name:      name,
+		Scope:     scope,
 		CreatedAt: time.Now(),
 	}
 
 	redisKey := fmt.Sprintf("apikey:%s", hash)
 	data := map[string]interface{}{
 		"name":       name,
+		"scope":      scope,
 		"created_at": key.CreatedAt.Unix(),
 	}
 
@@ -63,17 +88,17 @@ func (s *APIKeyService) CreateKey(name string, ttlDays int) (*APIKey, error) {
 	return key, nil
 }
 
-func (s *APIKeyService) ValidateKey(rawKey string) (bool, error) {
+func (s *APIKeyService) ValidateKey(rawKey string) (string, error) {
 	hash := hashKey(rawKey)
 	redisKey := fmt.Sprintf("apikey:%s", hash)
 
 	data, err := s.client.HGetAll(s.ctx, redisKey).Result()
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
 	if len(data) == 0 {
-		return false, nil
+		return "", nil
 	}
 
 	if expiresStr, ok := data["expires_at"]; ok {
@@ -81,15 +106,24 @@ func (s *APIKeyService) ValidateKey(rawKey string) (bool, error) {
 		fmt.Sscanf(expiresStr, "%d", &expiresAt)
 		if time.Now().Unix() > expiresAt {
 			s.client.Del(s.ctx, redisKey)
-			return false, nil
+			return "", nil
 		}
 	}
 
-	return true, nil
+	s.client.HSet(s.ctx, redisKey+":meta", map[string]interface{}{
+		"last_used": time.Now().Unix(),
+	})
+
+	return data["scope"], nil
 }
 
 func (s *APIKeyService) RevokeKey(rawKey string) error {
 	hash := hashKey(rawKey)
+	redisKey := fmt.Sprintf("apikey:%s", hash)
+	return s.client.Del(s.ctx, redisKey).Err()
+}
+
+func (s *APIKeyService) RevokeKeyByHash(hash string) error {
 	redisKey := fmt.Sprintf("apikey:%s", hash)
 	return s.client.Del(s.ctx, redisKey).Err()
 }
@@ -102,6 +136,9 @@ func (s *APIKeyService) ListKeys() ([]map[string]string, error) {
 
 	var result []map[string]string
 	for _, redisKey := range keys {
+		if strings.HasSuffix(redisKey, ":meta") {
+			continue
+		}
 		data, err := s.client.HGetAll(s.ctx, redisKey).Result()
 		if err != nil {
 			continue
@@ -111,6 +148,19 @@ func (s *APIKeyService) ListKeys() ([]map[string]string, error) {
 	}
 
 	return result, nil
+}
+
+func (s *APIKeyService) HasScope(rawKey string, requiredScope string) bool {
+	scope, err := s.ValidateKey(rawKey)
+	if err != nil || scope == "" {
+		return false
+	}
+
+	if scope == "*" {
+		return true
+	}
+
+	return scope == requiredScope
 }
 
 // SetKeyRateLimit sets a per-key rate limit (requests per window).

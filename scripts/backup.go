@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"compress/gzip"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
