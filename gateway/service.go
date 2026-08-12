@@ -42,6 +42,7 @@ type Gateway struct {
 	rateLimitTiers          *RateLimitTiers
 	requestLogger           *HTTPRequestLogger
 	scalingPolicyManager    *ScalingPolicyManager
+	redis                   *redis.Client
 	mu                      sync.RWMutex
 }
 
@@ -112,11 +113,13 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		wsHub:                   NewHub(),
 		requestID:               requestID,
 		circuitBreakerThreshold: cfg.Gateway.CircuitBreakerThreshold,
+		nodeWebhook:             NewNodeWebhook(3),
 		nodeFailures:            make(map[string]int),
 		nodeConnections:         make(map[string]int64),
 		rateLimitTiers:          rateLimitTiers,
 		requestLogger:           requestLogger,
 		scalingPolicyManager:    scalingPolicyManager,
+		redis:                   redisClient,
 	}
 
 	gw.setupRoutes()
@@ -145,6 +148,8 @@ func (g *Gateway) setupRoutes() {
 	g.router.GET("/v1/dashboard", g.serveDashboard)
 	g.router.GET("/api/admin/config", g.getConfigHandler)
 	g.router.POST("/api/admin/config", g.updateConfigHandler)
+	g.router.GET("/api/admin/theme", g.getThemeHandler)
+	g.router.POST("/api/admin/theme", g.setThemeHandler)
 
 	g.webUI.RegisterRoutes(g.router)
 
@@ -558,4 +563,49 @@ func (g *Gateway) updateConfigHandler(c *gin.Context) {
 		"message": "Config updated. Restart required for some changes.",
 		"updates": updates,
 	})
+}
+
+func (g *Gateway) getThemeHandler(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	theme := "dark"
+	if g.redis != nil {
+		val, err := g.redis.Get(c, fmt.Sprintf("user:theme:%s", userID)).Result()
+		if err == nil && (val == "dark" || val == "light") {
+			theme = val
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"theme": theme})
+}
+
+func (g *Gateway) setThemeHandler(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		Theme string `json:"theme" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Theme != "dark" && req.Theme != "light" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid theme"})
+		return
+	}
+
+	if g.redis != nil {
+		g.redis.Set(c, fmt.Sprintf("user:theme:%s", userID), req.Theme, 0)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "theme": req.Theme})
 }

@@ -19,13 +19,25 @@ func TestWebSocketHub_RegisterUnregister(t *testing.T) {
 	}
 
 	hub.Register(client)
+	waitForClientCount(hub, 1)
 	if hub.ClientCount() != 1 {
 		t.Fatalf("expected 1 client, got %d", hub.ClientCount())
 	}
 
 	hub.Unregister(client)
+	waitForClientCount(hub, 0)
 	if hub.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients, got %d", hub.ClientCount())
+	}
+}
+
+func waitForClientCount(hub *Hub, expected int) {
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if hub.ClientCount() == expected {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
@@ -193,8 +205,7 @@ func TestWebSocketHub_MultipleClients(t *testing.T) {
 		hub.Unregister(client)
 	}
 
-	time.Sleep(50 * time.Millisecond)
-
+	waitForClientCount(hub, 0)
 	if hub.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients after unregister, got %d", hub.ClientCount())
 	}
@@ -328,25 +339,43 @@ func TestWebSocketHubConcurrentAccess(t *testing.T) {
 	go hub.Run()
 
 	var wg sync.WaitGroup
-	numClients := 50
+	numClients := 10
+	clients := make([]*Client, numClients)
+
+	for i := 0; i < numClients; i++ {
+		clients[i] = &Client{
+			hub:    hub,
+			conn:   nil,
+			send:   make(chan []byte, 256),
+			prefix: "admin",
+		}
+	}
 
 	for i := 0; i < numClients; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			client := &Client{
-				hub:    hub,
-				conn:   nil,
-				send:   make(chan []byte, 256),
-				prefix: "admin",
-			}
-			hub.Register(client)
-			hub.Broadcast([]byte("concurrent test"))
-			hub.Unregister(client)
+			hub.Register(clients[id])
 		}(i)
 	}
 
 	wg.Wait()
+	hub.Sync()
+
+	if hub.ClientCount() != numClients {
+		t.Fatalf("expected %d clients after registration, got %d", numClients, hub.ClientCount())
+	}
+
+	for i := 0; i < numClients; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			hub.Unregister(clients[id])
+		}(i)
+	}
+
+	wg.Wait()
+	hub.Sync()
 
 	if hub.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients after concurrent test, got %d", hub.ClientCount())

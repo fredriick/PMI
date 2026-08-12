@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  redis-master:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_master_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-} --port 6379
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+  redis-replica1:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_replica1_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-} --port 6379 --replicaof redis-master 6379
+    depends_on:
+      - redis-master
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+  redis-replica2:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_replica2_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-} --port 6379 --replicaof redis-master 6379
+    depends_on:
+      - redis-master
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+  redis-sentinel1:
+    image: redis:7-alpine
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./redis-sentinel.conf:/etc/redis/sentinel.conf
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      - redis-master
+      - redis-replica1
+      - redis-replica2
+
+  redis-sentinel2:
+    image: redis:7-alpine
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./redis-sentinel.conf:/etc/redis/sentinel.conf
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      - redis-master
+      - redis-replica1
+      - redis-replica2
+
+  redis-sentinel3:
+    image: redis:7-alpine
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./redis-sentinel.conf:/etc/redis/sentinel.conf
+    command: redis-sentinel /etc/redis/sentinel.conf
+    depends_on:
+      - redis-master
+      - redis-replica1
+      - redis-replica2
+
+volumes:
+  redis_master_data:
+  redis_replica1_data:
+  redis_replica2_data:

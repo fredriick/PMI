@@ -20,7 +20,15 @@ type RedisClient struct {
 func NewRedisClient(cfg *config.RedisConfig) (*RedisClient, error) {
 	var client *redis.Client
 
-	if cfg.ClusterEnabled && len(cfg.ClusterAddrs) > 0 {
+	if cfg.SentinelEnabled && len(cfg.SentinelAddrs) > 0 && cfg.SentinelMaster != "" {
+		sentinelClient := redis.NewFailoverClient(&redis.FailoverOptions{
+			MasterName:    cfg.SentinelMaster,
+			SentinelAddrs: cfg.SentinelAddrs,
+			Password:      cfg.Password,
+			DB:            cfg.DB,
+		})
+		client = sentinelClient
+	} else if cfg.ClusterEnabled && len(cfg.ClusterAddrs) > 0 {
 		clusterClient := redis.NewClusterClient(&redis.ClusterOptions{
 			Addrs:    cfg.ClusterAddrs,
 			Password: cfg.Password,

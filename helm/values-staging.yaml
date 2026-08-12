@@ -1,0 +1,150 @@
+global:
+  imageRegistry: ghcr.io
+  imageRepository: fredriick/proxymesh
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  namespace: proxymesh-staging
+
+redis:
+  image: redis:7-alpine
+  password: ""
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+gateway:
+  replicas: 2
+  image: proxymesh
+  port: 8000
+  grpcPort: 9000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+config:
+  gateway:
+    host: "0.0.0.0"
+    port: 8000
+    mtlsEnabled: true
+    caCertPath: "/etc/proxymesh/tls/ca.crt"
+    serverCertPath: "/etc/proxymesh/tls/tls.crt"
+    serverKeyPath: "/etc/proxymesh/tls/tls.key"
+    circuitBreakerThreshold: 10
+    rateLimitRequests: 200
+    rateLimitWindowSeconds: 60
+    rateLimitDistributed: true
+    tracingEnabled: true
+    cooldownSeconds: 1800
+    requestTimeoutSeconds: 30
+    idleTimeoutSeconds: 120
+    readHeaderTimeoutSeconds: 10
+    requestIdPrefix: "req-staging"
+    requestIdFormat: "unix"
+    compression:
+      enabled: true
+      level: 5
+    requestLoggingEnabled: true
+
+  matchmaker:
+    host: "localhost"
+    port: 6379
+    poolSize: 20
+    cooldownTtlMinutes: 15
+
+  redis:
+    host: "proxymesh-redis"
+    port: 6379
+    password: ""
+    db: 0
+    clusterEnabled: false
+    clusterAddrs: []
+    sentinelEnabled: false
+    sentinelAddrs: []
+    sentinelMaster: ""
+    poolSize: 20
+    maxRetries: 3
+
+  compliance:
+    blockedDomains:
+      - "*.gov"
+      - "*.mil"
+    kycRequired: true
+
+  peer:
+    minBatteryPercent: 20
+    maxCpuPercent: 80
+    requireUnmeteredWifi: true
+
+  subnet:
+    enabled: true
+    prefix: "2001:db8::"
+    prefixLen: 48
+
+  pricing:
+    tiers:
+      - name: Basic
+        minGbMonthly: 0
+        maxGbMonthly: 10
+        ratePerGbSent: 0.30
+        ratePerGbRecv: 0.15
+      - name: Premium
+        minGbMonthly: 10
+        maxGbMonthly: 100
+        ratePerGbSent: 0.50
+        ratePerGbRecv: 0.30
+      - name: Enterprise
+        minGbMonthly: 100
+        maxGbMonthly: 10000
+        ratePerGbSent: 0.80
+        ratePerGbRecv: 0.50
+
+  federation:
+    enabled: false
+    regions:
+      - us-east
+      - us-west
+    heartbeatIntervalSeconds: 30
+    syncIntervalSeconds: 60
+
+  jwt:
+    enabled: true
+    secretKey: ""
+    expiration: 24h
+
+  rbac:
+    enabled: true
+    defaultRole: viewer
+    minPasswordLen: 8
+    maxLoginAttempts: 5
+    lockoutDurationMinutes: 15
+
+  prometheus:
+    enabled: true
+    pushGatewayUrl: "http://proxymesh-prometheus:9091"
+    pushIntervalSeconds: 30
+    jobName: "proxymesh_gateway_staging"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: staging.proxymesh.io
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
