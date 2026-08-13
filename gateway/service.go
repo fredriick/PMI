@@ -32,6 +32,8 @@ type Gateway struct {
 	prometheusPusher        *PrometheusPusher
 	auditLogger             *AuditLogger
 	config                  *config.GatewayConfig
+	redisConfig             *config.RedisConfig
+	matchmakerConfig        *config.MatchmakerConfig
 	connPool                *ConnPool
 	wsHub                   *Hub
 	requestID               *RequestIDGenerator
@@ -109,6 +111,8 @@ func NewGateway(cfg *config.Config, mm *matchmaker.Matchmaker, comp *ComplianceS
 		prometheusPusher:        nil,
 		auditLogger:             nil,
 		config:                  &cfg.Gateway,
+		redisConfig:             &cfg.Redis,
+		matchmakerConfig:        &cfg.Matchmaker,
 		connPool:                connPool,
 		wsHub:                   NewHub(),
 		requestID:               requestID,
@@ -558,10 +562,172 @@ func (g *Gateway) updateConfigHandler(c *gin.Context) {
 		return
 	}
 
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var applied []string
+	var needsRestart []string
+
+	if gw, ok := updates["gateway"].(map[string]interface{}); ok {
+		if host, ok := gw["host"].(string); ok {
+			g.config.Host = host
+			needsRestart = append(needsRestart, "host")
+		}
+		if port, ok := gw["port"].(float64); ok {
+			g.config.Port = int(port)
+			needsRestart = append(needsRestart, "port")
+		}
+		if v, ok := gw["circuit_breaker_threshold"].(float64); ok {
+			g.config.CircuitBreakerThreshold = int(v)
+			g.circuitBreakerThreshold = int(v)
+			applied = append(applied, "circuit_breaker_threshold")
+		}
+		if v, ok := gw["rate_limit_requests"].(float64); ok {
+			g.config.RateLimitRequests = int(v)
+			applied = append(applied, "rate_limit_requests")
+		}
+		if v, ok := gw["rate_limit_window_seconds"].(float64); ok {
+			g.config.RateLimitWindowSeconds = int(v)
+			applied = append(applied, "rate_limit_window_seconds")
+		}
+		if v, ok := gw["rate_limit_distributed"].(bool); ok {
+			g.config.RateLimitDistributed = v
+			applied = append(applied, "rate_limit_distributed")
+		}
+		if v, ok := gw["cooldown_seconds"].(float64); ok {
+			g.config.CooldownSeconds = int(v)
+			applied = append(applied, "cooldown_seconds")
+		}
+		if v, ok := gw["request_timeout_seconds"].(float64); ok {
+			g.config.RequestTimeoutSeconds = int(v)
+			needsRestart = append(needsRestart, "request_timeout_seconds")
+		}
+		if v, ok := gw["idle_timeout_seconds"].(float64); ok {
+			g.config.IdleTimeoutSeconds = int(v)
+			needsRestart = append(needsRestart, "idle_timeout_seconds")
+		}
+		if v, ok := gw["read_header_timeout_seconds"].(float64); ok {
+			g.config.ReadHeaderTimeoutSeconds = int(v)
+			needsRestart = append(needsRestart, "read_header_timeout_seconds")
+		}
+		if v, ok := gw["request_id_prefix"].(string); ok {
+			g.config.RequestIDPrefix = v
+			applied = append(applied, "request_id_prefix")
+		}
+		if v, ok := gw["request_id_format"].(string); ok {
+			g.config.RequestIDFormat = v
+			applied = append(applied, "request_id_format")
+		}
+		if v, ok := gw["tracing_enabled"].(bool); ok {
+			g.config.TracingEnabled = v
+			applied = append(applied, "tracing_enabled")
+		}
+		if comp, ok := gw["compression"].(map[string]interface{}); ok {
+			if v, ok := comp["enabled"].(bool); ok {
+				g.config.Compression.Enabled = v
+				applied = append(applied, "compression.enabled")
+			}
+			if v, ok := comp["level"].(float64); ok {
+				g.config.Compression.Level = int(v)
+				applied = append(applied, "compression.level")
+			}
+		}
+		if v, ok := gw["request_logging_enabled"].(bool); ok {
+			g.config.RequestLoggingEnabled = v
+			applied = append(applied, "request_logging_enabled")
+		}
+		if v, ok := gw["mtls_enabled"].(bool); ok {
+			g.config.MTLSEnabled = v
+			needsRestart = append(needsRestart, "mtls_enabled")
+		}
+		if v, ok := gw["ca_cert_path"].(string); ok {
+			g.config.CACertPath = v
+			needsRestart = append(needsRestart, "ca_cert_path")
+		}
+		if v, ok := gw["server_cert_path"].(string); ok {
+			g.config.ServerCertPath = v
+			needsRestart = append(needsRestart, "server_cert_path")
+		}
+		if v, ok := gw["server_key_path"].(string); ok {
+			g.config.ServerKeyPath = v
+			needsRestart = append(needsRestart, "server_key_path")
+		}
+	}
+
+	if r, ok := updates["redis"].(map[string]interface{}); ok {
+		if v, ok := r["host"].(string); ok {
+			g.redisConfig.Host = v
+			needsRestart = append(needsRestart, "redis.host")
+		}
+		if v, ok := r["port"].(float64); ok {
+			g.redisConfig.Port = int(v)
+			needsRestart = append(needsRestart, "redis.port")
+		}
+		if v, ok := r["password"].(string); ok {
+			g.redisConfig.Password = v
+			needsRestart = append(needsRestart, "redis.password")
+		}
+		if v, ok := r["db"].(float64); ok {
+			g.redisConfig.DB = int(v)
+			needsRestart = append(needsRestart, "redis.db")
+		}
+		if v, ok := r["pool_size"].(float64); ok {
+			g.redisConfig.PoolSize = int(v)
+			needsRestart = append(needsRestart, "redis.pool_size")
+		}
+		if v, ok := r["max_retries"].(float64); ok {
+			g.redisConfig.MaxRetries = int(v)
+			applied = append(applied, "redis.max_retries")
+		}
+		if v, ok := r["cluster_enabled"].(bool); ok {
+			g.redisConfig.ClusterEnabled = v
+			needsRestart = append(needsRestart, "redis.cluster_enabled")
+		}
+		if v, ok := r["cluster_addrs"].([]interface{}); ok {
+			addrs := make([]string, 0, len(v))
+			for _, addr := range v {
+				if s, ok := addr.(string); ok {
+					addrs = append(addrs, s)
+				}
+			}
+			g.redisConfig.ClusterAddrs = addrs
+			needsRestart = append(needsRestart, "redis.cluster_addrs")
+		}
+	}
+
+	if mm, ok := updates["matchmaker"].(map[string]interface{}); ok {
+		if v, ok := mm["host"].(string); ok {
+			g.matchmakerConfig.Host = v
+			needsRestart = append(needsRestart, "matchmaker.host")
+		}
+		if v, ok := mm["port"].(float64); ok {
+			g.matchmakerConfig.Port = int(v)
+			needsRestart = append(needsRestart, "matchmaker.port")
+		}
+		if v, ok := mm["pool_size"].(float64); ok {
+			g.matchmakerConfig.PoolSize = int(v)
+			needsRestart = append(needsRestart, "matchmaker.pool_size")
+		}
+		if v, ok := mm["cooldown_ttl_minutes"].(float64); ok {
+			g.matchmakerConfig.CooldownTTLMinutes = int(v)
+			applied = append(applied, "matchmaker.cooldown_ttl_minutes")
+		}
+	}
+
+	msg := "Config updated."
+	if len(needsRestart) > 0 {
+		msg += fmt.Sprintf(" %d change(s) require restart: %s.", len(needsRestart), strings.Join(needsRestart, ", "))
+	}
+	if len(applied) > 0 {
+		msg += fmt.Sprintf(" %d change(s) applied live.", len(applied))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Config updated. Restart required for some changes.",
-		"updates": updates,
+		"status":       "success",
+		"message":      msg,
+		"applied":      applied,
+		"needsRestart": needsRestart,
+		"updates":      updates,
 	})
 }
 

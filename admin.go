@@ -85,6 +85,7 @@ func setupAdminRoutes(r *gin.Engine, mm *matchmaker.Matchmaker, sa *subnet.Subne
 			keys.GET("", listAPIKeysHandler(apiKeySvc))
 			keys.DELETE("", revokeAPIKeyHandler(apiKeySvc))
 			keys.POST("/ratelimit", setKeyRateLimitHandler(apiKeySvc))
+			keys.PATCH("/:hash", updateAPIKeyScopeHandler(apiKeySvc))
 		}
 	}
 
@@ -583,6 +584,30 @@ func setKeyRateLimitHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "success",
 			"message": fmt.Sprintf("Rate limit set: %d requests per %d seconds", req.Requests, req.WindowSeconds),
+		})
+	}
+}
+
+func updateAPIKeyScopeHandler(svc *gateway.APIKeyService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		hash := c.Param("hash")
+		var req struct {
+			Scope string `json:"scope" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := svc.UpdateScope(hash, req.Scope); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "API key scope updated",
+			"scope":   req.Scope,
 		})
 	}
 }

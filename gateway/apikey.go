@@ -131,6 +131,16 @@ func (s *APIKeyService) RevokeKeyByHash(hash string) error {
 	return s.client.Del(s.ctx, redisKey).Err()
 }
 
+func (s *APIKeyService) UpdateScope(hash string, newScope string) error {
+	if !validScopes[APIKeyScope(newScope)] {
+		return fmt.Errorf("invalid scope: %s", newScope)
+	}
+	redisKey := fmt.Sprintf("apikey:%s", hash)
+	return s.client.HSet(s.ctx, redisKey, map[string]interface{}{
+		"scope": newScope,
+	}).Err()
+}
+
 func (s *APIKeyService) ListKeys() ([]map[string]string, error) {
 	keys, err := s.client.Keys(s.ctx, "apikey:*").Result()
 	if err != nil {

@@ -739,45 +739,75 @@ pre{
 <h3>Gateway Settings</h3>
 <div class="form-row">
 <label style="flex:1">Host<input id="cfg-gw-host" value="0.0.0.0"></label>
-<label style="flex:1">Port<input id="cfg-gw-port" type="number" value="8000"></label>
+<label style="flex:1">Port<input id="cfg-gw-port" type="number" value="8000" min="1" max="65535"></label>
 </div>
 <div class="form-row">
-<label style="flex:1">Circuit Breaker Threshold<input id="cfg-cb-threshold" type="number" value="5"></label>
-<label style="flex:1">Rate Limit Requests<input id="cfg-rl-requests" type="number" value="100"></label>
+<label style="flex:1">Circuit Breaker Threshold<input id="cfg-cb-threshold" type="number" value="5" min="1"></label>
+<label style="flex:1">Rate Limit Requests<input id="cfg-rl-requests" type="number" value="100" min="1"></label>
 </div>
 <div class="form-row">
-<label style="flex:1">Rate Limit Window (s)<input id="cfg-rl-window" type="number" value="60"></label>
-<label style="flex:1">Cooldown Seconds<input id="cfg-cooldown" type="number" value="3600"></label>
+<label style="flex:1">Rate Limit Window (s)<input id="cfg-rl-window" type="number" value="60" min="1"></label>
+<label style="flex:1">Cooldown Seconds<input id="cfg-cooldown" type="number" value="3600" min="0"></label>
 </div>
 <div class="form-row">
-<label style="flex:1">Request Timeout (s)<input id="cfg-req-timeout" type="number" value="30"></label>
-<label style="flex:1">Idle Timeout (s)<input id="cfg-idle-timeout" type="number" value="120"></label>
+<label style="flex:1">Request Timeout (s)<input id="cfg-req-timeout" type="number" value="30" min="1"></label>
+<label style="flex:1">Idle Timeout (s)<input id="cfg-idle-timeout" type="number" value="120" min="1"></label>
 </div>
 <div class="form-row">
+<label style="flex:1">Read Header Timeout (s)<input id="cfg-read-header-timeout" type="number" value="10" min="1"></label>
+<label style="flex:1">Request ID Prefix<input id="cfg-reqid-prefix" value="req"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Request ID Format<select id="cfg-reqid-format"><option value="unix">Unix</option><option value="timestamp">Timestamp</option><option value="uuid">UUID</option></select></label>
 <label style="flex:1">Tracing Enabled<select id="cfg-tracing"><option value="true">Yes</option><option value="false">No</option></select></label>
+</div>
+<div class="form-row">
 <label style="flex:1">Compression Enabled<select id="cfg-compression"><option value="true">Yes</option><option value="false">No</option></select></label>
+<label style="flex:1">Compression Level<input id="cfg-compression-level" type="number" value="5" min="1" max="9"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Request Logging Enabled<select id="cfg-logging"><option value="true">Yes</option><option value="false">No</option></select></label>
+<label style="flex:1">Rate Limit Distributed<select id="cfg-rl-distributed"><option value="true">Yes</option><option value="false">No</option></select></label>
+</div>
+<div class="form-row">
+<label style="flex:1">MTLS Enabled<select id="cfg-mtls"><option value="true">Yes</option><option value="false">No</option></select></label>
+</div>
+<div class="form-row">
+<label style="flex:1">CA Cert Path<input id="cfg-ca-cert" value="/etc/proxymesh/tls/ca.crt"></label>
+<label style="flex:1">Server Cert Path<input id="cfg-server-cert" value="/etc/proxymesh/tls/tls.crt"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Server Key Path<input id="cfg-server-key" value="/etc/proxymesh/tls/tls.key"></label>
 </div>
 </div>
 <div class="card" style="margin-bottom:16px">
 <h3>Redis Settings</h3>
 <div class="form-row">
 <label style="flex:1">Host<input id="cfg-redis-host" value="localhost"></label>
-<label style="flex:1">Port<input id="cfg-redis-port" type="number" value="6379"></label>
+<label style="flex:1">Port<input id="cfg-redis-port" type="number" value="6379" min="1" max="65535"></label>
 </div>
 <div class="form-row">
-<label style="flex:1">DB<input id="cfg-redis-db" type="number" value="0"></label>
-<label style="flex:1">Pool Size<input id="cfg-redis-pool" type="number" value="10"></label>
+<label style="flex:1">Password<input id="cfg-redis-password" type="password" value=""></label>
+<label style="flex:1">DB<input id="cfg-redis-db" type="number" value="0" min="0"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Pool Size<input id="cfg-redis-pool" type="number" value="10" min="1"></label>
+<label style="flex:1">Max Retries<input id="cfg-redis-retries" type="number" value="3" min="0"></label>
+</div>
+<div class="form-row">
+<label style="flex:1">Cluster Enabled<select id="cfg-redis-cluster"><option value="true">Yes</option><option value="false">No</option></select></label>
+<label style="flex:1">Cluster Addresses (comma-separated)<input id="cfg-redis-cluster-addrs" value=""></label>
 </div>
 </div>
 <div class="card" style="margin-bottom:16px">
 <h3>Matchmaker Settings</h3>
 <div class="form-row">
 <label style="flex:1">Host<input id="cfg-mm-host" value="localhost"></label>
-<label style="flex:1">Port<input id="cfg-mm-port" type="number" value="6379"></label>
+<label style="flex:1">Port<input id="cfg-mm-port" type="number" value="6379" min="1" max="65535"></label>
 </div>
 <div class="form-row">
-<label style="flex:1">Pool Size<input id="cfg-mm-pool" type="number" value="10"></label>
-<label style="flex:1">Cooldown TTL (min)<input id="cfg-mm-cooldown" type="number" value="15"></label>
+<label style="flex:1">Pool Size<input id="cfg-mm-pool" type="number" value="10" min="1"></label>
+<label style="flex:1">Cooldown TTL (min)<input id="cfg-mm-cooldown" type="number" value="15" min="1"></label>
 </div>
 </div>
 <div style="display:flex;gap:8px">
@@ -1141,17 +1171,31 @@ async function loadConfig(){
     setVal('cfg-cooldown', gw.cooldown_seconds||3600);
     setVal('cfg-req-timeout', gw.request_timeout_seconds||30);
     setVal('cfg-idle-timeout', gw.idle_timeout_seconds||120);
+    setVal('cfg-read-header-timeout', gw.read_header_timeout_seconds||10);
+    setVal('cfg-reqid-prefix', gw.request_id_prefix||'req');
+    setVal('cfg-reqid-format', gw.request_id_format||'unix');
     setVal('cfg-tracing', String(gw.tracing_enabled!==false));
     setVal('cfg-compression', String(gw.compression?.enabled!==false));
+    setVal('cfg-compression-level', gw.compression?.level||5);
+    setVal('cfg-logging', String(gw.request_logging_enabled!==false));
+    setVal('cfg-rl-distributed', String(gw.rate_limit_distributed!==false));
+    setVal('cfg-mtls', String(gw.mtls_enabled===true));
+    setVal('cfg-ca-cert', gw.ca_cert_path||'/etc/proxymesh/tls/ca.crt');
+    setVal('cfg-server-cert', gw.server_cert_path||'/etc/proxymesh/tls/tls.crt');
+    setVal('cfg-server-key', gw.server_key_path||'/etc/proxymesh/tls/tls.key');
     setVal('cfg-redis-host', redis.host||'localhost');
     setVal('cfg-redis-port', redis.port||6379);
+    setVal('cfg-redis-password', redis.password||'');
     setVal('cfg-redis-db', redis.db||0);
     setVal('cfg-redis-pool', redis.pool_size||10);
+    setVal('cfg-redis-retries', redis.max_retries||3);
+    setVal('cfg-redis-cluster', String(redis.cluster_enabled===true));
+    setVal('cfg-redis-cluster-addrs', (redis.cluster_addrs||[]).join(','));
     setVal('cfg-mm-host', mm.host||'localhost');
     setVal('cfg-mm-port', mm.port||6379);
     setVal('cfg-mm-pool', mm.pool_size||10);
     setVal('cfg-mm-cooldown', mm.cooldown_ttl_minutes||15);
-    resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Config loaded. Edit values and click Save.</p></div>';
+    resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">Config loaded. Edit values and click Save. Changes marked with * require restart.</p></div>';
   }catch(e){toast('Failed to load config','error');resultsDiv.innerHTML='';}
 }
 
@@ -1176,14 +1220,27 @@ async function saveConfig(){
       cooldown_seconds:parseInt(getVal('cfg-cooldown'))||3600,
       request_timeout_seconds:parseInt(getVal('cfg-req-timeout'))||30,
       idle_timeout_seconds:parseInt(getVal('cfg-idle-timeout'))||120,
+      read_header_timeout_seconds:parseInt(getVal('cfg-read-header-timeout'))||10,
+      request_id_prefix:getVal('cfg-reqid-prefix'),
+      request_id_format:getVal('cfg-reqid-format'),
       tracing_enabled:getVal('cfg-tracing')==='true',
-      compression:{enabled:getVal('cfg-compression')==='true', level:5}
+      compression:{enabled:getVal('cfg-compression')==='true', level:parseInt(getVal('cfg-compression-level'))||5},
+      request_logging_enabled:getVal('cfg-logging')==='true',
+      rate_limit_distributed:getVal('cfg-rl-distributed')==='true',
+      mtls_enabled:getVal('cfg-mtls')==='true',
+      ca_cert_path:getVal('cfg-ca-cert'),
+      server_cert_path:getVal('cfg-server-cert'),
+      server_key_path:getVal('cfg-server-key')
     },
     redis:{
       host:getVal('cfg-redis-host'),
       port:parseInt(getVal('cfg-redis-port'))||6379,
+      password:getVal('cfg-redis-password'),
       db:parseInt(getVal('cfg-redis-db'))||0,
-      pool_size:parseInt(getVal('cfg-redis-pool'))||10
+      pool_size:parseInt(getVal('cfg-redis-pool'))||10,
+      max_retries:parseInt(getVal('cfg-redis-retries'))||3,
+      cluster_enabled:getVal('cfg-redis-cluster')==='true',
+      cluster_addrs:getVal('cfg-redis-cluster-addrs').split(',').map(s=>s.trim()).filter(Boolean)
     },
     matchmaker:{
       host:getVal('cfg-mm-host'),
@@ -1198,11 +1255,11 @@ async function saveConfig(){
     const r=await fetch(API+'/config',{method:'POST',headers:headers(),body:JSON.stringify(updates)});
     const data=await r.json();
     if(data.status==='success'){
-      toast('Config saved. Restart may be required for some changes.','success');
+      toast('Config saved. Some changes may require a restart.','success');
       resultsDiv.innerHTML='<div class="card"><p style="color:var(--green)">Config saved successfully.</p></div>';
     }else{
       toast(data.error||'Failed to save config','error');
-      resultsDiv.innerHTML='<div class="card"><p style="color:var(--red)">'+data.error+'</p></div>';
+      resultsDiv.innerHTML='<div class="card"><p style="color:var(--red)">'+(data.error||'Failed to save config')+'</p></div>';
     }
   }catch(e){toast('Failed to save config','error');resultsDiv.innerHTML='';}
 }
@@ -1723,7 +1780,12 @@ async function loadAPIKeys(){
     if(!keys.length){resultsDiv.innerHTML='<div class="card"><p style="color:var(--text-dim)">No API keys</p></div>';return;}
     const rows=keys.map(k=>`<tr>
       <td class="mono">${(k.name||'--').slice(0,32)}</td>
-      <td><span class="badge badge-blue">${k.scope||'read'}</span></td>
+      <td><select onchange="updateAPIKeyScope('${k.hash}', this.value)" style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px">
+        <option value="read" ${k.scope==='read'?'selected':''}>Read</option>
+        <option value="write" ${k.scope==='write'?'selected':''}>Write</option>
+        <option value="admin" ${k.scope==='admin'?'selected':''}>Admin</option>
+        <option value="*" ${k.scope==='*'?'selected':''}>All (*)</option>
+      </select></td>
       <td>${k.created_at?new Date(parseInt(k.created_at)*1000).toLocaleDateString():'--'}</td>
       <td>${k.expires_at?new Date(parseInt(k.expires_at)*1000).toLocaleDateString():'Never'}</td>
       <td><button class="btn btn-danger" onclick="revokeAPIKey('${k.hash}')">Revoke</button></td>
@@ -1749,6 +1811,15 @@ async function revokeAPIKey(hash){
     if(data.status==='success'){toast('Key revoked','success');loadAPIKeys();}
     else{toast(data.error||'Failed','error');}
   }catch(e){toast('Failed to revoke','error');}
+}
+
+async function updateAPIKeyScope(hash, scope){
+  try{
+    const r=await fetch(API+'/apikeys/'+encodeURIComponent(hash),{method:'PATCH',headers:headers(),body:JSON.stringify({scope})});
+    const data=await r.json();
+    if(data.status==='success'){toast('Scope updated to '+scope,'success');}
+    else{toast(data.error||'Failed to update scope','error');loadAPIKeys();}
+  }catch(e){toast('Failed to update scope','error');loadAPIKeys();}
 }
 
 async function loadActivity(){
