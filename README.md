@@ -306,6 +306,7 @@ All admin endpoints require the `X-Admin-Key` header.
 | POST | `/api/keys` | Create a new API key |
 | GET | `/api/keys` | List all API keys (hashed) |
 | DELETE | `/api/keys` | Revoke an API key |
+| PATCH | `/api/keys/:hash` | Update API key scope |
 | POST | `/api/keys/ratelimit` | Set per-key rate limit |
 
 ```bash
@@ -320,6 +321,12 @@ curl -X POST http://localhost:8000/api/keys/ratelimit \
   -H "X-Admin-Key: your-admin-key" \
   -H "Content-Type: application/json" \
   -d '{"key": "the-api-key", "requests": 500, "window_seconds": 60}'
+
+# Update API key scope
+curl -X PATCH http://localhost:8000/api/keys/<key-hash> \
+  -H "X-Admin-Key: your-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"scope": "admin"}'
 
 # Query audit log for today
 curl http://localhost:8000/api/admin/audit?date=2026-03-29&limit=50 \
@@ -372,7 +379,8 @@ Features:
 - **Health** — Per-peer health scores with summary cards (total/healthy/warning/critical), clickable rows for drill-down modals showing score breakdown and decay-trend sparkline
 - **Activity** — Admin audit log of recent actions (method, path, status, IP)
 - **Logs** — Request log viewer with date/limit filtering
-- **Config** — System configuration viewer with live reload support
+- **Config** — System configuration editor with form validation and live reload support
+- **API Keys** — Create, list, revoke, and manage API key scopes (Read/Write/Admin/All)
 - **Benchmark** — Performance benchmarking tools
 - **Referrals** — Referral tracking and management
 - **Dark/Light Theme** — Toggle between dark and light themes, persisted server-side
@@ -509,7 +517,7 @@ go test ./matchmaker/... -v   # Run matchmaker tests only
 go test ./... -cover          # Run with coverage
 ```
 
-135+ tests across 18 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, integration flows, RBAC, JWT, federation, peer SDK, health, payout, Web UI, WebSocket hub, config handlers, API key scopes, and mobile app screens.
+135+ tests across 19 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, integration flows, RBAC, JWT, federation, peer SDK, health, payout, Web UI, WebSocket hub, config handlers, API key scopes, QoS metrics, and mobile app screens.
 
 ### Load Testing
 
@@ -557,6 +565,7 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **API Key Auth** - SHA-256 hashed keys in Redis with TTL and revocation
 - **Connection Pooling** - Per-node TCP connection pool with configurable max size
 - **Config Hot Reload** - Automatic config.yaml reload on file changes (fsnotify)
+- **Admin Config Editor** - Web-based configuration editor with form validation and live reload support
 - **Audit Logging** - Structured audit trail of admin actions to file and Redis
 - **Metrics** - Prometheus metrics at `/metrics`
 - **Structured Logging** - JSON logging with request IDs
@@ -595,6 +604,7 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **Peer SDKs** - Node.js, Python, and Go SDKs for residential node integration
 - **Mobile App** - React Native Expo app with node management, Sentry crash reporting, and EAS CI/CD
 - **Jest Tests** - Unit tests for mobile app screens
+- **QoS Metrics** - Network quality tracking (packet loss, jitter, throughput, latency) with health scoring
 
 ### Peer Dashboard (PWA)
 - **Peer Web Dashboard** - Installable PWA at `/peer` for residential node operators
