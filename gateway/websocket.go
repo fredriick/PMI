@@ -58,34 +58,34 @@ func NewHub() *Hub {
 func (h *Hub) Run() {
 	for {
 		select {
-	case client := <-h.register:
-		h.mu.Lock()
-		h.clients[client] = true
-		h.mu.Unlock()
-		log.Printf("WS client connected: %s", client.getIP())
-		h.pending.Done()
+		case client := <-h.register:
+			h.mu.Lock()
+			h.clients[client] = true
+			h.mu.Unlock()
+			log.Printf("WS client connected: %s", client.getIP())
+			h.pending.Done()
 
-	case client := <-h.unregister:
-		h.mu.Lock()
-		if _, ok := h.clients[client]; ok {
-			delete(h.clients, client)
-			close(client.send)
-		}
-		h.mu.Unlock()
-		log.Printf("WS client disconnected: %s", client.getIP())
-		h.pending.Done()
-
-	case message := <-h.broadcast:
-		h.mu.Lock()
-		for client := range h.clients {
-			select {
-			case client.send <- message:
-			default:
-				close(client.send)
+		case client := <-h.unregister:
+			h.mu.Lock()
+			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
+				close(client.send)
 			}
-		}
-		h.mu.Unlock()
+			h.mu.Unlock()
+			log.Printf("WS client disconnected: %s", client.getIP())
+			h.pending.Done()
+
+		case message := <-h.broadcast:
+			h.mu.Lock()
+			for client := range h.clients {
+				select {
+				case client.send <- message:
+				default:
+					close(client.send)
+					delete(h.clients, client)
+				}
+			}
+			h.mu.Unlock()
 		}
 	}
 }

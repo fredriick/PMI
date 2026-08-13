@@ -61,17 +61,17 @@ type MatchmakerConfig struct {
 }
 
 type RedisConfig struct {
-	Host           string   `mapstructure:"host"`
-	Port           int      `mapstructure:"port"`
-	Password       string   `mapstructure:"password"`
-	DB             int      `mapstructure:"db"`
-	ClusterEnabled bool     `mapstructure:"cluster_enabled"`
-	ClusterAddrs   []string `mapstructure:"cluster_addrs"`
-	SentinelEnabled bool    `mapstructure:"sentinel_enabled"`
-	SentinelAddrs  []string `mapstructure:"sentinel_addrs"`
-	SentinelMaster string   `mapstructure:"sentinel_master"`
-	PoolSize       int      `mapstructure:"pool_size"`
-	MaxRetries     int      `mapstructure:"max_retries"`
+	Host            string   `mapstructure:"host"`
+	Port            int      `mapstructure:"port"`
+	Password        string   `mapstructure:"password"`
+	DB              int      `mapstructure:"db"`
+	ClusterEnabled  bool     `mapstructure:"cluster_enabled"`
+	ClusterAddrs    []string `mapstructure:"cluster_addrs"`
+	SentinelEnabled bool     `mapstructure:"sentinel_enabled"`
+	SentinelAddrs   []string `mapstructure:"sentinel_addrs"`
+	SentinelMaster  string   `mapstructure:"sentinel_master"`
+	PoolSize        int      `mapstructure:"pool_size"`
+	MaxRetries      int      `mapstructure:"max_retries"`
 }
 
 type ComplianceConfig struct {

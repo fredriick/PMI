@@ -38,13 +38,16 @@ ProxyMeshProject/
 │   ├── tracing.go           # OpenTelemetry tracing
 │   ├── broadcast.go         # Node broadcasting, response compression, health score
 │   ├── timeout_webhook.go   # Node webhooks with retry + backoff
+│   ├── qos_metrics.go       # Network QoS metrics (packet loss, jitter, throughput)
 │   ├── web/                 # Web UI routes and handlers
 │   │   ├── webui.go         # Admin dashboard HTTP routes
 │   │   └── webui_test.go    # Web UI route tests
+│   ├── config_apikey_test.go # Config handler and API key scope tests
 │   ├── compliance_test.go   # Compliance unit tests
 │   ├── ratelimit_test.go    # Rate limiter unit tests
 │   ├── connpool_test.go     # Connection pool tests
 │   ├── compression_test.go  # Gzip response compression tests
+│   ├── websocket_test.go    # WebSocket hub tests
 │   └── integration_test.go  # Integration tests
 ├── matchmaker/              # Node selection service
 │   ├── service.go           # Selection logic with circuit breaker
@@ -57,8 +60,20 @@ ProxyMeshProject/
 │   ├── metrics_windows.go   # Windows system metrics (WMIC)
 │   ├── metrics_default.go   # Fallback for unsupported platforms
 │   └── metrics_common.go    # Cross-platform (IP, system info)
+├── sdk/                     # Multi-language peer SDKs
+│   ├── nodejs/              # Node.js SDK
+│   └── python/              # Python SDK
+│   └── go/                  # Go SDK
+├── mobile-app/              # React Native Expo mobile app
+│   ├── src/
+│   │   ├── screens/         # App screens (NodeManagementScreen)
+│   │   └── services/        # API service
+│   ├── __tests__/           # Jest tests
+│   └── App.tsx              # App entry with Sentry
 ├── payout/                  # Payout calculation service
 │   └── service.go           # Compensation calculation for peers
+├── loadtest/                # Load testing scripts
+│   └── k6-loadtest.js       # k6 script with p95 <50ms thresholds
 ├── internal/                # Shared packages
 │   ├── config/              # Configuration loader
 │   ├── models/              # Data models
@@ -66,28 +81,31 @@ ProxyMeshProject/
 │   └── subnet/              # IPv6 subnet allocator
 │       ├── allocator.go
 │       └── allocator_test.go
-├── web/                     # Static web assets
-│   ├── index.html           # Landing page
-│   ├── docs.html            # Production documentation
-│   └── dashboard/
-│   │   └── index.html       # Admin dashboard UI
-│   └── peer/                # Peer operator PWA
-│       ├── index.html       # SPA shell
-│       ├── style.css        # Dark-themed styles
-│       ├── app.js           # SPA logic
-│       ├── manifest.json    # PWA manifest
-│       ├── sw.js            # Service worker
-│       ├── icon-192.png     # PWA icon
-│       └── icon-512.png     # PWA icon
-├── cmd/
-│   ├── cli/                   # Cobra CLI tool (node, key, status)
-│   │   ├── main.go
-│   │   ├── node.go
-│   │   ├── key.go
-│   │   └── status.go
-│   └── loadtest/              # Load testing CLI tool
-│       └── main.go
-└── docs/                    # Documentation
+├── terraform/               # Infrastructure as Code
+│   ├── modules/             # Reusable Terraform modules
+│   │   ├── k8s-cluster/     # AWS EKS cluster module
+│   │   └── redis/           # ElastiCache Redis module
+│   └── environments/        # Environment-specific configs
+│       ├── dev/             # Dev environment
+│       └── staging/         # Staging environment
+├── helm/                    # Kubernetes Helm charts
+│   ├── values.yaml          # Default values
+│   ├── values-staging.yaml  # Staging overrides
+│   └── values-production.yaml # Production overrides
+├── k8s/                     # Kubernetes deployment manifests
+│   └── cron/                # Kubernetes CronJob for Redis backups
+├── monitoring/              # Prometheus + Grafana
+│   ├── prometheus/          # Alert rules and config
+│   └── grafana/             # Dashboard provisioning
+├── docs/                    # Documentation
+│   ├── 08_DATACENTER_VALUE.md
+│   ├── 09_SETUP_FIRST_NODE.md
+│   ├── 10_KUBERNETES_DEPLOYMENT.md
+│   ├── 11_SECRET_ROTATION.md
+│   └── 12_PRODUCTION_DEPLOYMENT.md
+└── scripts/                 # Utility scripts
+    ├── redis-backup.sh      # Redis backup script
+    └── redis-restore.sh     # Redis restore script
 ```
 
 ## Configuration
@@ -276,6 +294,10 @@ All admin endpoints require the `X-Admin-Key` header.
 | GET | `/api/admin/webhooks` | List all registered webhooks |
 | GET | `/api/admin/webhooks/:nodeID` | List webhooks for a node |
 | DELETE | `/api/admin/webhooks/:nodeID` | Clear webhooks for a node |
+| GET | `/api/admin/config` | Get current system configuration |
+| POST | `/api/admin/config` | Update system configuration |
+| GET | `/api/admin/theme` | Get current admin theme preference |
+| POST | `/api/admin/theme` | Set admin theme preference (dark/light) |
 
 ### API Key Management
 
@@ -349,6 +371,11 @@ Features:
 - **Capacity** - Node capacity report with utilization and status
 - **Health** — Per-peer health scores with summary cards (total/healthy/warning/critical), clickable rows for drill-down modals showing score breakdown and decay-trend sparkline
 - **Activity** — Admin audit log of recent actions (method, path, status, IP)
+- **Logs** — Request log viewer with date/limit filtering
+- **Config** — System configuration viewer with live reload support
+- **Benchmark** — Performance benchmarking tools
+- **Referrals** — Referral tracking and management
+- **Dark/Light Theme** — Toggle between dark and light themes, persisted server-side
 - Auto-refreshes every 10 seconds; supports gzip response compression (`Accept-Encoding: gzip`)
 
 ## Peer Dashboard (PWA)
@@ -358,6 +385,13 @@ Access the peer dashboard at `http://localhost:8000/peer/`.
 Residential node operators can authenticate with their node ID to view status, track earnings, and manage participation.
 
 The peer dashboard uses **Server-Sent Events** (`GET /api/peer/stream?token=<token>`) for live telemetry, replacing the previous 15-second REST polling. If the SSE stream errors, it automatically falls back to REST polling.
+
+### Peer Dashboard Features
+- **Dark/Light Theme** — Toggle between themes, preference persisted locally and server-side
+- **Real-time Node Status** - Battery, CPU, load, country, ISP displayed with auto-refresh
+- **Earnings Tracker** - Current month payout, rates per GB, bandwidth breakdown
+- **Consent Management** - Toggle node active/inactive, disconnect from the network
+- **Offline Support** - Service worker caches static assets for offline awareness
 
 ### Peer API
 
@@ -475,7 +509,16 @@ go test ./matchmaker/... -v   # Run matchmaker tests only
 go test ./... -cover          # Run with coverage
 ```
 
-135+ tests across 15 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, integration flows, RBAC, JWT, federation, peer SDK, health, payout, and Web UI.
+135+ tests across 18 test files covering compliance, rate limiting, connection pooling, subnet allocation, matchmaker circuit breaker, GeoIP, capacity planning, integration flows, RBAC, JWT, federation, peer SDK, health, payout, Web UI, WebSocket hub, config handlers, API key scopes, and mobile app screens.
+
+### Load Testing
+
+```bash
+# Run k6 load test
+BASE_URL=http://localhost:8000 k6 run loadtest/k6-loadtest.js
+```
+
+Targets: p95 <50ms response time, <1% error rate, sustained 50-100 VUs.
 
 ## Development
 
@@ -491,9 +534,10 @@ go build ./...       # Build all packages
 A GitHub Actions workflow runs on every push/PR to `main`:
 
 - **Test matrix** — Go 1.21, 1.22, 1.23 on Ubuntu with a Redis service container
-- **Steps** — `go build`, `go vet`, `go test -race -cover`
+- **Steps** — `go build`, `go vet`, `go test -race -cover`, `govulncheck`, mobile `npm audit`
 - **Artifacts** — Coverage reports uploaded per Go version
 - **Lint** — `golangci-lint` (non-blocking)
+- **Security** — `govulncheck` scans Go dependencies; `npm audit` scans mobile app dependencies
 
 ## Documentation
 
@@ -501,6 +545,7 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - [`docs/09_SETUP_FIRST_NODE.md`](docs/09_SETUP_FIRST_NODE.md) - Step-by-step setup guide for registering and testing your first node
 - [`docs/10_KUBERNETES_DEPLOYMENT.md`](docs/10_KUBERNETES_DEPLOYMENT.md) - Kubernetes deployment guide
 - [`docs/11_SECRET_ROTATION.md`](docs/11_SECRET_ROTATION.md) - Production secret and certificate rotation policy
+- [`docs/12_PRODUCTION_DEPLOYMENT.md`](docs/12_PRODUCTION_DEPLOYMENT.md) - Production deployment runbook with Terraform + Helm
 
 ## Features
 
@@ -542,6 +587,14 @@ A GitHub Actions workflow runs on every push/PR to `main`:
 - **Multi-platform Support** - Linux (/sys, /proc), macOS (pmset, top), Windows (WMIC)
 - **Node Capacity Planning** - Bandwidth trend analysis, utilization reporting, capacity alerts
 - **Predictive Scaling** - Automatic scaling recommendations based on traffic growth rates
+- **Helm Charts** - Production-ready Helm charts with staging and production values
+- **Redis Sentinel** - HA Redis configuration with Sentinel support for automatic failover
+- **Theme Persistence** - Admin dashboard theme preference persisted server-side
+- **Security Scanning** - `govulncheck` and `npm audit` in CI pipeline
+- **Production Runbook** - Step-by-step deployment guide for AWS/GCP with Terraform + Helm
+- **Peer SDKs** - Node.js, Python, and Go SDKs for residential node integration
+- **Mobile App** - React Native Expo app with node management, Sentry crash reporting, and EAS CI/CD
+- **Jest Tests** - Unit tests for mobile app screens
 
 ### Peer Dashboard (PWA)
 - **Peer Web Dashboard** - Installable PWA at `/peer` for residential node operators

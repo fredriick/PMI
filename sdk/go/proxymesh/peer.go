@@ -31,28 +31,28 @@ type NodeStatus struct {
 }
 
 type NodeInfo struct {
-	ID         string  `json:"id"`
-	Online     *bool   `json:"online,omitempty"`
+	ID         string   `json:"id"`
+	Online     *bool    `json:"online,omitempty"`
 	Battery    *float64 `json:"battery,omitempty"`
 	CPUUsage   *float64 `json:"cpu_usage,omitempty"`
-	Country    string  `json:"country,omitempty"`
-	City       string  `json:"city,omitempty"`
-	IP         string  `json:"ip,omitempty"`
-	OS         string  `json:"os,omitempty"`
-	NodeType   string  `json:"node_type,omitempty"`
-	LastSeen   string  `json:"last_seen,omitempty"`
-	Reputation float64 `json:"reputation,omitempty"`
-	ISP        string  `json:"isp,omitempty"`
+	Country    string   `json:"country,omitempty"`
+	City       string   `json:"city,omitempty"`
+	IP         string   `json:"ip,omitempty"`
+	OS         string   `json:"os,omitempty"`
+	NodeType   string   `json:"node_type,omitempty"`
+	LastSeen   string   `json:"last_seen,omitempty"`
+	Reputation float64  `json:"reputation,omitempty"`
+	ISP        string   `json:"isp,omitempty"`
 }
 
 type BandwidthData struct {
-	Current  BandwidthCurrent            `json:"current"`
-	History  map[string]BandwidthSnapshot `json:"history"`
+	Current BandwidthCurrent             `json:"current"`
+	History map[string]BandwidthSnapshot `json:"history"`
 }
 
 type BandwidthCurrent struct {
-	BytesSent     int64 `json:"bytes_sent"`
-	BytesReceived int64 `json:"bytes_received"`
+	BytesSent       int64 `json:"bytes_sent"`
+	BytesReceived   int64 `json:"bytes_received"`
 	DurationSeconds int64 `json:"duration_seconds"`
 }
 
@@ -62,39 +62,39 @@ type BandwidthSnapshot struct {
 }
 
 type PayoutData struct {
-	Payout PayoutInfo            `json:"payout"`
-	Rates  map[string]float64   `json:"rates"`
-	Tiers  []PayoutTier         `json:"tiers"`
+	Payout PayoutInfo         `json:"payout"`
+	Rates  map[string]float64 `json:"rates"`
+	Tiers  []PayoutTier       `json:"tiers"`
 }
 
 type PayoutInfo struct {
-	Amount       float64 `json:"amount"`
-	Period       string  `json:"period"`
-	Tier         string  `json:"tier"`
-	GBSent       float64 `json:"gb_sent"`
-	GBReceived   float64 `json:"gb_received"`
+	Amount     float64 `json:"amount"`
+	Period     string  `json:"period"`
+	Tier       string  `json:"tier"`
+	GBSent     float64 `json:"gb_sent"`
+	GBReceived float64 `json:"gb_received"`
 }
 
 type PayoutTier struct {
-	Name         string  `json:"name"`
+	Name          string  `json:"name"`
 	RatePerGBSent float64 `json:"rate_per_gb_sent"`
 	RatePerGBRecv float64 `json:"rate_per_gb_recv"`
 }
 
 type HealthScore struct {
-	OverallScore      float64 `json:"overall_score"`
-	LatencyScore      float64 `json:"latency_score,omitempty"`
-	BandwidthScore    float64 `json:"bandwidth_score,omitempty"`
-	ReliabilityScore  float64 `json:"reliability_score,omitempty"`
-	ReputationScore   float64 `json:"reputation_score,omitempty"`
+	OverallScore     float64 `json:"overall_score"`
+	LatencyScore     float64 `json:"latency_score,omitempty"`
+	BandwidthScore   float64 `json:"bandwidth_score,omitempty"`
+	ReliabilityScore float64 `json:"reliability_score,omitempty"`
+	ReputationScore  float64 `json:"reputation_score,omitempty"`
 }
 
 type TelemetryEvent struct {
-	Score      *HealthScore       `json:"score,omitempty"`
-	Bandwidth  *BandwidthData     `json:"bandwidth,omitempty"`
-	Earnings   *PayoutData        `json:"earnings,omitempty"`
-	Node       *NodeInfo          `json:"node,omitempty"`
-	Load       float64            `json:"load,omitempty"`
+	Score     *HealthScore   `json:"score,omitempty"`
+	Bandwidth *BandwidthData `json:"bandwidth,omitempty"`
+	Earnings  *PayoutData    `json:"earnings,omitempty"`
+	Node      *NodeInfo      `json:"node,omitempty"`
+	Load      float64        `json:"load,omitempty"`
 }
 
 func NewPeerClient(baseURL string) *PeerClient {
