@@ -1,11 +1,13 @@
 # ProxyMesh
 
-![Omniroute](web/banner.png)
+![Omniroute](docs/images/banner.png)
 
 A hybrid mesh proxy network combining datacenter and residential exit nodes.
 
 ## Architecture
-![ProxyMesh Architecture](web/Omniroute_architecture.svg)
+![ProxyMesh Architecture](docs/images/Omniroute_architecture.svg)
+
+![System Architecture Overview](docs/images/System_Architecture_Overview.svg)
 
 - **Gateway** - Routes user requests to the best exit node based on targeting criteria
 - **Matchmaker** - Selects optimal nodes using Redis-backed reputation scoring
@@ -381,6 +383,8 @@ Features:
 - **Logs** — Request log viewer with date/limit filtering
 - **Config** — System configuration editor with form validation and live reload support
 - **API Keys** — Create, list, revoke, and manage API key scopes (Read/Write/Admin/All)
+![API Key & Scope Management](docs/images/API_Key_&_Scope_Management.png)
+![Full API Key Flow](docs/images/Full_API_Key_Flow.svg)
 - **Benchmark** — Performance benchmarking tools
 - **Referrals** — Referral tracking and management
 - **Dark/Light Theme** — Toggle between dark and light themes, persisted server-side
@@ -496,7 +500,7 @@ The gateway enforces:
 
 ## gRPC Peer Service
 
-![gRPC Peer Lifecycle](web/grpc_peer_lifecycle.svg)
+![gRPC Peer Lifecycle](docs/images/grpc_peer_lifecycle.svg)
 
 Residential nodes connect via gRPC on port 9000:
 

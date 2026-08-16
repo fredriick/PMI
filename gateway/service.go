@@ -144,6 +144,7 @@ func (g *Gateway) setupRoutes() {
 
 	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
+	g.router.GET("/favicon.ico", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	g.router.GET("/v1/health", g.healthHandler)
 	g.router.GET("/v1/metrics", func(c *gin.Context) {
 		c.Header("Content-Type", "text/plain")
@@ -154,6 +155,8 @@ func (g *Gateway) setupRoutes() {
 	g.router.POST("/api/admin/config", g.updateConfigHandler)
 	g.router.GET("/api/admin/theme", g.getThemeHandler)
 	g.router.POST("/api/admin/theme", g.setThemeHandler)
+
+	g.router.StaticFile("/logo.svg", "web/logo.svg")
 
 	g.webUI.RegisterRoutes(g.router)
 
@@ -185,6 +188,7 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 		if path == "/health" || path == "/metrics" || path == "/dashboard" ||
 			path == "/peer" || strings.HasPrefix(path, "/peer/") ||
 			strings.HasPrefix(path, "/api/") ||
+			path == "/favicon.ico" || path == "/ws" ||
 			path == "/v1/health" || path == "/v1/metrics" || path == "/v1/dashboard" ||
 			strings.HasPrefix(path, "/v1/api/") {
 			c.Next()
@@ -732,15 +736,9 @@ func (g *Gateway) updateConfigHandler(c *gin.Context) {
 }
 
 func (g *Gateway) getThemeHandler(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
 	theme := "dark"
 	if g.redis != nil {
-		val, err := g.redis.Get(c, fmt.Sprintf("user:theme:%s", userID)).Result()
+		val, err := g.redis.Get(c, "user:theme:dashboard").Result()
 		if err == nil && (val == "dark" || val == "light") {
 			theme = val
 		}
@@ -750,12 +748,6 @@ func (g *Gateway) getThemeHandler(c *gin.Context) {
 }
 
 func (g *Gateway) setThemeHandler(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
 	var req struct {
 		Theme string `json:"theme" binding:"required"`
 	}
@@ -770,7 +762,7 @@ func (g *Gateway) setThemeHandler(c *gin.Context) {
 	}
 
 	if g.redis != nil {
-		g.redis.Set(c, fmt.Sprintf("user:theme:%s", userID), req.Theme, 0)
+		g.redis.Set(c, "user:theme:dashboard", req.Theme, 0)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "theme": req.Theme})

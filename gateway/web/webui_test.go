@@ -1,8 +1,10 @@
-package web
+﻿package web
 
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -99,21 +101,43 @@ func TestResetCircuitBreakerHandler_MissingID(t *testing.T) {
 	}
 }
 
-func TestDashboardResponse_RecoveredOnNilMM(t *testing.T) {
-	w := NewWebUI(nil)
+func TestDashboardResponse_ServesStaticFile(t *testing.T) {
+	relPath := filepath.Join("web", "dashboard", "index.html")
+	dir := filepath.Dir(relPath)
+	os.MkdirAll(dir, 0755)
+	defer os.RemoveAll(dir)
 
-	// gin.Default() includes a RecoveryMiddleware that catches panics from nil
-	// matchmaker without killing the test runner.
-	r := gin.Default()
+	err := os.WriteFile(relPath, []byte("<html><body>ok</body></html>"), 0644)
+	if err != nil {
+		t.Fatalf("failed to write temp dashboard: %v", err)
+	}
+
+	w := NewWebUI(nil)
+	r := gin.New()
 	w.RegisterRoutes(r)
 
 	req := httptest.NewRequest("GET", "/web/dashboard", nil)
-	req.Header.Set("User-Agent", "test/1.0")
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
-	// Recovery middleware returns 500 when handler panics.
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 (recovered panic), got %d", rr.Code)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr.Body.String() != "<html><body>ok</body></html>" {
+		t.Errorf("unexpected body: %s", rr.Body.String())
+	}
+}
+
+func TestDashboardResponse_Returns404WhenMissing(t *testing.T) {
+	w := NewWebUI(nil)
+	r := gin.New()
+	w.RegisterRoutes(r)
+
+	req := httptest.NewRequest("GET", "/web/dashboard", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("expected 404 when dashboard file is missing, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
