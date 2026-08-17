@@ -144,6 +144,7 @@ func (g *Gateway) setupRoutes() {
 
 	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
+	g.router.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/web/dashboard") })
 	g.router.GET("/favicon.ico", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	g.router.GET("/v1/health", g.healthHandler)
 	g.router.GET("/v1/metrics", func(c *gin.Context) {
@@ -166,7 +167,6 @@ func (g *Gateway) setupRoutes() {
 	g.router.Any("/v1/:path", g.proxyHandler)
 	g.router.Any("/v1/", g.proxyHandler)
 	g.router.Any("/:path", g.proxyHandler)
-	g.router.Any("/", g.proxyHandler)
 }
 
 func (g *Gateway) healthHandler(c *gin.Context) {
@@ -185,7 +185,7 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		if path == "/health" || path == "/metrics" || path == "/dashboard" ||
+		if path == "/" || path == "/health" || path == "/metrics" || path == "/dashboard" ||
 			path == "/peer" || strings.HasPrefix(path, "/peer/") ||
 			strings.HasPrefix(path, "/api/") ||
 			path == "/favicon.ico" || path == "/ws" ||
@@ -767,3 +767,5 @@ func (g *Gateway) setThemeHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "theme": req.Theme})
 }
+
+
