@@ -481,45 +481,6 @@ pre{
   color:var(--text-dim);
 }
 
-/* View toggle */
-.view-toggle{
-  display:flex;gap:4px;background:var(--bg-card);border:1px solid var(--border);
-  border-radius:8px;padding:4px;
-}
-.view-toggle .btn{
-  padding:4px 12px;font-size:0.78em;border-radius:6px;
-}
-.view-toggle .btn.active{
-  background:var(--accent);color:#fff;border-color:var(--accent);
-}
-.section-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
-  gap:16px;
-}
-.data-card{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
-  padding:16px;position:relative;overflow:hidden;transition:border-color 0.3s,box-shadow 0.3s;
-}
-.data-card:hover{
-  border-color:rgba(59,130,246,0.35);
-  box-shadow:0 20px 60px rgba(0,0,0,0.4),0 0 40px var(--accent-dim);
-}
-.data-card-header{
-  display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;
-}
-.data-card-title{
-  font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent-bright);font-size:0.9em;
-}
-.data-card-body{
-  display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85em;
-}
-.data-card-label{color:var(--text-dim);font-size:0.78em;text-transform:uppercase;letter-spacing:0.5px}
-.data-card-value{color:var(--text);font-family:'JetBrains Mono',monospace}
-.data-card-actions{
-  margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
-  display:flex;gap:8px;justify-content:flex-end;
-}
 </style>
 </head>
 <body>
@@ -619,6 +580,7 @@ pre{
 
 <button class="btn btn-primary" onclick="showRegisterForm()">+ Register Node</button>
 </div>
+</div>
 
 <div id="bulk-bar" class="bulk-bar">
   <span class="bulk-count" id="bulk-count">0 selected</span>
@@ -714,6 +676,8 @@ pre{
 
 <button class="btn btn-primary" onclick="showPoolForm()">+ Create Pool</button>
 </div>
+</div>
+
 <div id="pool-form" class="card" style="display:none;margin-bottom:16px">
 <h3>Create Subnet Pool</h3>
 <div class="form-row" style="margin-top:12px">
@@ -756,6 +720,8 @@ pre{
 
 <button class="btn btn-primary" onclick="showUserForm()">+ Add User</button>
 </div>
+</div>
+
 <div id="user-form" style="display:none" class="card">
 <h3>Create User</h3>
 <div class="form-row" style="margin-top:12px">
@@ -933,10 +899,6 @@ pre{
 </div>
 
 </div>
-
-</div>
-</div>
-</div>
 </div>
 <script>
 const API='/api/admin';
@@ -952,27 +914,6 @@ function errorState(msg){return '<div class="error-state"><div class="error-icon
 
 function headers(){return{'X-Admin-Key':ADMIN_KEY,'Content-Type':'application/json'}}
 
-let globalViewMode = {};
-
-function setViewMode(section, mode) {
-  globalViewMode[section] = mode;
-  const listBtn = document.getElementById('view-list-' + section);
-  const gridBtn = document.getElementById('view-grid-' + section);
-  if (listBtn) listBtn.classList.toggle('active', mode === 'list');
-  if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
-  
-  // Re-render the current section
-  if (section === 'nodes') applyNodeFilters();
-  else if (section === 'health') loadHealth();
-  else if (section === 'cooldowns') loadCooldowns();
-  else if (section === 'subnets') loadPools();
-  else if (section === 'sessions') loadSessions();
-  else if (section === 'capacity') loadCapacity();
-  else if (section === 'users') loadUsers();
-  else if (section === 'activity') loadActivity();
-  else if (section === 'logs') loadLogs();
-  else if (section === 'apikeys') loadAPIKeys();
-}
 function showSection(name){
 document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
 const activeSection = document.getElementById(name);
@@ -1269,8 +1210,6 @@ async function loadLogs(){
     </div>`;
     toast(`Loaded ${data.count} log entries`,'success');
   }catch(e){toast('Failed to load logs','error');resultsDiv.innerHTML='';}
-  if (globalViewMode.logs === "grid") {
-  }
 }
 
 let allNodes=[];
@@ -1616,8 +1555,6 @@ console.error('Failed to load sessions:',e);
 const tbody=document.getElementById('sessions-table');
 if(tbody)tbody.innerHTML='<tr><td colspan="4">'+errorState('Failed to load sessions')+'</td></tr>';
 }
-  if (globalViewMode.sessions === "grid") {
-  }
 }
 
 async function deleteSession(id){
@@ -1679,8 +1616,6 @@ async function loadCapacity(){
     console.error('Failed to load capacity:',e);
     const tbody=document.getElementById('capacity-table');
     if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load capacity')+'</td></tr>';
-  }
-  if (globalViewMode.capacity === "grid") {
   }
 }
 
@@ -1744,8 +1679,6 @@ async function loadHealth(){
     console.error('Failed to load health:',e);
     const tbody=document.getElementById('health-table');
     if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load health scores')+'</td></tr>';
-  }
-  if (globalViewMode.health === "grid") {
   }
 }
 
@@ -1864,8 +1797,6 @@ console.error('Failed to load users:',e);
 const tbody=document.getElementById('users-table');
 if(tbody)tbody.innerHTML='<tr><td colspan="6">'+errorState('Failed to load users')+'</td></tr>';
 }
-  if (globalViewMode.users === "grid") {
-  }
 }
 
 async function deleteUser(username){
@@ -1933,9 +1864,6 @@ async function loadAPIKeys(){
       </div>
     </div>`;
   }catch(e){resultsDiv.innerHTML='';}
-  if (globalViewMode.apikeys === "grid") {
-    renderApikeysGrid(keys || []);
-  }
 }
 
 async function revokeAPIKey(hash){
@@ -1987,8 +1915,6 @@ console.error('Failed to load activity:',e);
 const tbody=document.getElementById('activity-table');
 if(tbody)tbody.innerHTML='<tr><td colspan="7">'+errorState('Failed to load activity')+'</td></tr>';
 }
-  if (globalViewMode.activity === "grid") {
-  }
 }
 
 /* Notifications */
