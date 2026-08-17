@@ -144,7 +144,7 @@ func (g *Gateway) setupRoutes() {
 
 	g.router.GET("/health", g.healthHandler)
 	g.router.GET("/dashboard", g.serveDashboard)
-	g.router.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/web/dashboard") })
+	g.router.GET("/", func(c *gin.Context) { c.File("web/index.html") })
 	g.router.GET("/favicon.ico", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	g.router.GET("/v1/health", g.healthHandler)
 	g.router.GET("/v1/metrics", func(c *gin.Context) {
