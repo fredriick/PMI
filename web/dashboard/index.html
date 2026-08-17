@@ -66,9 +66,7 @@ body::before{
   display:flex;flex-direction:column;padding:20px 0;overflow-y:auto;
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
 }
-.sidebar-header{
-  padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:12px;
-}
+.sidebar-header{text-align:center;padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:12px;display:flex;justify-content:center;align-items:center}
 .sidebar-nav{
   display:flex;flex-direction:column;gap:4px;padding:0 12px;flex:1;
 }
@@ -332,7 +330,7 @@ tr:hover{background:rgba(59,130,246,0.04);transition:background 0.2s}
   .sidebar{width:100%;height:auto;position:relative;padding:12px 0;border-right:none;border-bottom:1px solid var(--border)}
   .sidebar-nav{flex-direction:row;overflow-x:auto;padding:0 12px;gap:8px}
   .sidebar-nav button{white-space:nowrap;width:auto;padding:8px 12px}
-  .sidebar-header{display:none}
+  .sidebar-header{text-align:center;padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:12px;display:flex;justify-content:center;align-items:center}
   .topbar{left:0}
   .main-content{margin-left:0;padding-top:16px}
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -486,7 +484,7 @@ pre{
 <body>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <img src="../logo.svg" alt="ProxyMesh" style="height:56px;width:auto">
+    <img src="../logo.svg" alt="ProxyMesh" style="height:72px;width:auto">
   </div>
   <nav class="sidebar-nav">
     <button class="active" onclick="showSection('overview')">Overview</button>
@@ -2156,4 +2154,5 @@ function deleteNode(nodeId){
 </script>
 </body>
 </html>
+
 
