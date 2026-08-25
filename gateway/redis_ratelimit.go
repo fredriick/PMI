@@ -34,6 +34,10 @@ func (rl *DistributedRateLimiter) GetLimit() int {
 	return rl.limit
 }
 
+func (rl *DistributedRateLimiter) SetWindow(window time.Duration) {
+	rl.window = window
+}
+
 func (rl *DistributedRateLimiter) Allow(clientID string) (bool, error) {
 	key := fmt.Sprintf("ratelimit:%s", clientID)
 	now := time.Now()

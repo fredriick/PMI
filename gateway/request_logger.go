@@ -46,6 +46,14 @@ func NewRequestLogger(redisClient *redis.Client, enabled bool) *HTTPRequestLogge
 	}
 }
 
+func (rl *HTTPRequestLogger) SetEnabled(enabled bool) {
+	rl.enabled = enabled
+}
+
+func (rl *HTTPRequestLogger) IsEnabled() bool {
+	return rl.enabled
+}
+
 func (rl *HTTPRequestLogger) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !rl.enabled {

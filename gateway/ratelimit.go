@@ -13,6 +13,7 @@ type RateLimiter interface {
 	Middleware() gin.HandlerFunc
 	SetLimit(limit int)
 	GetLimit() int
+	SetWindow(window time.Duration)
 }
 
 type LocalRateLimiter struct {
@@ -85,6 +86,12 @@ func (rl *LocalRateLimiter) SetLimit(limit int) {
 
 func (rl *LocalRateLimiter) GetLimit() int {
 	return rl.limit
+}
+
+func (rl *LocalRateLimiter) SetWindow(window time.Duration) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.window = window
 }
 
 func (rl *LocalRateLimiter) Middleware() gin.HandlerFunc {

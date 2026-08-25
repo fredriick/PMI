@@ -3,6 +3,7 @@ package matchmaker
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"proxymesh/internal/models"
 )
@@ -212,4 +213,18 @@ func TestSetSessionNode_Validation(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for empty node_id")
 	}
+}
+
+func TestSetCooldownTTL(t *testing.T) {
+	mm := newTestMatchmaker()
+	origTTL := mm.GetCooldownTTL()
+
+	newTTL := 30 * time.Minute
+	mm.SetCooldownTTL(newTTL)
+
+	if mm.GetCooldownTTL() != newTTL {
+		t.Errorf("expected cooldown TTL %v, got %v", newTTL, mm.GetCooldownTTL())
+	}
+
+	mm.SetCooldownTTL(origTTL)
 }

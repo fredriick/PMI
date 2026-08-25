@@ -56,6 +56,18 @@ func (m *Matchmaker) StopCooldownCleanup() {
 	close(m.stopCooldown)
 }
 
+func (m *Matchmaker) SetCooldownTTL(ttl time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cooldownTTL = ttl
+}
+
+func (m *Matchmaker) GetCooldownTTL() time.Duration {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.cooldownTTL
+}
+
 func (m *Matchmaker) cooldownCleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()

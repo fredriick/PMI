@@ -95,3 +95,35 @@ func TestLocalRateLimiter_AllowReturnsError(t *testing.T) {
 		t.Error("should be allowed")
 	}
 }
+
+func TestLocalRateLimiter_SetWindow(t *testing.T) {
+	rl := NewLocalRateLimiter(1, 60)
+
+	rl.Allow("client1")
+	allowed, _ := rl.Allow("client1")
+	if allowed {
+		t.Error("should be blocked within original window")
+	}
+
+	rl.SetWindow(1 * time.Millisecond)
+
+	allowed, _ = rl.Allow("client2")
+	if !allowed {
+		t.Error("new client should be allowed")
+	}
+}
+
+func TestLocalRateLimiter_SetLimit(t *testing.T) {
+	rl := NewLocalRateLimiter(1, 60)
+	rl.Allow("client1")
+	allowed, _ := rl.Allow("client1")
+	if allowed {
+		t.Error("should be blocked with limit 1")
+	}
+
+	rl.SetLimit(5)
+	allowed, _ = rl.Allow("client1")
+	if !allowed {
+		t.Error("should be allowed after limit increased to 5")
+	}
+}

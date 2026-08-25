@@ -133,6 +133,7 @@ type PrometheusConfig struct {
 
 var (
 	cfg         *Config
+	cfgPath     string
 	once        sync.Once
 	mu          sync.RWMutex
 	subscribers []func(*Config)
@@ -143,6 +144,7 @@ func Load(path string) (*Config, error) {
 	once.Do(func() {
 		viper.SetConfigFile(path)
 		viper.SetConfigType("yaml")
+		cfgPath = path
 
 		err = viper.ReadInConfig()
 		if err != nil {
@@ -210,6 +212,25 @@ func Get() *Config {
 	mu.RLock()
 	defer mu.RUnlock()
 	return cfg
+}
+
+func Set(key string, value interface{}) {
+	mu.Lock()
+	defer mu.Unlock()
+	viper.Set(key, value)
+}
+
+func Save() error {
+	mu.RLock()
+	defer mu.RUnlock()
+	if err := viper.WriteConfig(); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+	return nil
+}
+
+func ConfigPath() string {
+	return cfgPath
 }
 
 // OnChange registers a callback that fires when config changes.

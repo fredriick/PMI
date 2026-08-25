@@ -103,8 +103,11 @@ func main() {
 	setupPeerRoutes(gw.Router(), mm, payoutSvc)
 
 	config.OnChange(func(newCfg *config.Config) {
-		gw.ReloadCompliance(&newCfg.Compliance)
-		log.Printf("Compliance config reloaded: %d blocked domains", len(newCfg.Compliance.BlockedDomains))
+		gw.ApplyConfig(newCfg)
+		log.Printf("Config reloaded: applied live changes for rate_limit=%d cooldown=%dm cb_threshold=%d",
+			newCfg.Gateway.RateLimitRequests,
+			newCfg.Matchmaker.CooldownTTLMinutes,
+			newCfg.Gateway.CircuitBreakerThreshold)
 	})
 	log.Printf("Config change handler registered")
 
