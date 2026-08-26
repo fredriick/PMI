@@ -179,6 +179,37 @@ func (s *APIKeyService) HasScope(rawKey string, requiredScope string) bool {
 	return scope == requiredScope
 }
 
+func (s *APIKeyService) HasMinScope(rawKey string, minScope string) bool {
+	if s == nil || s.client == nil {
+		return false
+	}
+	scope, err := s.ValidateKey(rawKey)
+	if err != nil || scope == "" {
+		return false
+	}
+
+	if scope == "*" {
+		return true
+	}
+
+	return scopeLevel(scope) >= scopeLevel(minScope)
+}
+
+func scopeLevel(scope string) int {
+	switch APIKeyScope(scope) {
+	case ScopeRead:
+		return 1
+	case ScopeWrite:
+		return 2
+	case ScopeAdmin:
+		return 3
+	case ScopeAll:
+		return 99
+	default:
+		return 0
+	}
+}
+
 // SetKeyRateLimit sets a per-key rate limit (requests per window).
 func (s *APIKeyService) SetKeyRateLimit(rawKey string, requests int, windowSeconds int) error {
 	hash := hashKey(rawKey)

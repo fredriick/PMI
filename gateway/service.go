@@ -199,9 +199,13 @@ func (g *Gateway) setupRoutes() {
 	g.router.Use(g.authMiddleware())
 	g.router.Use(g.tracingMiddleware())
 
-	g.router.Any("/v1/:path", g.proxyHandler)
-	g.router.Any("/v1/", g.proxyHandler)
-	g.router.Any("/:path", g.proxyHandler)
+	proxy := g.router.Group("/")
+	proxy.Use(g.requireMinScope("read"))
+	{
+		proxy.Any("/v1/:path", g.proxyHandler)
+		proxy.Any("/v1/", g.proxyHandler)
+		proxy.Any("/:path", g.proxyHandler)
+	}
 }
 
 func (g *Gateway) healthHandler(c *gin.Context) {
@@ -254,6 +258,7 @@ func (g *Gateway) authMiddleware() gin.HandlerFunc {
 				})
 				return
 			}
+			c.Set("api_key", key)
 			c.Set("api_key_scope", scope)
 		}
 
@@ -275,6 +280,33 @@ func (g *Gateway) requireScope(requiredScope string) gin.HandlerFunc {
 		}
 		if !g.apiKeyService.HasScope(rawKey, requiredScope) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient scope"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func (g *Gateway) requireMinScope(minScope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if g.apiKeyService == nil {
+			c.Next()
+			return
+		}
+		scope, exists := c.Get("api_key_scope")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing API key"})
+			return
+		}
+		scopeStr, ok := scope.(string)
+		if !ok || scopeStr == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing API key scope"})
+			return
+		}
+		if scopeLevel(scopeStr) < scopeLevel(minScope) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "Insufficient scope",
+				"scope": scopeStr,
+			})
 			return
 		}
 		c.Next()
