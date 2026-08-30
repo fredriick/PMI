@@ -79,6 +79,12 @@ func (s *APIKeyService) CreateKey(name string, ttlDays int, scope string) (*APIK
 			return nil, err
 		}
 		s.client.Expire(s.ctx, redisKey, ttl)
+	} else if ttlDays < 0 {
+		key.ExpiresAt = time.Now().AddDate(0, 0, ttlDays)
+		data["expires_at"] = key.ExpiresAt.Unix()
+		if err := s.client.HSet(s.ctx, redisKey, data).Err(); err != nil {
+			return nil, err
+		}
 	} else {
 		if err := s.client.HSet(s.ctx, redisKey, data).Err(); err != nil {
 			return nil, err

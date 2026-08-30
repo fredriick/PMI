@@ -93,6 +93,10 @@ func (rl *HTTPRequestLogger) storeLog(entry RequestLogEntry) {
 		return
 	}
 
+	if rl.redisClient == nil {
+		return
+	}
+
 	key := "reqlog:" + time.Now().Format("20060102")
 	rl.redisClient.RPush(rl.redisClient.Context(), key, data)
 	rl.redisClient.Expire(rl.redisClient.Context(), key, 7*24*time.Hour)

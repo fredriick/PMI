@@ -75,7 +75,10 @@ func TestFileWatcher_TriggersSubscriber(t *testing.T) {
 
 	called := make(chan *Config, 1)
 	OnChange(func(newCfg *Config) {
-		called <- newCfg
+		select {
+		case called <- newCfg:
+		default:
+		}
 	})
 
 	Watch()
@@ -101,7 +104,10 @@ func TestFileWatcher_TriggersSubscriber(t *testing.T) {
 func TestWatch_RegistersSubscriber(t *testing.T) {
 	called := make(chan *Config, 1)
 	OnChange(func(newCfg *Config) {
-		called <- newCfg
+		select {
+		case called <- newCfg:
+		default:
+		}
 	})
 
 	testCfg := &Config{
@@ -148,10 +154,16 @@ func TestMultipleSubscribers(t *testing.T) {
 	called2 := make(chan string, 1)
 
 	OnChange(func(newCfg *Config) {
-		called1 <- "subscriber1"
+		select {
+		case called1 <- "subscriber1":
+		default:
+		}
 	})
 	OnChange(func(newCfg *Config) {
-		called2 <- "subscriber2"
+		select {
+		case called2 <- "subscriber2":
+		default:
+		}
 	})
 
 	testCfg := &Config{Gateway: GatewayConfig{Host: "test"}}
