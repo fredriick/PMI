@@ -81,7 +81,7 @@ export default function NodeManagementScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.accent} />
+          <ActivityIndicator size="large" color={Colors.accent} testID="loading-indicator" />
       </View>
     );
   }

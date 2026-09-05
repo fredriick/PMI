@@ -478,7 +478,9 @@ func TestApplyConfig_UpdatesRateLimiterWindow(t *testing.T) {
 		Gateway: config.GatewayConfig{
 			RateLimitRequests:        200,
 			RateLimitWindowSeconds:   120,
+			CircuitBreakerThreshold:  10,
 		},
+		Matchmaker:  config.MatchmakerConfig{CooldownTTLMinutes: 45},
 		Compliance: config.ComplianceConfig{},
 	}
 
@@ -490,5 +492,276 @@ func TestApplyConfig_UpdatesRateLimiterWindow(t *testing.T) {
 
 	if gw.config.RateLimitWindowSeconds != 120 {
 		t.Errorf("expected config rate_limit_window_seconds 120, got %d", gw.config.RateLimitWindowSeconds)
+	}
+
+	if gw.matchmakerConfig.CooldownTTLMinutes != 45 {
+		t.Errorf("expected matchmaker cooldown_ttl_minutes 45, got %d", gw.matchmakerConfig.CooldownTTLMinutes)
+	}
+}
+
+func TestUpdateConfigHandler_InvalidJSON(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:     NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		config:          &config.GatewayConfig{RateLimitRequests: 100},
+		redisConfig:     &config.RedisConfig{MaxRetries: 3},
+		matchmakerConfig: &config.MatchmakerConfig{CooldownTTLMinutes: 15},
+		compliance:      NewComplianceService(&config.ComplianceConfig{}),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/admin/config", strings.NewReader(`{invalid json`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	gw.updateConfigHandler(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400 for invalid JSON, got %d", w.Code)
+	}
+}
+
+func TestUpdateConfigHandler_EmptyBody(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:     NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		config:          &config.GatewayConfig{RateLimitRequests: 100},
+		redisConfig:     &config.RedisConfig{MaxRetries: 3},
+		matchmakerConfig: &config.MatchmakerConfig{CooldownTTLMinutes: 15},
+		compliance:      NewComplianceService(&config.ComplianceConfig{}),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/admin/config", strings.NewReader(`{}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	gw.updateConfigHandler(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 for empty body, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+
+	applied, _ := resp["applied"].([]interface{})
+	if len(applied) != 0 {
+		t.Errorf("expected 0 applied changes for empty body, got %d", len(applied))
+	}
+}
+
+func TestConfigHandler_GetsConfig(t *testing.T) {
+	gw := &Gateway{
+		config: &config.GatewayConfig{
+			RateLimitRequests: 100,
+			Port:              8000,
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/api/admin/config", nil)
+
+	gw.getConfigHandler(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp["status"] != "success" {
+		t.Errorf("expected status 'success', got '%v'", resp["status"])
+	}
+
+	cfg, ok := resp["config"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected config in response")
+	}
+	if cfg["RateLimitRequests"] != float64(100) {
+		t.Errorf("expected RateLimitRequests 100, got %v", cfg["RateLimitRequests"])
+	}
+	if cfg["Port"] != float64(8000) {
+		t.Errorf("expected Port 8000, got %v", cfg["Port"])
+	}
+}
+
+func TestApplyConfig_NilCompliance(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:       NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		matchmaker:        nil,
+		config:            &config.GatewayConfig{},
+		redisConfig:       &config.RedisConfig{},
+		matchmakerConfig:  &config.MatchmakerConfig{},
+		compliance:        nil,
+	}
+
+	emptyCfg := &config.Config{
+		Gateway:    config.GatewayConfig{},
+		Compliance: config.ComplianceConfig{},
+	}
+
+	gw.ApplyConfig(emptyCfg)
+
+	if gw.compliance == nil {
+		t.Error("expected compliance to be initialized after ApplyConfig")
+	}
+}
+
+func TestUpdateConfigHandler_PersistsRedisMaxRetries(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:       NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		config:            &config.GatewayConfig{RateLimitRequests: 100},
+		redisConfig:       &config.RedisConfig{MaxRetries: 3},
+		matchmakerConfig:  &config.MatchmakerConfig{CooldownTTLMinutes: 15},
+		compliance:        NewComplianceService(&config.ComplianceConfig{}),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/admin/config", strings.NewReader(`{
+		"redis": {
+			"max_retries": 5
+		}
+	}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	gw.updateConfigHandler(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if gw.redisConfig.MaxRetries != 5 {
+		t.Errorf("expected redis max_retries 5 after update, got %d", gw.redisConfig.MaxRetries)
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	applied, _ := resp["applied"].([]interface{})
+	hasMaxRetries := false
+	for _, a := range applied {
+		if a.(string) == "redis.max_retries" {
+			hasMaxRetries = true
+		}
+	}
+	if !hasMaxRetries {
+		t.Error("expected 'redis.max_retries' in applied list")
+	}
+}
+
+func TestUpdateConfigHandler_PersistsComplianceBlockedDomains(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:       NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		config:            &config.GatewayConfig{RateLimitRequests: 100},
+		redisConfig:       &config.RedisConfig{MaxRetries: 3},
+		matchmakerConfig:  &config.MatchmakerConfig{CooldownTTLMinutes: 15},
+		compliance:        NewComplianceService(&config.ComplianceConfig{}),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/admin/config", strings.NewReader(`{
+		"compliance": {
+			"blocked_domains": ["*.evil.com", "badsite.net"],
+			"kyc_required": true
+		}
+	}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	gw.updateConfigHandler(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !gw.compliance.KYCRequired {
+		t.Error("expected KYCRequired to be true after update")
+	}
+	if len(gw.compliance.BlockedDomains) != 2 {
+		t.Errorf("expected 2 blocked domains, got %d", len(gw.compliance.BlockedDomains))
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	applied, _ := resp["applied"].([]interface{})
+	hasKYC := false
+	hasBlocked := false
+	for _, a := range applied {
+		switch a.(string) {
+		case "compliance.kyc_required":
+			hasKYC = true
+		case "compliance.blocked_domains":
+			hasBlocked = true
+		}
+	}
+	if !hasKYC {
+		t.Error("expected 'compliance.kyc_required' in applied list")
+	}
+	if !hasBlocked {
+			t.Error("expected 'compliance.blocked_domains' in applied list")
+	}
+}
+
+func TestUpdateConfigHandler_PersistsMatchmakerCooldown(t *testing.T) {
+	rl := NewLocalRateLimiter(100, 60)
+
+	gw := &Gateway{
+		rateLimiter:       NewTieredRateLimiter(rl, NewRateLimitTiers(nil)),
+		matchmaker:        nil,
+		config:            &config.GatewayConfig{RateLimitRequests: 100},
+		redisConfig:       &config.RedisConfig{MaxRetries: 3},
+		matchmakerConfig:  &config.MatchmakerConfig{CooldownTTLMinutes: 15},
+		compliance:        NewComplianceService(&config.ComplianceConfig{}),
+	}
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/admin/config", strings.NewReader(`{
+		"matchmaker": {
+			"cooldown_ttl_minutes": 45
+		}
+	}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	gw.updateConfigHandler(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if gw.matchmakerConfig.CooldownTTLMinutes != 45 {
+		t.Errorf("expected cooldown_ttl_minutes 45, got %d", gw.matchmakerConfig.CooldownTTLMinutes)
+	}
+
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	applied, _ := resp["applied"].([]interface{})
+	hasCooldown := false
+	for _, a := range applied {
+		if a.(string) == "matchmaker.cooldown_ttl_minutes" {
+			hasCooldown = true
+		}
+	}
+	if !hasCooldown {
+		t.Error("expected 'matchmaker.cooldown_ttl_minutes' in applied list")
 	}
 }

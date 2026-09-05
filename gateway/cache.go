@@ -134,6 +134,7 @@ func (rc *ResponseCache) Middleware(ttl time.Duration, cacheKeyFunc func(*gin.Co
 			c.Header("X-Cache", "HIT")
 			c.Header("Content-Type", contentType)
 			c.String(http.StatusOK, response)
+			c.Abort()
 			return
 		}
 

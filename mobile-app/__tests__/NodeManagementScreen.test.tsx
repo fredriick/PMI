@@ -13,7 +13,12 @@ const mockApi = require('../src/services/api').api;
 
 describe('NodeManagementScreen', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders loading indicator initially', () => {
