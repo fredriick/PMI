@@ -65,14 +65,14 @@ func TestRollback(t *testing.T) {
 	runner := NewMigrationRunner(rdb, migrations)
 
 	_ = runner.Run(context.Background())
-	if err := runner.Rollback(context.Background(), "001_initial_schema"); err != nil {
-		t.Fatalf("Rollback failed: %v", err)
-	}
+  if err := runner.Rollback(context.Background(), "000"); err != nil {
+    t.Fatalf("Rollback failed: %v", err)
+  }
 
-	_, pending, _ := runner.Status(context.Background())
-	if len(pending) != len(migrations) {
-		t.Fatalf("expected %d pending after rollback, got %d", len(migrations), len(pending))
-	}
+  _, pending, _ := runner.Status(context.Background())
+  if len(pending) != len(migrations) {
+    t.Fatalf("expected %d pending after rollback, got %d", len(migrations), len(pending))
+  }
 }
 
 func TestRecordMigrationTimestamp(t *testing.T) {

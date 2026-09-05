@@ -111,6 +111,10 @@ func (s *SubnetAllocator) Deallocate(nodeID string) error {
 }
 
 func (s *SubnetAllocator) GetNodeSubnet(nodeID string) (string, error) {
+	if s.client == nil {
+		return "", fmt.Errorf("redis client not initialized")
+	}
+
 	keys, err := s.client.Keys(s.ctx, "subnet_alloc:*").Result()
 	if err != nil {
 		return "", err
