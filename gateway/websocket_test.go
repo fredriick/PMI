@@ -360,7 +360,7 @@ func TestWebSocketHubConcurrentAccess(t *testing.T) {
 	}
 
 	wg.Wait()
-	hub.Sync()
+	waitForClientCount(hub, numClients)
 
 	if hub.ClientCount() != numClients {
 		t.Fatalf("expected %d clients after registration, got %d", numClients, hub.ClientCount())
@@ -375,7 +375,7 @@ func TestWebSocketHubConcurrentAccess(t *testing.T) {
 	}
 
 	wg.Wait()
-	hub.Sync()
+	waitForClientCount(hub, 0)
 
 	if hub.ClientCount() != 0 {
 		t.Fatalf("expected 0 clients after concurrent test, got %d", hub.ClientCount())
