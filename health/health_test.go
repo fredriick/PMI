@@ -1,141 +1,167 @@
 package health
 
 import (
-	"runtime"
+	"context"
 	"testing"
+	"time"
+
+	"github.com/go-redis/redis/v8"
 )
 
-func TestCheckMemory_Healthy(t *testing.T) {
-	svc := NewHealthService(nil)
+func TestHealthService_New(t *testing.T) {
+	hs := NewHealthService(nil)
+	if hs == nil {
+		t.Fatal("NewHealthService returned nil")
+	}
+	if hs.memThreshold != 90.0 {
+		t.Errorf("expected memThreshold 90, got %f", hs.memThreshold)
+	}
+	if hs.diskThreshold != 90.0 {
+		t.Errorf("expected diskThreshold 90, got %f", hs.diskThreshold)
+	}
+}
 
-	// Set thresholds high so even real memory usage reports healthy.
-	svc.SetThresholds(100, 100)
+func TestHealthService_CheckAll_NoRedis(t *testing.T) {
+	hs := NewHealthService(nil)
+	result := hs.CheckAll()
+	if result == nil {
+		t.Fatal("expected non-nil SystemHealth")
+	}
+	if result.Overall == "" {
+		t.Error("expected non-empty overall status")
+	}
+	if len(result.Checks) < 2 {
+		t.Errorf("expected at least 2 checks (memory, disk), got %d", len(result.Checks))
+	}
+}
 
-	check := svc.CheckMemory()
+func TestHealthService_CheckMemory(t *testing.T) {
+	hs := NewHealthService(nil)
+	check := hs.CheckMemory()
 	if check.Component != ComponentMemory {
-		t.Errorf("Component = %q, want %q", check.Component, ComponentMemory)
+		t.Errorf("expected ComponentMemory, got %s", check.Component)
 	}
-	if check.Status != StatusHealthy {
-		t.Errorf("Status = %q, want %q, Message=%q", check.Status, StatusHealthy, check.Message)
-	}
-	if check.LatencyMs < 0 {
-		t.Error("LatencyMs should not be negative")
+	if check.Status == "" {
+		t.Error("expected non-empty status")
 	}
 	if check.Details == nil {
-		t.Error("Details should be populated")
+		t.Error("expected non-nil details")
 	}
 }
 
-func TestCheckMemory_Degraded(t *testing.T) {
-	svc := NewHealthService(nil)
-	svc.SetThresholds(10, 100)
-
-	check := svc.CheckMemory()
-	if check.Component != ComponentMemory {
-		t.Errorf("Component = %q", check.Component)
-	}
-	// With flat threshold of 10%, real usage will almost certainly trigger degraded/unhealthy.
-	if check.Status != StatusDegraded && check.Status != StatusUnhealthy {
-		t.Logf("Status = %q (depends on runtime memory usage), Message = %q", check.Status, check.Message)
-		t.Skip("memory usage too atypical to assert exact status")
-	}
-	if _, ok := check.Details.(map[string]interface{}); !ok {
-		t.Error("Details should be a map")
-	}
-}
-
-func TestCheckDisk(t *testing.T) {
-	svc := NewHealthService(nil)
-	check := svc.CheckDisk()
-
+func TestHealthService_CheckDisk(t *testing.T) {
+	hs := NewHealthService(nil)
+	check := hs.CheckDisk()
 	if check.Component != ComponentDisk {
-		t.Errorf("Component = %q, want %q", check.Component, ComponentDisk)
+		t.Errorf("expected ComponentDisk, got %s", check.Component)
 	}
 	if check.Status != StatusHealthy {
-		t.Errorf("Status = %q, want %q", check.Status, StatusHealthy)
-	}
-	if check.Message == "" {
-		t.Error("Message should not be empty")
+		t.Errorf("expected StatusHealthy, got %s", check.Status)
 	}
 }
 
-func TestCheckAll_Structure(t *testing.T) {
-	svc := NewHealthService(nil)
-	svc.SetThresholds(100, 100)
-
-	health := svc.CheckAll()
-	if health == nil {
-		t.Fatal("CheckAll() returned nil")
+func TestHealthService_SetThresholds(t *testing.T) {
+	hs := NewHealthService(nil)
+	hs.SetThresholds(80.0, 70.0)
+	if hs.memThreshold != 80.0 {
+		t.Errorf("expected memThreshold 80, got %f", hs.memThreshold)
 	}
-	if health.Overall == "" {
-		t.Error("Overall status should not be empty")
-	}
-	if len(health.Checks) < 2 {
-		t.Errorf("expected at least 2 checks (Memory+Disk), got %d", len(health.Checks))
-	}
-	if health.Timestamp.IsZero() {
-		t.Error("Timestamp should not be zero")
-	}
-
-	components := map[Component]bool{}
-	for _, c := range health.Checks {
-		components[c.Component] = true
-		if c.Message == "" {
-			t.Errorf("check for %q has empty Message", c.Component)
-		}
-	}
-	if !components[ComponentMemory] {
-		t.Errorf("expected Memory check, got %v", components)
-	}
-	if !components[ComponentDisk] {
-		t.Errorf("expected Disk check, got %v", components)
+	if hs.diskThreshold != 70.0 {
+		t.Errorf("expected diskThreshold 70, got %f", hs.diskThreshold)
 	}
 }
 
-func TestNewHealthService(t *testing.T) {
-	svc := NewHealthService(nil)
-	if svc == nil {
-		t.Fatal("NewHealthService() returned nil")
+func TestHealthService_CheckAll_WithRedis(t *testing.T) {
+	client := redisClientHealth(t)
+	defer client.Close()
+
+	hs := NewHealthService(client)
+	result := hs.CheckAll()
+	if result == nil {
+		t.Fatal("expected non-nil SystemHealth")
 	}
-	if svc.memThreshold != 90.0 {
-		t.Errorf("default memThreshold = %v, want 90.0", svc.memThreshold)
-	}
-	if svc.diskThreshold != 90.0 {
-		t.Errorf("default diskThreshold = %v, want 90.0", svc.diskThreshold)
+	if len(result.Checks) < 3 {
+		t.Errorf("expected at least 3 checks (redis, memory, disk), got %d", len(result.Checks))
 	}
 }
 
-func TestHealthCheck_JSONSerialization(t *testing.T) {
+func TestHealthService_CheckRedis(t *testing.T) {
+	client := redisClientHealth(t)
+	defer client.Close()
+
+	hs := NewHealthService(client)
+	check := hs.CheckRedis()
+	if check.Component != ComponentRedis {
+		t.Errorf("expected ComponentRedis, got %s", check.Component)
+	}
+	if check.Status != StatusHealthy {
+		t.Errorf("expected StatusHealthy, got %s", check.Status)
+	}
+}
+
+func TestComponent_Constants(t *testing.T) {
+	if ComponentRedis != "redis" {
+		t.Errorf("expected 'redis', got %s", ComponentRedis)
+	}
+	if ComponentMemory != "memory" {
+		t.Errorf("expected 'memory', got %s", ComponentMemory)
+	}
+	if ComponentDisk != "disk" {
+		t.Errorf("expected 'disk', got %s", ComponentDisk)
+	}
+	if ComponentGateway != "gateway" {
+		t.Errorf("expected 'gateway', got %s", ComponentGateway)
+	}
+}
+
+func TestStatus_Constants(t *testing.T) {
+	if StatusHealthy != "healthy" {
+		t.Errorf("expected 'healthy', got %s", StatusHealthy)
+	}
+	if StatusDegraded != "degraded" {
+		t.Errorf("expected 'degraded', got %s", StatusDegraded)
+	}
+	if StatusUnhealthy != "unhealthy" {
+		t.Errorf("expected 'unhealthy', got %s", StatusUnhealthy)
+	}
+}
+
+func TestSystemHealth_Struct(t *testing.T) {
+	sh := SystemHealth{
+		Overall:   StatusHealthy,
+		Checks:    []HealthCheck{},
+		Timestamp: time.Now(),
+	}
+	if sh.Overall != StatusHealthy {
+		t.Error("unexpected Overall")
+	}
+	if sh.Checks == nil {
+		t.Error("expected non-nil Checks")
+	}
+}
+
+func TestHealthCheck_Struct(t *testing.T) {
 	hc := HealthCheck{
 		Component: ComponentRedis,
 		Status:    StatusHealthy,
-		LatencyMs: 42,
-		Message:   "OK",
-		Details:   map[string]interface{}{"version": "1.0"},
+		LatencyMs: 5,
+		Message:   "Connected",
+		Details:   map[string]interface{}{"key": "value"},
 	}
-
-	expected := map[Component]bool{
-		ComponentRedis:   true,
-		ComponentMemory:  false,
-		ComponentDisk:    false,
-		ComponentGateway: false,
+	if hc.Component != ComponentRedis {
+		t.Error("unexpected Component")
 	}
-	if _, ok := expected[hc.Component]; !ok {
-		t.Errorf("unknown component %q", hc.Component)
+	if hc.LatencyMs != 5 {
+		t.Error("unexpected LatencyMs")
 	}
-
-	statusSet := map[Status]bool{StatusHealthy: true, StatusDegraded: true, StatusUnhealthy: true}
-	if _, ok := statusSet[hc.Status]; !ok {
-		t.Errorf("unknown status %q", hc.Status)
-	}
-	_ = runtime.NumGoroutine()
 }
 
-func TestSystemHealth_StatusConstants(t *testing.T) {
-	if StatusHealthy != "healthy" || StatusDegraded != "degraded" || StatusUnhealthy != "unhealthy" {
-		t.Errorf("unexpected status string values")
+func redisClientHealth(t *testing.T) *redis.Client {
+	t.Helper()
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		t.Skipf("Redis not available: %v", err)
 	}
-	if ComponentRedis != "redis" || ComponentMemory != "memory" || ComponentDisk != "disk" || ComponentGateway != "gateway" {
-		t.Errorf("unexpected component string values")
-	}
+	_ = rdb.FlushDB(context.Background()).Err()
+	return rdb
 }

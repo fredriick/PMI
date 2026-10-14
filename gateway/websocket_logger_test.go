@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,6 +33,8 @@ func TestNewHub(t *testing.T) {
 
 func TestHub_ClientCount(t *testing.T) {
 	h := NewHub()
+	go h.Run()
+
 	if h.ClientCount() != 0 {
 		t.Errorf("expected 0 clients, got %d", h.ClientCount())
 	}
@@ -62,6 +65,7 @@ func TestHub_ClientCount(t *testing.T) {
 
 func TestHub_Broadcast(t *testing.T) {
 	h := NewHub()
+	go h.Run()
 
 	c1 := &Client{send: make(chan []byte, 256)}
 	c2 := &Client{send: make(chan []byte, 256)}
@@ -77,7 +81,7 @@ func TestHub_Broadcast(t *testing.T) {
 		if string(m) != "test message" {
 			t.Errorf("expected 'test message', got '%s'", string(m))
 		}
-	default:
+	case <-time.After(100 * time.Millisecond):
 		t.Error("expected message on c1")
 	}
 
@@ -86,18 +90,20 @@ func TestHub_Broadcast(t *testing.T) {
 		if string(m) != "test message" {
 			t.Errorf("expected 'test message', got '%s'", string(m))
 		}
-	default:
+	case <-time.After(100 * time.Millisecond):
 		t.Error("expected message on c2")
 	}
 }
 
 func TestHub_Broadcast_NoClients(t *testing.T) {
 	h := NewHub()
+	go h.Run()
 	h.Broadcast([]byte("test"))
 }
 
 func TestHub_RegisterUnregister(t *testing.T) {
 	h := NewHub()
+	go h.Run()
 
 	c := &Client{send: make(chan []byte, 256)}
 	h.Register(c)
@@ -117,6 +123,7 @@ func TestHub_RegisterUnregister(t *testing.T) {
 
 func TestHub_Broadcast_ClientOverflow(t *testing.T) {
 	h := NewHub()
+	go h.Run()
 
 	c := &Client{send: make(chan []byte, 1)}
 	h.Register(c)
@@ -125,7 +132,14 @@ func TestHub_Broadcast_ClientOverflow(t *testing.T) {
 	c.send <- []byte("full")
 
 	h.Broadcast([]byte("overflow"))
-	h.Sync()
+
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if h.ClientCount() == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 
 	if h.ClientCount() != 0 {
 		t.Errorf("expected client to be removed after overflow, got %d", h.ClientCount())
@@ -249,6 +263,7 @@ func TestMustMarshal_NilPayload(t *testing.T) {
 
 func TestHub_Broadcast_MetricsUpdate(t *testing.T) {
 	h := NewHub()
+	go h.Run()
 	c := &Client{send: make(chan []byte, 256)}
 	h.Register(c)
 	h.Sync()
@@ -257,15 +272,15 @@ func TestHub_Broadcast_MetricsUpdate(t *testing.T) {
 	h.BroadcastMetricsUpdate(update)
 
 	select {
-		case m := <-c.send:
-			var msg WSMessage
-			if err := json.Unmarshal(m, &msg); err != nil {
-				t.Fatalf("failed to unmarshal: %v", err)
-			}
-			if msg.Type != "metrics_update" {
-				t.Errorf("expected metrics_update, got %s", msg.Type)
-			}
-		default:
-			t.Error("expected message on channel")
+	case m := <-c.send:
+		var msg WSMessage
+		if err := json.Unmarshal(m, &msg); err != nil {
+			t.Fatalf("failed to unmarshal: %v", err)
 		}
+		if msg.Type != "metrics_update" {
+			t.Errorf("expected metrics_update, got %s", msg.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("expected message on channel")
+	}
 }

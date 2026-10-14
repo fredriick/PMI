@@ -62,6 +62,9 @@ func (p *PayoutService) GetTiers() []config.PricingTier {
 }
 
 func (p *PayoutService) CalculatePayout(nodeID string, period time.Time) (*Payout, error) {
+	if p.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	payout, err := p.calculatePayoutInternal(nodeID, period)
 	if err != nil {
 		return nil, err
@@ -75,6 +78,9 @@ func (p *PayoutService) CalculatePayout(nodeID string, period time.Time) (*Payou
 }
 
 func (p *PayoutService) calculatePayoutInternal(nodeID string, period time.Time) (*Payout, error) {
+	if p.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	bandwidth, err := p.redis.GetBandwidth(nodeID, period)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bandwidth: %w", err)
@@ -125,6 +131,9 @@ func (p *PayoutService) getTierRates(tierName string) (float64, float64) {
 }
 
 func (p *PayoutService) CalculateAllPayouts(period time.Time) ([]Payout, error) {
+	if p.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	nodes, err := p.redis.GetAllNodes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes: %w", err)
@@ -153,9 +162,15 @@ func (p *PayoutService) GetRates() PayoutRates {
 }
 
 func (p *PayoutService) GetPayoutHistory(nodeID string, limit int) ([]map[string]interface{}, error) {
+	if p.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return p.redis.GetPayoutHistory(nodeID, int64(limit))
 }
 
 func (p *PayoutService) GetBandwidthBreakdown(nodeID string) (map[string]models.BandwidthData, error) {
+	if p.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return p.redis.GetBandwidthHistory(nodeID)
 }

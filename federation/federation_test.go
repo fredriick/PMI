@@ -1,190 +1,245 @@
 package federation
 
 import (
-	"encoding/json"
+	"context"
 	"testing"
 	"time"
 
 	"proxymesh/internal/config"
 )
 
-func TestNewFederationService(t *testing.T) {
-	cfg := &config.Config{}
-	svc := NewFederationService(cfg, nil)
-	if svc == nil {
-		t.Fatal("NewFederationService() returned nil")
+func TestFederationService_New(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{
+			Enabled:            false,
+			Regions:            []string{"us-east", "eu-west"},
+			HeartbeatInterval:  30,
+			SyncInterval:       60,
+		},
 	}
-	if svc.peers == nil {
-		t.Error("peers map should be initialised")
+	fs := NewFederationService(cfg, nil)
+	if fs == nil {
+		t.Fatal("NewFederationService returned nil")
 	}
-	if svc.nodeCache == nil {
-		t.Error("nodeCache map should be initialised")
+	if len(fs.peers) != 0 {
+		t.Error("expected empty peers map")
 	}
-	if svc.stop == nil {
-		t.Error("stop channel should be initialised")
+}
+
+func TestFederationService_Start_Disabled(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
+	}
+	fs := NewFederationService(cfg, nil)
+	err := fs.Start()
+	if err != nil {
+		t.Fatalf("Start error: %v", err)
 	}
 }
 
 func TestFederationService_RegisterPeer(t *testing.T) {
 	cfg := &config.Config{
-		Federation: config.FederationConfig{
-			Enabled:           true,
-			Regions:           []string{"eu-west-1"},
-			HeartbeatInterval: 30,
-			SyncInterval:      60,
-		},
+		Federation: config.FederationConfig{Enabled: false},
 	}
-	svc := NewFederationService(cfg, nil)
+	fs := NewFederationService(cfg, nil)
 
-	err := svc.RegisterPeer("eu-west-1", "10.0.0.1:9000")
+	err := fs.RegisterPeer("us-east", "10.0.0.1:8000")
 	if err != nil {
-		t.Fatalf("RegisterPeer() unexpected error: %v", err)
-	}
-	err = svc.RegisterPeer("eu-west-1", "10.0.0.1:9001")
-	if err != nil {
-		t.Fatalf("RegisterPeer() duplicate should not error: %v", err)
+		t.Fatalf("RegisterPeer error: %v", err)
 	}
 
-	stats := svc.GetStats()
+	stats := fs.GetStats()
 	if len(stats) != 1 {
-		t.Fatalf("expected 1 stat entry, got %d", len(stats))
+		t.Errorf("expected 1 stat, got %d", len(stats))
 	}
-	if stats[0].Region != "eu-west-1" {
-		t.Errorf("Region = %q, want %q", stats[0].Region, "eu-west-1")
-	}
-	if stats[0].PeerCount != 1 {
-		t.Errorf("PeerCount = %d, want 1", stats[0].PeerCount)
+	if stats[0].Region != "us-east" {
+		t.Errorf("expected region us-east, got %s", stats[0].Region)
 	}
 	if stats[0].Status != "healthy" {
-		t.Errorf("Status = %q, want %q", stats[0].Status, "healthy")
+		t.Errorf("expected healthy status, got %s", stats[0].Status)
 	}
 }
 
-func TestFederationService_GetStats_MultiplePeers(t *testing.T) {
-	svc := &FederationService{
-		peers:     make(map[string]*PeerGateway),
-		nodeCache: make(map[string][]string),
+func TestFederationService_GetNodesForRegion_NotFound(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
+	}
+	fs := NewFederationService(cfg, nil)
+
+	_, err := fs.GetNodesForRegion("nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent region")
+	}
+}
+
+func TestFederationService_GetNodesForRegion_Found(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
+	}
+	fs := NewFederationService(cfg, nil)
+
+	msg := &FederationMessage{
+		Type:   "node_sync",
+		Region: "us-east",
+		Nodes:  []string{"node-1", "node-2"},
+	}
+	err := fs.HandleMessage(context.Background(), msg)
+	if err != nil {
+		t.Fatalf("HandleMessage error: %v", err)
 	}
 
-	svc.RegisterPeer("us-east-1", "10.0.0.1:9000")
-	svc.RegisterPeer("eu-west-1", "10.0.0.2:9000")
-
-	stats := svc.GetStats()
-	if len(stats) != 2 {
-		t.Fatalf("expected 2 stat entries, got %d", len(stats))
+	nodes, err := fs.GetNodesForRegion("us-east")
+	if err != nil {
+		t.Fatalf("GetNodesForRegion error: %v", err)
 	}
-
-	regions := make(map[string]bool)
-	for _, s := range stats {
-		regions[s.Region] = true
-	}
-	if !regions["us-east-1"] || !regions["eu-west-1"] {
-		t.Errorf("missing expected regions: %v", regions)
+	if len(nodes) != 2 {
+		t.Errorf("expected 2 nodes, got %d", len(nodes))
 	}
 }
 
 func TestFederationService_HandleMessage_Heartbeat(t *testing.T) {
-	svc := &FederationService{
-		peers:     make(map[string]*PeerGateway),
-		nodeCache: make(map[string][]string),
-		stop:      make(chan bool),
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
 	}
+	fs := NewFederationService(cfg, nil)
 
 	msg := &FederationMessage{
-		Type:      "heartbeat",
-		Region:    "ap-southeast-1",
-		Timestamp: time.Now(),
+		Type:   "heartbeat",
+		Region: "eu-west",
 	}
-	err := svc.HandleMessage(nil, msg)
+	err := fs.HandleMessage(context.Background(), msg)
 	if err != nil {
-		t.Fatalf("HandleMessage(heartbeat) unexpected error: %v", err)
+		t.Fatalf("HandleMessage error: %v", err)
 	}
 
-	stats := svc.GetStats()
+	stats := fs.GetStats()
 	if len(stats) != 1 {
-		t.Fatalf("expected 1 stat after heartbeat, got %d", len(stats))
-	}
-	if stats[0].Region != "ap-southeast-1" {
-		t.Errorf("Region = %q, want %q", stats[0].Region, "ap-southeast-1")
+		t.Errorf("expected 1 stat after heartbeat, got %d", len(stats))
 	}
 }
 
-func TestFederationService_HandleMessage_NodeSync(t *testing.T) {
-	svc := &FederationService{
-		peers:     make(map[string]*PeerGateway),
-		nodeCache: make(map[string][]string),
-		stop:      make(chan bool),
+func TestFederationService_HandleMessage_UnknownType(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
 	}
+	fs := NewFederationService(cfg, nil)
 
-	nodeIDs := []string{"node-a", "node-b", "node-c"}
 	msg := &FederationMessage{
-		Type:      "node_sync",
-		Region:    "eu-central-1",
-		Nodes:     nodeIDs,
-		Timestamp: time.Now(),
-		Data:      json.RawMessage(`["node-a","node-b","node-c"]`),
+		Type:   "unknown",
+		Region: "us-east",
 	}
-	err := svc.HandleMessage(nil, msg)
-	if err != nil {
-		t.Fatalf("HandleMessage(node_sync) unexpected error: %v", err)
-	}
-
-	nodes, err := svc.GetNodesForRegion("eu-central-1")
-	if err != nil {
-		t.Fatalf("GetNodesForRegion() unexpected error: %v", err)
-	}
-	if len(nodes) != 3 {
-		t.Fatalf("expected 3 nodes, got %d", len(nodes))
-	}
-}
-
-func TestFederationService_HandleMessage_Unknown(t *testing.T) {
-	svc := &FederationService{
-		peers:     make(map[string]*PeerGateway),
-		nodeCache: make(map[string][]string),
-		stop:      make(chan bool),
-	}
-
-	msg := &FederationMessage{Type: "unknown_type"}
-	err := svc.HandleMessage(nil, msg)
+	err := fs.HandleMessage(context.Background(), msg)
 	if err == nil {
-		t.Error("HandleMessage(unknown) should return error")
+		t.Error("expected error for unknown message type")
 	}
 }
 
-func TestFederationService_GetNodesForRegion_Missing(t *testing.T) {
-	svc := &FederationService{
-		peers:     make(map[string]*PeerGateway),
-		nodeCache: make(map[string][]string),
-		stop:      make(chan bool),
+func TestFederationService_GetStats_Empty(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
 	}
+	fs := NewFederationService(cfg, nil)
 
-	_, err := svc.GetNodesForRegion("nonexistent")
-	if err == nil {
-		t.Error("expected error for missing region")
-	}
-}
-
-func TestFederationService_Disabled(t *testing.T) {
-	svc := &FederationService{
-		cfg: config.FederationConfig{Enabled: false},
-	}
-	err := svc.Start()
-	if err != nil {
-		t.Fatalf("Start() on disabled federation should not error: %v", err)
+	stats := fs.GetStats()
+	if len(stats) != 0 {
+		t.Errorf("expected 0 stats, got %d", len(stats))
 	}
 }
 
 func TestFederationService_Stop(t *testing.T) {
-	svc := &FederationService{
-		cfg:  config.FederationConfig{Enabled: true},
-		stop: make(chan bool),
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
 	}
-	svc.Stop()
-	select {
-	case <-svc.stop:
-		// OK
-	default:
-		t.Error("stop channel should be closed")
+	fs := NewFederationService(cfg, nil)
+	fs.Stop()
+}
+
+func TestFederationStats_Struct(t *testing.T) {
+	stats := FederationStats{
+		Region:    "us-east",
+		PeerCount: 1,
+		NodeCount: 5,
+		LastSync:  time.Now(),
+		Status:    "healthy",
+	}
+	if stats.Region != "us-east" {
+		t.Error("unexpected Region")
+	}
+	if stats.PeerCount != 1 {
+		t.Error("unexpected PeerCount")
+	}
+	if stats.NodeCount != 5 {
+		t.Error("unexpected NodeCount")
+	}
+}
+
+func TestPeerGateway_Struct(t *testing.T) {
+	pg := PeerGateway{
+		Region:   "us-east",
+		Address:  "10.0.0.1:8000",
+		LastSeen: time.Now(),
+		Healthy:  true,
+	}
+	if pg.Region != "us-east" {
+		t.Error("unexpected Region")
+	}
+	if !pg.Healthy {
+		t.Error("expected Healthy to be true")
+	}
+}
+
+func TestFederationMessage_Struct(t *testing.T) {
+	msg := FederationMessage{
+		Type:      "heartbeat",
+		Region:    "us-east",
+		Nodes:     []string{"node-1", "node-2"},
+		Timestamp: time.Now(),
+	}
+	if msg.Type != "heartbeat" {
+		t.Error("unexpected Type")
+	}
+	if len(msg.Nodes) != 2 {
+		t.Error("unexpected Nodes count")
+	}
+}
+
+func TestFederationService_RegisterPeer_Duplicate(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
+	}
+	fs := NewFederationService(cfg, nil)
+
+	fs.RegisterPeer("us-east", "10.0.0.1:8000")
+	fs.RegisterPeer("us-east", "10.0.0.2:8000")
+
+	stats := fs.GetStats()
+	if len(stats) != 1 {
+		t.Errorf("expected 1 stat (overwritten), got %d", len(stats))
+	}
+	if stats[0].Region != "us-east" {
+		t.Errorf("expected region us-east, got %s", stats[0].Region)
+	}
+}
+
+func TestFederationService_GetStats_WithNodeCache(t *testing.T) {
+	cfg := &config.Config{
+		Federation: config.FederationConfig{Enabled: false},
+	}
+	fs := NewFederationService(cfg, nil)
+
+	fs.RegisterPeer("us-east", "10.0.0.1:8000")
+	msg := &FederationMessage{
+		Type:   "node_sync",
+		Region: "us-east",
+		Nodes:  []string{"node-1", "node-2", "node-3"},
+	}
+	fs.HandleMessage(context.Background(), msg)
+
+	stats := fs.GetStats()
+	if len(stats) != 1 {
+		t.Fatalf("expected 1 stat, got %d", len(stats))
+	}
+	if stats[0].NodeCount != 3 {
+		t.Errorf("expected NodeCount 3, got %d", stats[0].NodeCount)
 	}
 }

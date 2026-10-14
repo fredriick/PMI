@@ -1,0 +1,43 @@
+<svg width="100%" viewBox="0 0 680 480" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Omniroute system architecture overview</title>
+<desc>GitHub Actions CI builds and pushes an image to the container registry while Terraform provisions infrastructure; both feed a Kubernetes deployment managed via Helm, which is observed by Prometheus and Grafana.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<g style="font-family:'Anthropic Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+
+<!-- Row 1: CI pipeline (neutral) -->
+<rect x="190" y="40" width="300" height="56" rx="8" stroke-width="0.5" fill="rgb(241,239,232)" stroke="rgb(95,94,90)"/>
+<text x="340" y="60" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="rgb(68,68,65)">CI Pipeline</text>
+<text x="340" y="80" text-anchor="middle" dominant-baseline="central" font-size="12" fill="rgb(95,94,90)">GitHub Actions: build, vet, test, scan</text>
+
+<line x1="280" y1="96" x2="240" y2="150" marker-end="url(#arrow)" stroke="rgb(137,135,129)" stroke-width="1.5"/>
+<line x1="400" y1="96" x2="480" y2="150" marker-end="url(#arrow)" stroke="rgb(137,135,129)" stroke-width="1.5"/>
+
+<!-- Row 2: registry (teal) + terraform (amber) -->
+<rect x="130" y="150" width="220" height="56" rx="8" stroke-width="0.5" fill="rgb(225,245,238)" stroke="rgb(15,110,86)"/>
+<text x="240" y="170" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="rgb(8,80,65)">Container Registry</text>
+<text x="240" y="190" text-anchor="middle" dominant-baseline="central" font-size="12" fill="rgb(15,110,86)">ghcr.io &#8212; versioned image</text>
+
+<rect x="370" y="150" width="220" height="56" rx="8" stroke-width="0.5" fill="rgb(250,238,218)" stroke="rgb(133,79,11)"/>
+<text x="480" y="170" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="rgb(99,56,6)">Terraform</text>
+<text x="480" y="190" text-anchor="middle" dominant-baseline="central" font-size="12" fill="rgb(133,79,11)">AWS EKS + ElastiCache Redis</text>
+
+<line x1="240" y1="206" x2="280" y2="260" marker-end="url(#arrow)" stroke="rgb(137,135,129)" stroke-width="1.5"/>
+<line x1="480" y1="206" x2="400" y2="260" marker-end="url(#arrow)" stroke="rgb(137,135,129)" stroke-width="1.5"/>
+
+<!-- Row 3: kubernetes (purple) -->
+<rect x="190" y="260" width="300" height="56" rx="8" stroke-width="0.5" fill="rgb(238,237,254)" stroke="rgb(83,74,183)"/>
+<text x="340" y="280" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="rgb(60,52,137)">Kubernetes (Helm)</text>
+<text x="340" y="300" text-anchor="middle" dominant-baseline="central" font-size="12" fill="rgb(83,74,183)">Gateway, Matchmaker, Redis Sentinel</text>
+
+<line x1="340" y1="316" x2="340" y2="370" marker-end="url(#arrow)" stroke="rgb(137,135,129)" stroke-width="1.5"/>
+
+<!-- Row 4: monitoring (coral) -->
+<rect x="190" y="370" width="300" height="56" rx="8" stroke-width="0.5" fill="rgb(250,236,231)" stroke="rgb(153,60,29)"/>
+<text x="340" y="390" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="rgb(113,43,19)">Monitoring</text>
+<text x="340" y="410" text-anchor="middle" dominant-baseline="central" font-size="12" fill="rgb(153,60,29)">Prometheus scrapes &#8594; Grafana dashboards</text>
+
+</g>
+</svg>

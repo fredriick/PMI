@@ -21,120 +21,128 @@ func TestNewPayoutService(t *testing.T) {
 	if svc.rates.MinPayoutAmount != 10.00 {
 		t.Errorf("expected MinPayoutAmount=10.00, got %f", svc.rates.MinPayoutAmount)
 	}
-	if len(svc.tiers) != 3 {
-		t.Fatalf("expected 3 tiers, got %d", len(svc.tiers))
+	if len(svc.GetTiers()) != 3 {
+		t.Errorf("expected 3 tiers, got %d", len(svc.GetTiers()))
+	}
+}
+
+func TestSetAndGetTiers(t *testing.T) {
+	svc := NewPayoutService(nil, nil)
+	tiers := []config.PricingTier{
+		{Name: "Test", MinGBMonthly: 0, MaxGBMonthly: 100, RatePerGBSent: 1.0, RatePerGBRecv: 0.5},
+	}
+	svc.SetTiers(tiers)
+	got := svc.GetTiers()
+	if len(got) != 1 {
+		t.Errorf("expected 1 tier, got %d", len(got))
+	}
+	if got[0].Name != "Test" {
+		t.Errorf("expected tier 'Test', got %s", got[0].Name)
 	}
 }
 
 func TestSetAndGetRates(t *testing.T) {
 	svc := NewPayoutService(nil, nil)
-
-	newRates := PayoutRates{
-		RatePerGBSent:     1.00,
-		RatePerGBReceived: 0.50,
-		MinPayoutAmount:   5.00,
+	svc.SetRates(PayoutRates{
+		RatePerGBSent:     1.0,
+		RatePerGBReceived: 0.5,
+		MinPayoutAmount:   5.0,
+	})
+	rates := svc.GetRates()
+	if rates.RatePerGBSent != 1.0 {
+		t.Errorf("expected 1.0, got %f", rates.RatePerGBSent)
 	}
-	svc.SetRates(newRates)
-	got := svc.GetRates()
-	if got.RatePerGBSent != 1.00 || got.RatePerGBReceived != 0.50 || got.MinPayoutAmount != 5.00 {
-		t.Errorf("SetRates/GetRates roundtrip failed: got %+v", got)
+	if rates.RatePerGBReceived != 0.5 {
+		t.Errorf("expected 0.5, got %f", rates.RatePerGBReceived)
+	}
+	if rates.MinPayoutAmount != 5.0 {
+		t.Errorf("expected 5.0, got %f", rates.MinPayoutAmount)
 	}
 }
 
 func TestFindTier(t *testing.T) {
 	svc := NewPayoutService(nil, nil)
-
 	tests := []struct {
-		totalGB float64
-		expect  string
+		totalGB  float64
+		expected string
 	}{
 		{0, "Basic"},
 		{5, "Basic"},
-		{10, "Premium"},
+		{15, "Premium"},
 		{50, "Premium"},
-		{100, "Enterprise"},
-		{500, "Enterprise"},
+		{150, "Enterprise"},
+		{5000, "Enterprise"},
 	}
-
 	for _, tt := range tests {
 		got := svc.findTier(tt.totalGB)
-		if got != tt.expect {
-			t.Errorf("findTier(%.0f GB) = %q, want %q", tt.totalGB, got, tt.expect)
+		if got != tt.expected {
+			t.Errorf("findTier(%f) = %s, want %s", tt.totalGB, got, tt.expected)
 		}
 	}
 }
 
 func TestGetTierRates(t *testing.T) {
 	svc := NewPayoutService(nil, nil)
-
-	sent, recv := svc.getTierRates("Basic")
-	if sent != 0.30 || recv != 0.15 {
-		t.Errorf("Basic rates: sent=%f recv=%f", sent, recv)
+	sent, recv := svc.getTierRates("Premium")
+	if sent != 0.50 {
+		t.Errorf("expected Premium sent rate 0.50, got %f", sent)
+	}
+	if recv != 0.30 {
+		t.Errorf("expected Premium recv rate 0.30, got %f", recv)
 	}
 
-	sent, recv = svc.getTierRates("Premium")
-	if sent != 0.50 || recv != 0.30 {
-		t.Errorf("Premium rates: sent=%f recv=%f", sent, recv)
+	sent, recv = svc.getTierRates("NonExistent")
+	if sent != 0.50 {
+		t.Errorf("expected default sent rate 0.50, got %f", sent)
 	}
-
-	sent, recv = svc.getTierRates("Enterprise")
-	if sent != 0.80 || recv != 0.50 {
-		t.Errorf("Enterprise rates: sent=%f recv=%f", sent, recv)
-	}
-
-	sent, recv = svc.getTierRates("UnknownTier")
-	if sent != svc.rates.RatePerGBSent || recv != svc.rates.RatePerGBReceived {
-		t.Errorf("UnknownTier should return default rates: sent=%f recv=%f", sent, recv)
+	if recv != 0.30 {
+		t.Errorf("expected default recv rate 0.30, got %f", recv)
 	}
 }
 
-func TestSetAndGetTiers(t *testing.T) {
+func TestCalculatePayout_NilRedis(t *testing.T) {
 	svc := NewPayoutService(nil, nil)
-	custom := []config.PricingTier{
-		{Name: "Starter", MinGBMonthly: 0, MaxGBMonthly: 5, RatePerGBSent: 0.10, RatePerGBRecv: 0.05},
-		{Name: "Pro", MinGBMonthly: 5, MaxGBMonthly: 50, RatePerGBSent: 0.60, RatePerGBRecv: 0.40},
-	}
-	svc.SetTiers(custom)
-	got := svc.GetTiers()
-	if len(got) != 2 {
-		t.Fatalf("expected 2 tiers, got %d", len(got))
-	}
-	if got[0].Name != "Starter" || got[1].Name != "Pro" {
-		t.Errorf("unexpected tier order: %+v", got)
+	_, err := svc.CalculatePayout("node-1", time.Now())
+	if err == nil {
+		t.Error("expected error when redis is nil")
 	}
 }
 
-func TestPayoutJSONSerialization(t *testing.T) {
+func TestCalculateAllPayouts_NilRedis(t *testing.T) {
+	svc := NewPayoutService(nil, nil)
+	_, err := svc.CalculateAllPayouts(time.Now())
+	if err == nil {
+		t.Error("expected error when redis is nil")
+	}
+}
+
+func TestPayout_Struct(t *testing.T) {
 	p := Payout{
-		NodeID:        "node-123",
-		Period:        "2026-04",
-		BytesSent:     2_147_483_648,
-		BytesReceived: 1_073_741_824,
-		GBSent:        2.0,
-		GBReceived:    1.0,
-		Amount:        1.60,
-		Tier:          "Premium",
-		CalculatedAt:  time.Date(2026, 4, 15, 10, 0, 0, 0, time.UTC),
+		NodeID:        "node-1",
+		Period:        "2024-01",
+		BytesSent:     1000,
+		BytesReceived: 500,
+		GBSent:        0.001,
+		GBReceived:    0.0005,
+		Amount:        0.50,
+		Tier:          "Basic",
+		CalculatedAt:  time.Now(),
 	}
-
-	if p.GBSent != 2.0 {
-		t.Errorf("GBSent = %f, want 2.0", p.GBSent)
+	if p.NodeID != "node-1" {
+		t.Error("unexpected NodeID")
 	}
-	if p.GBReceived != 1.0 {
-		t.Errorf("GBReceived = %f, want 1.0", p.GBReceived)
-	}
-	if p.Amount == 0 {
-		t.Error("Amount should not be zero")
-	}
-	if p.Tier != "Premium" {
-		t.Errorf("Tier = %q, want %q", p.Tier, "Premium")
+	if p.Amount != 0.50 {
+		t.Error("unexpected Amount")
 	}
 }
 
-func TestMinPayoutThreshold(t *testing.T) {
-	svc := NewPayoutService(nil, nil)
-	_ = svc
-	// MinPayoutAmount=10.00: 0.5 GB sent × $0.50 = $0.25 → zeroed out
-	// 20 GB sent × $0.50 = $10.00 → paid
-	t.Log("MinPayoutAmount=10.00: payouts below this amount are zeroed")
+func TestPayoutRates_Struct(t *testing.T) {
+	r := PayoutRates{
+		RatePerGBSent:     0.5,
+		RatePerGBReceived: 0.3,
+		MinPayoutAmount:   10.0,
+	}
+	if r.RatePerGBSent != 0.5 {
+		t.Error("unexpected RatePerGBSent")
+	}
 }

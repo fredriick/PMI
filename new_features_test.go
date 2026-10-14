@@ -179,12 +179,22 @@ func TestScalingPolicyManager(t *testing.T) {
 		t.Fatalf("expected 2 default policies, got %d", len(policies))
 	}
 
-	policy := spm.GetPolicy(policies[0].ID)
-	if policy == nil {
-		t.Fatal("expected to get policy by ID")
+	var found bool
+	for _, p := range policies {
+		if p.Name == "Critical Nodes Alert" {
+			policy := spm.GetPolicy(p.ID)
+			if policy == nil {
+				t.Fatal("expected to get policy by ID")
+			}
+			if policy.Name != "Critical Nodes Alert" {
+				t.Fatalf("expected policy name 'Critical Nodes Alert', got %s", policy.Name)
+			}
+			found = true
+			break
+		}
 	}
-	if policy.Name != "Critical Nodes Alert" {
-		t.Fatalf("expected policy name 'Critical Nodes Alert', got %s", policy.Name)
+	if !found {
+		t.Fatal("expected to find 'Critical Nodes Alert' policy")
 	}
 }
 
