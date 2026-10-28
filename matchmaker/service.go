@@ -104,6 +104,9 @@ func (m *Matchmaker) healthCheckLoop() {
 }
 
 func (m *Matchmaker) checkNodeHealth() {
+	if m.redis == nil {
+		return
+	}
 	countries := []string{"US", "GB", "DE", "FR", "CA", "AU", "JP"}
 
 	for _, country := range countries {
@@ -121,6 +124,9 @@ func (m *Matchmaker) checkNodeHealth() {
 }
 
 func (m *Matchmaker) pingNode(nodeID string) bool {
+	if m.redis == nil {
+		return false
+	}
 	meta, err := m.redis.GetNodeMeta(nodeID)
 	if err != nil {
 		return false
@@ -131,6 +137,13 @@ func (m *Matchmaker) pingNode(nodeID string) bool {
 }
 
 func (m *Matchmaker) SelectNode(country, city, targetDomain string) (*models.Node, error) {
+	if country == "" {
+		return nil, fmt.Errorf("country is required")
+	}
+	if m.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
+
 	var candidates []string
 	var err error
 
@@ -181,6 +194,9 @@ func (m *Matchmaker) SelectNode(country, city, targetDomain string) (*models.Nod
 }
 
 func (m *Matchmaker) filterEligibleNodes(candidates []string, targetDomain string) []string {
+	if m.redis == nil {
+		return candidates
+	}
 	var eligible []string
 	for _, nodeID := range candidates {
 		if m.isNodeHealthy(nodeID) {
@@ -194,6 +210,9 @@ func (m *Matchmaker) filterEligibleNodes(candidates []string, targetDomain strin
 }
 
 func (m *Matchmaker) selectByLoad(nodes []string) (string, error) {
+	if m.redis == nil {
+		return m.randomSelect(nodes)
+	}
 	type nodeWithScore struct {
 		id     string
 		weight float64
@@ -278,6 +297,7 @@ func (m *Matchmaker) RecordFailure(nodeID string) {
 	}
 
 	cb.FailureCount++
+	cb.LastFailure = time.Now()
 	if cb.FailureCount >= cb.Threshold {
 		cb.State = "open"
 	}
@@ -294,10 +314,16 @@ func (m *Matchmaker) RecordSuccess(nodeID string) {
 }
 
 func (m *Matchmaker) AddToCooldown(target, nodeID string) error {
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.AddToCooldownWithTTL(target, nodeID, m.cooldownTTL)
 }
 
 func (m *Matchmaker) GetCooldownEntries() (map[string][]string, error) {
+	if m.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.GetCooldownEntries()
 }
 
@@ -329,6 +355,9 @@ func (m *Matchmaker) RegisterNode(req *models.NodeRegistrationRequest) error {
 		Reputation: 100.0,
 	}
 
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	if err := m.redis.AddNode(node); err != nil {
 		return fmt.Errorf("failed to register node: %w", err)
 	}
@@ -347,6 +376,9 @@ func (m *Matchmaker) Heartbeat(req *models.NodeHeartbeatRequest) error {
 		return fmt.Errorf("node_id is required")
 	}
 
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.UpdateNodeStatus(req.NodeID, req.Battery, req.CPUUsage, req.IsCharging)
 }
 
@@ -355,14 +387,23 @@ func (m *Matchmaker) DeregisterNode(nodeID string) error {
 		return fmt.Errorf("node_id is required")
 	}
 
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.RemoveNode(nodeID)
 }
 
 func (m *Matchmaker) GetNodeStatus(nodeID string) (*models.Node, error) {
+	if m.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.GetNode(nodeID)
 }
 
 func (m *Matchmaker) GetAllNodes() ([]string, error) {
+	if m.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.GetAllNodes()
 }
 
@@ -371,12 +412,18 @@ func (m *Matchmaker) GetRedis() *RedisClient {
 }
 
 func (m *Matchmaker) GetCapacityReport() (*CapacityReport, error) {
+	if m.capacityPlanner == nil {
+		return nil, fmt.Errorf("capacity planner not initialized")
+	}
 	return m.capacityPlanner.GenerateReport()
 }
 
 func (m *Matchmaker) GetSessionNode(sessionID string) (string, error) {
 	if sessionID == "" {
 		return "", fmt.Errorf("session_id is required")
+	}
+	if m.redis == nil {
+		return "", fmt.Errorf("redis client not initialized")
 	}
 	return m.redis.GetSessionNode(sessionID)
 }
@@ -385,22 +432,37 @@ func (m *Matchmaker) SetSessionNode(sessionID, nodeID string, ttlSeconds int) er
 	if sessionID == "" || nodeID == "" {
 		return fmt.Errorf("session_id and node_id are required")
 	}
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.SetSessionNode(sessionID, nodeID, ttlSeconds)
 }
 
 func (m *Matchmaker) DecrementNodeLoad(nodeID string) error {
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.DecrementNodeLoad(nodeID)
 }
 
 func (m *Matchmaker) RecordBandwidth(nodeID string, bytesSent, bytesReceived, durationSeconds int64) error {
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.RecordBandwidth(nodeID, bytesSent, bytesReceived, durationSeconds)
 }
 
 func (m *Matchmaker) ListSessions() ([]map[string]string, error) {
+	if m.redis == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.ListSessions()
 }
 
 func (m *Matchmaker) DeleteSession(sessionID string) error {
+	if m.redis == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
 	return m.redis.DeleteSession(sessionID)
 }
 
@@ -435,17 +497,28 @@ func (m *Matchmaker) GetLatencyTracker() *LatencyTracker {
 }
 
 func (m *Matchmaker) UpdateHealthScore(nodeID string, latencyMs int64, bandwidthMbps float64, reliability float64) {
-	m.healthScore.UpdateScore(nodeID, latencyMs, bandwidthMbps, reliability)
+	if m.healthScore != nil {
+		m.healthScore.UpdateScore(nodeID, latencyMs, bandwidthMbps, reliability)
+	}
 }
 
 func (m *Matchmaker) GetHealthScore(nodeID string) *PeerHealth {
+	if m.healthScore == nil {
+		return nil
+	}
 	return m.healthScore.GetScore(nodeID)
 }
 
 func (m *Matchmaker) GetTopHealthPeers(count int) []*PeerHealth {
+	if m.healthScore == nil {
+		return nil
+	}
 	return m.healthScore.GetTopPeers(count)
 }
 
 func (m *Matchmaker) GetHealthScoreHistory(nodeID string) []HealthScorePoint {
+	if m.healthScore == nil {
+		return nil
+	}
 	return m.healthScore.GetHistory(nodeID)
 }
