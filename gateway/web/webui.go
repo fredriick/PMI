@@ -33,6 +33,10 @@ func (w *WebUI) DashboardHandler(c *gin.Context) {
 }
 
 func (w *WebUI) NodesAPIHandler(c *gin.Context) {
+	if w.mm == nil || w.mm.GetRedis() == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "matchmaker not initialized"})
+		return
+	}
 	nodes, err := w.mm.GetAllNodes()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get nodes"})
@@ -60,6 +64,10 @@ func (w *WebUI) NodesAPIHandler(c *gin.Context) {
 }
 
 func (w *WebUI) CooldownsAPIHandler(c *gin.Context) {
+	if w.mm == nil || w.mm.GetRedis() == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "matchmaker not initialized"})
+		return
+	}
 	cooldowns, err := w.mm.GetCooldownEntries()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get cooldowns"})
@@ -69,6 +77,14 @@ func (w *WebUI) CooldownsAPIHandler(c *gin.Context) {
 }
 
 func (w *WebUI) HealthAPIHandler(c *gin.Context) {
+	if w.mm == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"count":  0,
+			"peers":  []interface{}{},
+		})
+		return
+	}
 	peers := w.mm.GetTopHealthPeers(20)
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
@@ -78,6 +94,10 @@ func (w *WebUI) HealthAPIHandler(c *gin.Context) {
 }
 
 func (w *WebUI) NodeHealthAPIHandler(c *gin.Context) {
+	if w.mm == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No health score available"})
+		return
+	}
 	nodeID := c.Param("nodeID")
 	score := w.mm.GetHealthScore(nodeID)
 	if score == nil {
@@ -92,6 +112,15 @@ func (w *WebUI) NodeHealthAPIHandler(c *gin.Context) {
 }
 
 func (w *WebUI) NodeHealthHistoryAPIHandler(c *gin.Context) {
+	if w.mm == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"node_id": c.Param("nodeID"),
+			"history": []interface{}{},
+			"count":   0,
+		})
+		return
+	}
 	nodeID := c.Param("nodeID")
 	history := w.mm.GetHealthScoreHistory(nodeID)
 	c.JSON(http.StatusOK, gin.H{
@@ -108,6 +137,10 @@ func (w *WebUI) ResetCircuitBreakerHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "node_id required"})
 		return
 	}
+	if w.mm == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "matchmaker not initialized"})
+		return
+	}
 	w.mm.ResetCircuitBreaker(nodeID)
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Circuit breaker reset"})
 }
@@ -116,6 +149,10 @@ func (w *WebUI) EjectNodeHandler(c *gin.Context) {
 	nodeID := c.Param("id")
 	if nodeID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "node_id required"})
+		return
+	}
+	if w.mm == nil || w.mm.GetRedis() == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "matchmaker not initialized"})
 		return
 	}
 	if err := w.mm.DeregisterNode(nodeID); err != nil {

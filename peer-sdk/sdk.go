@@ -268,6 +268,10 @@ func (p *PeerSDK) reportStatus() {
 	node := p.node
 	p.mu.RUnlock()
 
+	if node == nil {
+		return
+	}
+
 	status := NodeStatus{
 		NodeID:     node.ID,
 		Online:     connected,

@@ -1,0 +1,22 @@
+mode: set
+proxymesh/health/service.go:48.65,54.2 1 1
+proxymesh/health/service.go:56.50,59.26 2 1
+proxymesh/health/service.go:59.26,61.3 1 1
+proxymesh/health/service.go:62.2,65.27 3 1
+proxymesh/health/service.go:65.27,66.34 1 1
+proxymesh/health/service.go:66.34,68.9 2 0
+proxymesh/health/service.go:70.3,70.33 1 1
+proxymesh/health/service.go:70.33,72.4 1 0
+proxymesh/health/service.go:75.2,79.3 1 1
+proxymesh/health/service.go:82.50,90.16 6 1
+proxymesh/health/service.go:90.16,97.3 1 0
+proxymesh/health/service.go:99.2,99.20 1 1
+proxymesh/health/service.go:99.20,106.3 1 0
+proxymesh/health/service.go:108.2,113.3 1 1
+proxymesh/health/service.go:116.51,129.34 5 1
+proxymesh/health/service.go:129.34,136.3 1 0
+proxymesh/health/service.go:138.2,138.38 1 1
+proxymesh/health/service.go:138.38,145.3 1 0
+proxymesh/health/service.go:147.2,152.3 1 1
+proxymesh/health/service.go:155.49,161.2 1 1
+proxymesh/health/service.go:163.64,166.2 2 1
