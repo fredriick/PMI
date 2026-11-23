@@ -61,6 +61,9 @@ func NewPeerSDK(config *PeerConfig) *PeerSDK {
 }
 
 func (p *PeerSDK) Start() error {
+	if p.config == nil {
+		return fmt.Errorf("config is required")
+	}
 	if !p.checkEligibility() {
 		return fmt.Errorf("node does not meet eligibility requirements")
 	}

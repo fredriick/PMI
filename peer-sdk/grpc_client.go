@@ -56,6 +56,9 @@ func (c *PeerClient) Connect() error {
 	if c.stopped {
 		return fmt.Errorf("client is stopped")
 	}
+	if c.client == nil {
+		return fmt.Errorf("client not initialized")
+	}
 
 	resp, err := c.client.Connect(c.ctx, &pbgrpc.ConnectRequest{
 		NodeId:     c.config.NodeID,
@@ -86,6 +89,9 @@ func (c *PeerClient) Heartbeat(battery int, cpuUsage float64, isCharging bool, b
 	if c.stopped {
 		return fmt.Errorf("client is stopped")
 	}
+	if c.client == nil {
+		return fmt.Errorf("client not initialized")
+	}
 
 	_, err := c.client.Heartbeat(c.ctx, &pbgrpc.HeartbeatRequest{
 		NodeId:            c.config.NodeID,
@@ -108,6 +114,9 @@ func (c *PeerClient) ReportBandwidth(bytesSent, bytesReceived, durationSeconds i
 	if c.stopped {
 		return fmt.Errorf("client is stopped")
 	}
+	if c.client == nil {
+		return fmt.Errorf("client not initialized")
+	}
 
 	_, err := c.client.ReportBandwidth(c.ctx, &pbgrpc.BandwidthReport{
 		NodeId:          c.config.NodeID,
@@ -128,6 +137,9 @@ func (c *PeerClient) Disconnect(reason string) error {
 	if c.stopped {
 		return nil
 	}
+	if c.client == nil {
+		return fmt.Errorf("client not initialized")
+	}
 	c.stopped = true
 
 	_, err := c.client.Disconnect(c.ctx, &pbgrpc.DisconnectRequest{
@@ -145,13 +157,19 @@ func (c *PeerClient) Stop() {
 	c.stopped = true
 	c.mu.Unlock()
 
-	c.cancel()
+	if c.cancel != nil {
+		c.cancel()
+	}
 	if c.conn != nil {
 		c.conn.Close()
 	}
 }
 
 func (c *PeerClient) StartTelemetryStream(telemetryCh <-chan TelemetryUpdate) {
+	if c.client == nil {
+		log.Println("Cannot start telemetry stream: client not initialized")
+		return
+	}
 	go func() {
 		stream, err := c.client.StreamTelemetry(c.ctx)
 		if err != nil {
