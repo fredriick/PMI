@@ -55,14 +55,23 @@ func (f *FederationService) Start() error {
 
 	log.Printf("Starting federation service with regions: %v", f.cfg.Regions)
 
-	go f.heartbeatLoop()
-	go f.syncLoop()
+	if f.cfg.HeartbeatInterval > 0 {
+		go f.heartbeatLoop()
+	}
+	if f.cfg.SyncInterval > 0 {
+		go f.syncLoop()
+	}
 
 	return nil
 }
 
 func (f *FederationService) Stop() {
-	close(f.stop)
+	select {
+	case <-f.stop:
+		return
+	default:
+		close(f.stop)
+	}
 }
 
 func (f *FederationService) heartbeatLoop() {
@@ -177,6 +186,9 @@ func (f *FederationService) GetNodesForRegion(region string) ([]string, error) {
 }
 
 func (f *FederationService) SelectNodeByRegion(preferredRegion string) (*models.Node, error) {
+	if f.mm == nil {
+		return nil, fmt.Errorf("matchmaker not initialized")
+	}
 	if preferredRegion != "" {
 		nodes, err := f.GetNodesForRegion(preferredRegion)
 		if err == nil && len(nodes) > 0 {
