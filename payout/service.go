@@ -13,7 +13,7 @@ type BandwidthData = models.BandwidthData
 
 type PayoutService struct {
 	matchmaker *matchmaker.Matchmaker
-	redis      *matchmaker.RedisClient
+	redis      RedisClientInterface
 	rates      PayoutRates
 	tiers      []config.PricingTier
 }
@@ -36,7 +36,7 @@ type Payout struct {
 	CalculatedAt  time.Time `json:"calculated_at"`
 }
 
-func NewPayoutService(mm *matchmaker.Matchmaker, redis *matchmaker.RedisClient) *PayoutService {
+func NewPayoutService(mm *matchmaker.Matchmaker, redis RedisClientInterface) *PayoutService {
 	return &PayoutService{
 		matchmaker: mm,
 		redis:      redis,
