@@ -9,10 +9,10 @@ import (
 )
 
 type WebUI struct {
-	mm *matchmaker.Matchmaker
+	mm matchmaker.MatchmakerInterface
 }
 
-func NewWebUI(mm *matchmaker.Matchmaker) *WebUI {
+func NewWebUI(mm matchmaker.MatchmakerInterface) *WebUI {
 	return &WebUI{mm: mm}
 }
 
@@ -42,7 +42,7 @@ func (w *WebUI) NodesAPIHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get nodes"})
 		return
 	}
-	var list []map[string]interface{}
+	list := make([]map[string]interface{}, 0)
 	for _, id := range nodes {
 		n, err := w.mm.GetNodeStatus(id)
 		if err != nil {

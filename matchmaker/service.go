@@ -407,7 +407,7 @@ func (m *Matchmaker) GetAllNodes() ([]string, error) {
 	return m.redis.GetAllNodes()
 }
 
-func (m *Matchmaker) GetRedis() *RedisClient {
+func (m *Matchmaker) GetRedis() RedisClientInterface {
 	return m.redis
 }
 
